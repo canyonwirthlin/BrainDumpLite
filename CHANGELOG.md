@@ -4,6 +4,9 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.13.1 — 2026-09-18
+- Fixes the release build. Every release since 0.5.0 failed before producing an installer because the automated tests could not find the app; this is the first one that should reach you. No changes inside the app.
+
 ## 0.13.0 — 2026-09-18
 - Connect MCP servers: paste the same config block you'd give any other desktop client and their tools appear in the app. Run one from Settings or from Ctrl+K.
 - Every tool has its own switch: hidden from the AI, propose-and-confirm, or run freely.
