@@ -4,6 +4,14 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.7.0 — 2026-09-18
+- Extraction types are yours to customize: add "Question", "Decision", anything — the AI looks for them from the next dump on (Settings → AI → Advanced).
+- Every dump now gets a tone (calm, anxious, excited…) and every item an effort estimate, an urgency marker and the time phrase it came from.
+- On-device / cloud badge on every dump so you always know where your text went.
+- Search finds items too, not just dumps.
+- Backup and restore your whole vault as one zip (Settings → Data).
+- Move the vault to any folder, e.g. a synced Dropbox/OneDrive folder.
+
 ## 0.6.0 — 2026-09-18
 - New look: a slim left rail, a focused Capture stage, and History/Tasks as list + detail side by side.
 - Ctrl+K command palette: jump anywhere, switch themes, open recent dumps. Ctrl+N starts a new dump.
