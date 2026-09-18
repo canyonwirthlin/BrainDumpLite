@@ -69,7 +69,7 @@ DELETED: app/updater.py, update_url.txt, push-update.bat, push-update.ps1, build
 **Interfaces:**
 - Produces: `pytest` runnable from repo root with `BRAINDUMP_LITE_DATA` pointed at a temp dir (all later Python tests rely on `tests/conftest.py`).
 
-- [ ] **Step 1: Install the Rust toolchain (one-time, user machine).** Rust on Windows needs the MSVC linker. None of `cargo`, `cl.exe`, or the Windows SDK are installed. Run in an elevated PowerShell (the user approves each download; both installers are Microsoft/Rust-signed):
+- [x] **Step 1: Install the Rust toolchain (one-time, user machine).** Rust on Windows needs the MSVC linker. None of `cargo`, `cl.exe`, or the Windows SDK are installed. Run in an elevated PowerShell (the user approves each download; both installers are Microsoft/Rust-signed):
 
 ```powershell
 # 1) Visual Studio Build Tools with the C++ workload (~3 GB, 10-20 min)
@@ -87,7 +87,7 @@ cargo --version; rustc --version
 ```
 Expected: both print a version (1.8x+).
 
-- [ ] **Step 2: Add an Avast exclusion** (user does this in Avast UI: Menu → Settings → General → Exceptions → Add): the repo folder `C:\Users\canyo\Desktop\Home\Coding\BrainDumpLite` and `%LOCALAPPDATA%\BrainDump Lite`. Without this, Avast will quarantine `target\debug\braindump-lite.exe` and the PyInstaller exe on first run.
+- [x] **Step 2: Add an Avast exclusion** (user does this in Avast UI: Menu → Settings → General → Exceptions → Add): the repo folder `C:\Users\canyo\Desktop\Home\Coding\BrainDumpLite` and `%LOCALAPPDATA%\BrainDump Lite`. Without this, Avast will quarantine `target\debug\braindump-lite.exe` and the PyInstaller exe on first run.
 
 - [x] **Step 3: Stop tracking build artifacts and ignore new build dirs.** The 244 MB `BrainDumpLite-win64/` folder and `update/update.bin` are committed. Untrack them (files stay on disk):
 
@@ -898,7 +898,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Produces: window label `"main"`; splash exposes `window.bdlFailed(logPath)`; crate name `braindump-lite`, lib `braindump_lite_lib`.
 - Produces: `npm run tauri dev` / `npm run tauri build` as the two dev commands.
 
-- [ ] **Step 1: npm project for the Tauri CLI.** Create `package.json`:
+- [x] **Step 1: npm project for the Tauri CLI.** Create `package.json`:
 
 ```json
 {
@@ -919,7 +919,7 @@ npm install && npx tauri --version
 ```
 Expected: prints `tauri-cli 2.x.y`. Commit `package-lock.json` too.
 
-- [ ] **Step 2: Splash page** `shell-ui/index.html` (the only "frontend" Tauri itself serves; the real UI comes from the backend):
+- [x] **Step 2: Splash page** `shell-ui/index.html` (the only "frontend" Tauri itself serves; the real UI comes from the backend):
 
 ```html
 <!DOCTYPE html>
@@ -962,7 +962,7 @@ Expected: prints `tauri-cli 2.x.y`. Commit `package-lock.json` too.
 </html>
 ```
 
-- [ ] **Step 3: Icon.** Create `shell-ui/icon.svg` (a simple graph motif; replace with real art later):
+- [x] **Step 3: Icon.** Create `shell-ui/icon.svg` (a simple graph motif; replace with real art later):
 
 ```svg
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -985,7 +985,7 @@ npx tauri icon shell-ui/icon.svg -o src-tauri/icons
 ```
 Expected: `src-tauri/icons/icon.ico`, `32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.png` (plus mobile sizes; commit them all, they're small).
 
-- [ ] **Step 4: Rust crate.** `src-tauri/Cargo.toml`:
+- [x] **Step 4: Rust crate.** `src-tauri/Cargo.toml`:
 
 ```toml
 [package]
@@ -1044,7 +1044,7 @@ pub fn run() {
 }
 ```
 
-- [ ] **Step 5: Tauri config** `src-tauri/tauri.conf.json`:
+- [x] **Step 5: Tauri config** `src-tauri/tauri.conf.json`:
 
 ```json
 {
@@ -1087,7 +1087,7 @@ pub fn run() {
 
 Notes for the reader: `withGlobalTauri` injects `window.__TAURI__` into pages so the existing vanilla JS can call plugins without a bundler. `csp: null` because the real UI is served by the backend, not by Tauri. `resources` ships the PyInstaller folder next to the exe (on Windows the resource dir *is* the install dir). `installMode: currentUser` = no admin prompt, installs to `%LOCALAPPDATA%`.
 
-- [ ] **Step 6: Capabilities** `src-tauri/capabilities/default.json` — Tauri 2 denies all IPC unless a capability grants it per window and, for non-Tauri origins, per URL. Our UI is a "remote" page on loopback:
+- [x] **Step 6: Capabilities** `src-tauri/capabilities/default.json` — Tauri 2 denies all IPC unless a capability grants it per window and, for non-Tauri origins, per URL. Our UI is a "remote" page on loopback:
 
 ```json
 {
@@ -1103,14 +1103,14 @@ Notes for the reader: `withGlobalTauri` injects `window.__TAURI__` into pages so
 }
 ```
 
-- [ ] **Step 7: Build and run the empty shell**
+- [x] **Step 7: Build and run the empty shell**
 
 ```bash
 cd src-tauri && cargo check && cd .. && npm run tauri dev
 ```
 Expected: first `cargo check` compiles Tauri (5-10 min cold). `tauri dev` opens a 1100×780 window titled "BrainDump Lite" showing the spinner and "Starting BrainDump Lite…" (it will spin forever — the backend isn't wired yet). Close the window to stop. If Avast kills `target\debug\braindump-lite.exe`, restore it and re-check the exclusion.
 
-- [ ] **Step 8: Commit** (make sure `src-tauri/target/`, `src-tauri/backend/`, `src-tauri/gen/schemas/` and `node_modules/` are ignored — `git status` must not list them)
+- [x] **Step 8: Commit** (make sure `src-tauri/target/`, `src-tauri/backend/`, `src-tauri/gen/schemas/` and `node_modules/` are ignored — `git status` must not list them)
 
 ```bash
 git add package.json package-lock.json shell-ui/ src-tauri/
@@ -1132,7 +1132,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Produces: `backend::Backend` managed state (`Mutex<Option<Child>>`), `backend::pick_port(start) -> u16`, `backend::spawn(&AppHandle, u16) -> Result<Child, String>`, `backend::wait_ready(u16, Duration) -> bool`, `backend::stop(&AppHandle)`.
 - Produces in JS: `native`, `openExternal(url)` and a document-level click handler routing `http(s)`/`mailto` links to the default browser.
 
-- [ ] **Step 1: Write the Rust module with its unit tests.** Create `src-tauri/src/backend.rs`:
+- [x] **Step 1: Write the Rust module with its unit tests.** Create `src-tauri/src/backend.rs`:
 
 ```rust
 //! Starts and stops the Python backend (a PyInstaller folder shipped as a
@@ -1247,7 +1247,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Wire it in `src-tauri/src/lib.rs`** (whole file) and add `serde_json = "1"` under `[dependencies]` in `src-tauri/Cargo.toml` (used to safely quote the log path into JS):
+- [x] **Step 2: Wire it in `src-tauri/src/lib.rs`** (whole file) and add `serde_json = "1"` under `[dependencies]` in `src-tauri/Cargo.toml` (used to safely quote the log path into JS):
 
 ```rust
 //! The native shell. Owns the window, the tray icon and the Python backend
@@ -1300,14 +1300,14 @@ pub fn run() {
 }
 ```
 
-- [ ] **Step 3: Run the Rust tests**
+- [x] **Step 3: Run the Rust tests**
 
 ```bash
 cd src-tauri && cargo test && cd ..
 ```
 Expected: `3 passed`.
 
-- [ ] **Step 4: JS — route external links through the shell.** In `static/app.js`, add a section just above the `// ── What's New` section from Task 4:
+- [x] **Step 4: JS — route external links through the shell.** In `static/app.js`, add a section just above the `// ── What's New` section from Task 4:
 
 ```js
 // ── Native shell bridge (Tauri) ──────────────────────────────────────────────
@@ -1331,7 +1331,7 @@ document.addEventListener("click", (e) => {
 });
 ```
 
-- [ ] **Step 5: Run the native app end to end**
+- [x] **Step 5: Run the native app end to end**
 
 ```bash
 npm run tauri dev
@@ -1340,7 +1340,7 @@ Expected: splash for ~2-5 s, then the real app UI appears in the window. Setting
 
 Failure check: temporarily rename `src-tauri/backend/braindump-backend.exe`, run `tauri dev` → the setup returns an error and Tauri aborts with the "backend not found" message in the console; rename it back.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src-tauri/ static/app.js
@@ -1360,7 +1360,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `tray::setup(&AppHandle) -> tauri::Result<()>`, `tray::show_main(&AppHandle)`.
 
-- [ ] **Step 1: Create `src-tauri/src/tray.rs`**
+- [x] **Step 1: Create `src-tauri/src/tray.rs`**
 
 ```rust
 //! Tray icon with Open / Quit. Closing the window hides it (the backend and
@@ -1405,7 +1405,7 @@ pub fn show_main(app: &AppHandle) {
 
 (If the compiler says `show_menu_on_left_click` doesn't exist, the resolved Tauri is < 2.2; use `.menu_on_left_click(false)` instead.)
 
-- [ ] **Step 2: Register it in `lib.rs`.** Add `mod tray;` under `mod backend;`, call `tray::setup(app.handle())?;` as the last line of `.setup(...)` before `Ok(())`, and insert between `.setup(...)` and `.build(...)`:
+- [x] **Step 2: Register it in `lib.rs`.** Add `mod tray;` under `mod backend;`, call `tray::setup(app.handle())?;` as the last line of `.setup(...)` before `Ok(())`, and insert between `.setup(...)` and `.build(...)`:
 
 ```rust
         // Close button = hide to tray. Tray → Quit is the real exit.
@@ -1417,14 +1417,14 @@ pub fn show_main(app: &AppHandle) {
         })
 ```
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 cd src-tauri && cargo test && cd .. && npm run tauri dev
 ```
 Expected: a tray icon appears with the app icon; clicking the window's X hides the window, the process keeps running; left-click on the tray reopens it focused; right-click → Quit exits and `Get-Process braindump-backend` is empty.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src-tauri/
@@ -1445,14 +1445,14 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `latest.json` at `https://github.com/canyonwirthlin/BrainDumpLite/releases/latest/download/latest.json` (Task 10 produces it), shape `{version, notes, pub_date, platforms: {"windows-x86_64": {signature, url}}}`.
 - Produces in JS: `checkForUpdates({silent})`, `showUpdateModal()`; header `#update-pill` opens the modal; Settings About gets "Check for updates".
 
-- [ ] **Step 1: Generate the updater signing keypair** (once; the private key never enters the repo):
+- [x] **Step 1: Generate the updater signing keypair** (once; the private key never enters the repo):
 
 ```bash
 npx tauri signer generate -w ~/.tauri/braindumplite.key
 ```
 It asks for a password — pick one and store it with the key (password manager). Prints the public key; also saved to `~/.tauri/braindumplite.key.pub`. Back both up: losing the private key means installed apps can never be updated again (they'd need a manual reinstall).
 
-- [ ] **Step 2: Rust side** — in `src-tauri/Cargo.toml` add:
+- [x] **Step 2: Rust side** — in `src-tauri/Cargo.toml` add:
 
 ```toml
 tauri-plugin-updater = "2"
@@ -1466,7 +1466,7 @@ In `lib.rs` add after the opener plugin line:
         .plugin(tauri_plugin_process::init())                  // JS: __TAURI__.process.relaunch()
 ```
 
-- [ ] **Step 3: Config.** In `src-tauri/tauri.conf.json` add `"createUpdaterArtifacts": true` inside `"bundle"` and a top-level `plugins` block (paste the contents of `~/.tauri/braindumplite.key.pub` as `pubkey`):
+- [x] **Step 3: Config.** In `src-tauri/tauri.conf.json` add `"createUpdaterArtifacts": true` inside `"bundle"` and a top-level `plugins` block (paste the contents of `~/.tauri/braindumplite.key.pub` as `pubkey`):
 
 ```json
   "plugins": {
@@ -1482,7 +1482,7 @@ In `lib.rs` add after the opener plugin line:
 
 `installMode: passive` = the NSIS updater shows a progress bar but asks nothing. In `capabilities/default.json` add `"updater:default"` and `"process:default"` to `permissions`.
 
-- [ ] **Step 4: JS — updater UI.** In `static/app.js`, extend the Native shell bridge section (after the click handler):
+- [x] **Step 4: JS — updater UI.** In `static/app.js`, extend the Native shell bridge section (after the click handler):
 
 ```js
 let pendingUpdate = null;
@@ -1547,14 +1547,14 @@ In `renderSettings()`'s About card, change the `<p class="small" ...>` line to `
 ```
 with the handler `if ($("#about-update")) $("#about-update").onclick = () => checkForUpdates({ silent: false });` next to the `#about-whatsnew` handler.
 
-- [ ] **Step 5: Verify what can be verified before a release exists**
+- [x] **Step 5: Verify what can be verified before a release exists**
 
 ```bash
 cd src-tauri && cargo check && cd .. && npm run tauri dev
 ```
 Expected: app boots; Settings → About says "native app" (proves `__TAURI__` is injected into the loopback page); "Check for updates" shows a toast — either "You're on the latest version." or "Update check failed: … 404" (no release yet; both prove the IPC path works). In plain browser mode (`python run.py`) the About card says "browser mode" and no update button shows. The full download→install→relaunch loop is verified in Task 11 with a real second release.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src-tauri/ static/

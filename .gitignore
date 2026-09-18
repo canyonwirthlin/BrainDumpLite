@@ -14,3 +14,5 @@ src-tauri/backend/
 src-tauri/gen/schemas/
 *.log
 .playwright-mcp/
+*.key
+*.key.pub
