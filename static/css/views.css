@@ -232,3 +232,10 @@ a.iconbtn.cal { text-decoration: none; }
 .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 .topbar-slot .chip { cursor: pointer; }
 .topbar-slot .chip.off { opacity: .45; text-decoration: line-through; }
+
+/* ── Capture stage ────────────────────────────────────────────────────────── */
+.glow { position: absolute; top: -140px; left: 50%; width: 700px; height: 420px; transform: translateX(-50%); pointer-events: none; max-width: 100%;
+  background: radial-gradient(ellipse at center, var(--accent-soft), transparent 65%); }
+#view[data-layout="stage"] > .glow { width: 700px; max-width: 100%; }
+.hero { font-size: 26px; font-weight: 650; letter-spacing: -.01em; margin-bottom: 4px; }
+.editor { min-height: 200px; font-size: 15px; line-height: 1.55; padding: 16px; border-radius: var(--radius-lg); box-shadow: 0 12px 40px rgba(0,0,0,.25); }

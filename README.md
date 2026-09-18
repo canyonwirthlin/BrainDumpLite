@@ -43,7 +43,7 @@ cd src-tauri; cargo test                   # Rust tests
 
 One-time: Rust (`rustup`, MSVC Build Tools with the C++ workload) and `npm install`.
 After rebuilding the backend with changed `static/` files, WebView2 may keep serving its
-cached `app.js` (same `?v=` cache-buster) — clear `%LOCALAPPDATA%\com.canyonwirthlin.braindumplite`
+cached JS/CSS (same `?v=` cache-buster) — clear `%LOCALAPPDATA%\com.canyonwirthlin.braindumplite`
 or bump the `?v=` in `static/index.html` while iterating.
 Data dir override for testing: set `BRAINDUMP_LITE_DATA=<path>`.
 
@@ -77,6 +77,8 @@ app/                  # FastAPI backend
   launch.py           # sidecar helpers: port, log file, parent watchdog
   changelog.py        # CHANGELOG.md parser -> /api/changelog
 static/               # vanilla-JS SPA, served by the backend (no build step)
+  js/                 # ES modules: main, shell (rail/top bar), palette, theme, router, views/*
+  css/                # tokens.css (theme tokens), shell.css (layout), views.css
 shell-ui/             # splash page + icon source for the native window
 src-tauri/            # Tauri 2 shell (Rust): window, tray, sidecar spawn, updater
 build-backend.ps1     # PyInstaller -> src-tauri/backend/

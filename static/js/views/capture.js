@@ -7,7 +7,8 @@ import { renderReview } from "./review.js";
 export function render(ctx) {
   ctx.setTitle("Capture");
   $("#view").innerHTML = `
-    <h1>What's on your mind?</h1>
+    <div class="glow"></div>
+    <h1 class="hero">What's on your mind?</h1>
     <p class="sub">Dump it all — tasks, worries, ideas. The AI sorts it out.</p>
     ${state.status.ai ? "" : `<div class="banner">AI is off — dumps are saved raw without processing.
       <a href="#settings">Connect a key in Settings</a> to unlock the magic.</div>`}
@@ -15,7 +16,7 @@ export function render(ctx) {
       <button class="mode-chip ${m.id === state.curMode ? "active" : ""}" data-mode="${m.id}">
         ${m.icon} ${m.label}</button>`).join("")}
     </div>
-    <textarea id="dump-text" placeholder="Type, paste, or hit the mic and just talk…">${esc(state.draft)}</textarea>
+    <textarea id="dump-text" class="editor" placeholder="Type, paste, or hit the mic and just talk…">${esc(state.draft)}</textarea>
     <div class="row">
       ${state.status.whisper ? `<button class="mic" id="mic" title="Record voice">🎙️</button>
         <span class="muted small" id="rec-status"></span>` : ""}
