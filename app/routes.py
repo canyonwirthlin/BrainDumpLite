@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from . import ai, changelog, db, engine, item_types, pipeline, themes, transcribe
+from . import ai, changelog, db, engine, item_types, pipeline, themes, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -60,6 +60,7 @@ def status():
         "model": c["model"],
         "whisper": transcribe.available(),
         "data_dir": str(db.data_dir()),
+        "vault_dir": str(db.vault_dir()),
     }
 
 
@@ -106,6 +107,46 @@ def delete_item_type(type_id: str):
     except ValueError as e:
         raise HTTPException(400, str(e))
     return {"ok": True}
+
+
+# ── Vault: backup / restore / location ───────────────────────────────────────
+
+class VaultMoveIn(BaseModel):
+    path: str
+
+
+@router.get("/vault")
+def vault_info():
+    return vault.info()
+
+
+@router.get("/backup")
+def vault_backup():
+    name, data = vault.backup_zip()
+    return Response(data, media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.post("/restore")
+async def vault_restore(file: UploadFile = File(...)):
+    data = await file.read()
+    try:
+        return vault.restore_zip(data)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/vault/move")
+def vault_move(body: VaultMoveIn):
+    try:
+        return vault.move(body.path)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/vault/reset")
+def vault_reset():
+    return vault.reset_location()
 
 
 # ── Themes ───────────────────────────────────────────────────────────────────

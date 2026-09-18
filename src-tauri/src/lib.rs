@@ -14,6 +14,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init()) // web UI opens links in the default browser
         .plugin(tauri_plugin_updater::Builder::new().build()) // JS: __TAURI__.updater.check()
         .plugin(tauri_plugin_process::init()) // JS: __TAURI__.process.relaunch()
+        .plugin(tauri_plugin_dialog::init()) // JS: __TAURI__.dialog.open({ directory: true })
         .setup(|app| {
             // 1. Start the backend on a port we choose, so we know where to navigate.
             let port = backend::pick_port(8756);

@@ -182,18 +182,69 @@ function sectionVoice(box, s) {
 
 function sectionData(box, s) {
   const { body } = head(box, "data", "Data", false, () => sectionData(box, s));
-  const path = state.status.data_dir || "";
+  body.innerHTML = `<div class="center"><span class="spin"></span></div>`;
+  paintData(body);
+}
+
+async function paintData(body) {
+  let v = null;
+  try { v = await api.get("/vault"); } catch (e) { body.innerHTML = `<div class="center">Couldn't read vault info: ${esc(e.message)}</div>`; return; }
+  const mb = (v.size_bytes / 1048576).toFixed(1);
   body.innerHTML = `
     <div class="card">
-      <div class="field"><label>Your vault lives in</label><div class="ro">${esc(path)}</div></div>
-      <div class="row" style="margin:0">
+      <h2>Vault</h2>
+      <div class="field"><label>Your dumps, items and settings live in</label><div class="ro">${esc(v.db_path)}</div></div>
+      <p class="small muted">${mb} MB · ${v.custom ? "custom location" : "default location"}. Downloaded AI models stay in <code>${esc(v.default_dir)}</code> and are not part of the vault.</p>
+      <div class="row" style="margin:12px 0 0">
         <button class="btn ghost small" id="reveal">${native ? "Reveal in Explorer" : "Copy path"}</button>
+        <button class="btn ghost small" id="vault-move">Move vault…</button>
+        ${v.custom ? `<button class="btn ghost small" id="vault-reset">Use default location</button>` : ""}
       </div>
-      <p class="small muted" style="margin-top:12px">Everything — dumps, settings, downloaded AI models — is inside that folder. Delete it to wipe the app.</p>
+    </div>
+    <div class="card">
+      <h2>Backup</h2>
+      <p class="small muted" style="margin-bottom:12px">One zip file with everything. Keep it somewhere safe; restore it here on any PC.</p>
+      <div class="row" style="margin:0">
+        <a class="btn small" href="/api/backup" download>Download backup</a>
+        <label class="btn ghost small">Restore from backup… <input type="file" id="restore-file" accept=".zip,application/zip" hidden></label>
+        <span class="small muted" id="data-msg"></span>
+      </div>
     </div>`;
+  const msg = (m, bad) => { const el = $("#data-msg", body); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
   $("#reveal", body).onclick = async () => {
-    if (native) { try { await native.opener.revealItemInDir(path); } catch (e) { toast("Couldn't open Explorer: " + (e.message || e), true); } }
-    else { try { await navigator.clipboard.writeText(path); toast("Path copied"); } catch { toast(path); } }
+    if (native) { try { await native.opener.revealItemInDir(v.db_path); } catch (e) { toast("Couldn't open Explorer: " + (e.message || e), true); } }
+    else { try { await navigator.clipboard.writeText(v.db_path); toast("Path copied"); } catch { toast(v.db_path); } }
+  };
+  $("#vault-move", body).onclick = async () => {
+    let folder = null;
+    if (native && native.dialog) {
+      try { folder = await native.dialog.open({ directory: true, multiple: false, title: "Choose the new vault folder" }); }
+      catch (e) { toast("Couldn't open the folder picker: " + (e.message || e), true); return; }
+    } else {
+      folder = prompt("Folder to move the vault into (it will be created if needed):", v.dir);
+    }
+    if (!folder) return;
+    try {
+      const info = await api.post("/vault/move", { path: folder });
+      toast("Vault moved to " + info.dir);
+      await refreshStatus();
+      paintData(body);
+    } catch (e) { toast(e.message, true); }
+  };
+  if ($("#vault-reset", body)) $("#vault-reset", body).onclick = async () => {
+    if (!confirm("Switch back to the default vault location? The copy in the custom folder stays where it is.")) return;
+    try { await api.post("/vault/reset"); await refreshStatus(); paintData(body); } catch (e) { toast(e.message, true); }
+  };
+  $("#restore-file", body).onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    if (!confirm(`Replace the current vault with "${f.name}"? Everything you have now is kept as a .bak file next to the vault.`)) { e.target.value = ""; return; }
+    const fd = new FormData(); fd.append("file", f);
+    try {
+      const r = await api.post("/restore", fd);
+      msg(`Restored — ${r.dumps} dump${r.dumps === 1 ? "" : "s"}. Reloading…`);
+      setTimeout(() => location.reload(), 900);
+    } catch (err) { msg(err.message, true); }
+    e.target.value = "";
   };
 }
 

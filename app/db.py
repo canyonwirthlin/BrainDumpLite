@@ -95,11 +95,58 @@ CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(item_id UNINDEXED, dump_
 """
 
 
+POINTER = "vault-location.txt"
+
+
+def vault_dir() -> Path:
+    """Where braindump.db lives: the folder named in <data>/vault-location.txt
+    (Settings → Data → Move…), else the data dir itself."""
+    f = data_dir() / POINTER
+    try:
+        if f.exists():
+            p = Path(f.read_text(encoding="utf-8").strip())
+            if str(p) and p.is_dir():
+                return p
+    except OSError:
+        pass
+    return data_dir()
+
+
+def db_path() -> Path:
+    return vault_dir() / "braindump.db"
+
+
+def set_vault_pointer(folder: Path | None) -> None:
+    f = data_dir() / POINTER
+    if folder is None:
+        f.unlink(missing_ok=True)
+    else:
+        f.write_text(str(folder), encoding="utf-8")
+
+
+def lock():
+    """The connection lock (re-entrant), for multi-statement operations."""
+    return _lock
+
+
+def close() -> None:
+    """Close the connection so the file can be swapped/moved; conn() reopens lazily."""
+    global _conn
+    with _lock:
+        if _conn is not None:
+            try:
+                _conn.commit()
+                _conn.close()
+            except Exception:
+                pass
+            _conn = None
+
+
 def conn() -> sqlite3.Connection:
     global _conn
     with _lock:
         if _conn is None:
-            _conn = sqlite3.connect(str(data_dir() / "braindump.db"), check_same_thread=False)
+            _conn = sqlite3.connect(str(db_path()), check_same_thread=False)
             _conn.row_factory = sqlite3.Row
             _conn.execute("PRAGMA journal_mode=WAL")
             _conn.execute("PRAGMA foreign_keys=ON")

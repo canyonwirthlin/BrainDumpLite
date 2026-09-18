@@ -45,6 +45,8 @@ One-time: Rust (`rustup`, MSVC Build Tools with the C++ workload) and `npm insta
 After rebuilding the backend with changed `static/` files, WebView2 may keep serving its
 cached JS/CSS (same `?v=` cache-buster) — clear `%LOCALAPPDATA%\com.canyonwirthlin.braindumplite`
 or bump the `?v=` in `static/index.html` while iterating.
+If `tauri dev` fails with `Access is denied (os error 5)` while copying resources, delete
+`src-tauri	arget\debugackend` and run it again.
 Data dir override for testing: set `BRAINDUMP_LITE_DATA=<path>`.
 
 ## Release
