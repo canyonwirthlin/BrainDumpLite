@@ -10,7 +10,9 @@ def test_changelog_endpoint_lists_entries():
     assert r.status_code == 200
     body = r.json()
     assert body["version"] == __version__
-    assert body["entries"][0]["version"] == __version__
+    # The newest entry may be the NEXT version (notes are written before release.ps1 bumps),
+    # but the running version must always have its own section.
+    assert __version__ in [e["version"] for e in body["entries"]]
 
 
 def test_status_has_no_legacy_update_key():

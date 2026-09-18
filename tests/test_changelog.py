@@ -32,3 +32,14 @@ def test_section_returns_empty_for_unknown(monkeypatch):
 def test_real_changelog_has_current_version():
     from app.version import __version__
     assert changelog.section(__version__), f"CHANGELOG.md needs a '## {__version__}' section"
+
+
+def test_cli_prints_unicode_section_and_fails_for_unknown(tmp_path):
+    import subprocess, sys
+    from app.version import __version__
+    env = {**__import__("os").environ, "PYTHONIOENCODING": "cp1252"}   # worst case: Windows console
+    ok = subprocess.run([sys.executable, "-m", "app.changelog", "0.5.0"], capture_output=True, env=env)
+    assert ok.returncode == 0, ok.stderr
+    assert "→".encode("utf-8") in ok.stdout
+    bad = subprocess.run([sys.executable, "-m", "app.changelog", "9.9.9"], capture_output=True)
+    assert bad.returncode == 1

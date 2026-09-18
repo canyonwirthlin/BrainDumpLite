@@ -50,6 +50,11 @@ def section(version: str) -> str:
 
 
 if __name__ == "__main__":
+    # Windows consoles default to cp1252; the changelog is UTF-8 (arrows, dashes).
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     if len(sys.argv) != 2:
         sys.exit("usage: python -m app.changelog X.Y.Z")
     body = section(sys.argv[1])
