@@ -358,6 +358,23 @@ def search(q: str):
         except Exception:
             pass
 
+    # Items: "search everything" — a task/idea/… whose text matches surfaces its dump.
+    if terms:
+        try:
+            for r in db.query(
+                    "SELECT f.item_id, f.dump_id, i.kind, i.content, d.title, d.created_at, d.summary "
+                    "FROM items_fts f JOIN items i ON i.id = f.item_id JOIN dumps d ON d.id = f.dump_id "
+                    "WHERE items_fts MATCH ? ORDER BY bm25(items_fts) LIMIT 30", (match,)):
+                entry = results.get(r["dump_id"])
+                if not entry:
+                    entry = results[r["dump_id"]] = {"id": r["dump_id"], "title": r["title"],
+                                                     "created_at": r["created_at"],
+                                                     "snippet": (r["summary"] or "")[:160], "via": "items"}
+                entry.setdefault("matched_items", []).append(
+                    {"id": r["item_id"], "kind": r["kind"], "content": r["content"][:160]})
+        except Exception:
+            pass
+
     emb = ai.embed(q) if ai.available() else None
     if emb:
         rows = db.query("SELECT id, title, created_at, summary, embedding "

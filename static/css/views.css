@@ -258,3 +258,5 @@ a.iconbtn.cal { text-decoration: none; }
 .type-row.add { margin-top: 4px; }
 .type-row.add .t-new-label { width: 200px; }
 .small.bad { color: var(--red); }
+.matched { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 4px; }
+.matched .mi { font-size: 12.5px; display: flex; align-items: center; gap: 8px; }

@@ -111,6 +111,21 @@ def init_db() -> None:
         conn().executescript(SCHEMA)
         _migrate()
         conn().commit()
+    backfill_items_fts()
+
+
+def backfill_items_fts() -> None:
+    """Index items created before items_fts existed (Phase 3). Idempotent."""
+    with _lock:
+        c = conn()
+        missing = c.execute(
+            "SELECT i.id, i.dump_id, i.content, i.detail FROM items i "
+            "WHERE NOT EXISTS (SELECT 1 FROM items_fts f WHERE f.item_id = i.id)").fetchall()
+        for r in missing:
+            c.execute("INSERT INTO items_fts (item_id, dump_id, body) VALUES (?,?,?)",
+                      (r["id"], r["dump_id"], f"{r['content']} {r['detail'] or ''}"))
+        if missing:
+            c.commit()
 
 
 def _migrate() -> None:

@@ -1,5 +1,5 @@
 // Keyword + semantic search.
-import { $, esc, fmtDate } from "../ui.js";
+import { $, esc, fmtDate, kindBadge } from "../ui.js";
 import { api } from "../api.js";
 import { state } from "../state.js";
 
@@ -21,6 +21,7 @@ export function render(ctx) {
         <span class="chip">${r.via}</span>
         <div class="meta small muted">${fmtDate(r.created_at)}</div>
         <div class="small" style="margin-top:6px">${esc(r.snippet || "").replace(/「/g, "<b>").replace(/」/g, "</b>")}</div>
+        ${(r.matched_items || []).length ? `<div class="matched">${r.matched_items.map((it) => `<div class="mi">${kindBadge(it.kind)} ${esc(it.content)}</div>`).join("")}</div>` : ""}
       </div>`).join("")
       : `<div class="center"><div class="big">🔍</div>No matches for “${esc(q)}”.</div>`;
   };
