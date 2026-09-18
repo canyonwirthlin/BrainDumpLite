@@ -1,5 +1,5 @@
 // Force-directed brain map (canvas, no library).
-import { $, esc } from "../ui.js";
+import { $, $$, esc } from "../ui.js";
 import { api } from "../api.js";
 
 const GRAPH_R = { dump: 7, concept: 5, person: 5 };
@@ -17,31 +17,47 @@ function graphColors() {
   };
 }
 
-export async function render(ctx) {
-  ctx.setTitle("Brain map");
+const hidden = new Set();  // node types toggled off in the legend
+let lastData = null;
+
+function legendHtml() {
   const gc = graphColors();
-  $("#view").innerHTML = `
-    <h1>Brain map</h1>
-    <p class="sub">Every dump, concept, and person you've mentioned. Drag nodes, scroll to zoom, click to explore.</p>
-    <div class="graph-legend">
-      <span><i class="dot" style="background:${gc.dump}"></i>Dumps</span>
-      <span><i class="dot" style="background:${gc.concept}"></i>Concepts</span>
-      <span><i class="dot" style="background:${gc.person}"></i>People</span>
-    </div>
-    <div class="graph-wrap card" id="graph-wrap">
-      <canvas id="graph-canvas"></canvas>
-      <div id="graph-info" class="graph-info" style="display:none"></div>
-    </div>`;
-  let data;
-  try { data = await api.get("/graph"); } catch (e) {
+  return [["dump", "Dumps"], ["concept", "Concepts"], ["person", "People"]].map(([t, l]) =>
+    `<button class="chip ${hidden.has(t) ? "off" : "on"}" data-type="${t}" title="Show/hide ${l.toLowerCase()}"><i class="legend-dot" style="background:${gc[t]}"></i>${l}</button>`).join("");
+}
+
+function mount() {
+  const wrap = $("#graph-wrap");
+  if (!wrap || !lastData) return;
+  const nodes = lastData.nodes.filter((n) => !hidden.has(n.type));
+  const ids = new Set(nodes.map((n) => n.id));
+  const edges = lastData.edges.filter((e) => ids.has(e.source) && ids.has(e.target));
+  wrap.innerHTML = `<canvas id="graph-canvas"></canvas><div id="graph-info" class="graph-info" style="display:none"></div>`;
+  if (!nodes.length) { wrap.innerHTML = `<div class="center">Nothing to show — turn a node type back on.</div>`; return; }
+  mountForceGraph($("#graph-canvas"), { nodes, edges });
+}
+
+export async function render(ctx) {
+  ctx.setTitle("Brain map", legendHtml());
+  ctx.setLayout("full");
+  $("#view").innerHTML = `<div class="wide">
+    <p class="sub" style="margin-bottom:10px">Every dump, concept, and person you've mentioned. Drag nodes, scroll to zoom, click to explore.</p>
+    <div class="graph-wrap" id="graph-wrap"></div></div>`;
+  $$(".topbar-slot .chip").forEach((b) => b.onclick = () => {
+    const t = b.dataset.type;
+    hidden.has(t) ? hidden.delete(t) : hidden.add(t);
+    b.classList.toggle("off", hidden.has(t)); b.classList.toggle("on", !hidden.has(t));
+    mount();
+  });
+  try { lastData = await api.get("/graph"); } catch (e) {
     $("#graph-wrap").innerHTML = `<div class="center">Couldn't load the graph: ${esc(e.message)}</div>`;
     return;
   }
-  if (!data.nodes.length) {
+  if (!lastData.nodes.length) {
     $("#graph-wrap").innerHTML = `<div class="center">Nothing to map yet — make a few dumps first.</div>`;
     return;
   }
-  mountForceGraph($("#graph-canvas"), data);
+  mount();
 }
 
 function mountForceGraph(canvas, data) {
@@ -49,7 +65,7 @@ function mountForceGraph(canvas, data) {
   const infoBox = $("#graph-info");
   const ctx = canvas.getContext("2d");
   const GC = graphColors();
-  const H = 560;
+  const H = () => wrap.clientHeight;
   const W = () => wrap.clientWidth;
 
   const degree = {};
@@ -60,7 +76,7 @@ function mountForceGraph(canvas, data) {
     return {
       ...n, vx: 0, vy: 0, fx: null, fy: null,
       x: W() / 2 + Math.cos(angle) * 120 + (Math.random() - 0.5) * 30,
-      y: H / 2 + Math.sin(angle) * 120 + (Math.random() - 0.5) * 30,
+      y: H() / 2 + Math.sin(angle) * 120 + (Math.random() - 0.5) * 30,
       r: (GRAPH_R[n.type] || 5) + Math.min(9, (degree[n.id] || 0) * 1.1),
     };
   });
@@ -77,9 +93,9 @@ function mountForceGraph(canvas, data) {
   function resize() {
     const dpr = window.devicePixelRatio || 1;
     canvas.style.width = W() + "px";
-    canvas.style.height = H + "px";
+    canvas.style.height = H() + "px";
     canvas.width = W() * dpr;
-    canvas.height = H * dpr;
+    canvas.height = H() * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     needsDraw = true;
   }
@@ -119,7 +135,7 @@ function mountForceGraph(canvas, data) {
       });
       nodes.forEach((n) => {
         n.vx += (W() / 2 - n.x) * 0.0012 * k;
-        n.vy += (H / 2 - n.y) * 0.0012 * k;
+        n.vy += (H() / 2 - n.y) * 0.0012 * k;
       });
       nodes.forEach((n) => {
         if (n.fx != null) { n.x = n.fx; n.y = n.fy; n.vx = 0; n.vy = 0; return; }
@@ -135,7 +151,7 @@ function mountForceGraph(canvas, data) {
   }
 
   function draw() {
-    ctx.clearRect(0, 0, W(), H);
+    ctx.clearRect(0, 0, W(), H());
     ctx.save();
     ctx.translate(panX, panY);
     ctx.scale(scale, scale);
@@ -190,7 +206,7 @@ function mountForceGraph(canvas, data) {
     infoBox.style.display = "block";
     infoBox.innerHTML = `<b>${n.type === "concept" ? "💡" : "🧑"} ${esc(n.label)}</b>
       <div class="small muted" style="margin:6px 0">${dumpsHere.length} dump${dumpsHere.length === 1 ? "" : "s"}</div>
-      ${dumpsHere.map((d) => `<div style="margin-top:3px"><a href="#dump/${d.id}">${esc(d.label)}</a></div>`).join("")}`;
+      ${dumpsHere.map((d) => `<div style="margin-top:3px"><a href="#history/${d.id}">${esc(d.label)}</a></div>`).join("")}`;
   }
 
   let dragging = null, panning = false, lastPan = null, moved = false;
@@ -231,7 +247,7 @@ function mountForceGraph(canvas, data) {
     const p = toWorld(e.clientX, e.clientY);
     const n = nodeAt(p.x, p.y);
     if (!n) { selectedId = null; infoBox.style.display = "none"; needsDraw = true; return; }
-    if (n.type === "dump") { location.hash = "dump/" + n.id; return; }
+    if (n.type === "dump") { location.hash = "history/" + n.id; return; }
     selectedId = n.id;
     needsDraw = true;
     showInfo(n);
