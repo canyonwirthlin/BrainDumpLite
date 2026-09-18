@@ -31,6 +31,18 @@ class Loaded:
         self.error: str | None = None
 
 
+def examples() -> list[dict]:
+    """Plugins that ship with the app, offered as one-click installs."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)) / "examples" / "plugins"
+    out = []
+    for folder in sorted(base.glob("*/plugin.json")) if base.exists() else []:
+        try:
+            out.append({**read_meta(folder.parent), "path": str(folder.parent)})
+        except Exception:
+            continue
+    return out
+
+
 def plugins_dir() -> Path:
     d = db.data_dir() / "plugins"
     d.mkdir(parents=True, exist_ok=True)

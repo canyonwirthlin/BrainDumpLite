@@ -204,12 +204,31 @@ def session_message(sid: str, body: MessageIn):
         try:
             for delta in sessions.reply_stream(sid):
                 yield f"data: {json.dumps(delta)}\n\n"
+            proposal = sessions.tool_proposal(sid)
+            if proposal:
+                yield f"event: tool\ndata: {json.dumps(proposal)}\n\n"
             yield "event: done\ndata: {}\n\n"
         except ai.AIError as e:
             yield f"event: error\ndata: {json.dumps(str(e))}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+class SessionToolIn(BaseModel):
+    server: str
+    tool: str
+    args: dict = {}
+
+
+@router.post("/sessions/{sid}/tool")
+def session_tool(sid: str, body: SessionToolIn):
+    try:
+        return sessions.run_tool(sid, body.server, body.tool, body.args)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except (RuntimeError, TimeoutError) as e:
+        raise HTTPException(400, str(e))
 
 
 @router.post("/sessions/{sid}/end")
@@ -687,6 +706,11 @@ def plugins_run(pid: str, action_id: str, body: ActionIn):
         raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(500, f"the action failed: {e}")
+
+
+@router.get("/plugins/examples")
+def plugins_examples():
+    return plugins.examples()
 
 
 @router.get("/plugins/folder")

@@ -109,3 +109,43 @@ def test_config_roundtrip_via_routes():
     c.post("/api/mcp/servers/echo/stop")
     assert c.delete("/api/mcp/servers/echo").json()["ok"]
     assert c.get("/api/mcp/servers").json() == []
+
+
+def test_chat_tool_proposal_and_run(monkeypatch):
+    from app import ai, db as _db, sessions
+    mcp_client.save_config(cfg())
+    mcp_client.start("echo")
+    sid = sessions.start("brainstorm")["id"]
+    sessions.append(sid, "user", "what does the echo server say about pears?")
+
+    assert sessions.tool_proposal(sid) is None          # the switch is off by default
+    _db.set_setting("tools_in_chat", True)
+    monkeypatch.setattr(ai, "chat_json", lambda *a, **k: {"tool": None})
+    assert sessions.tool_proposal(sid) is None
+    monkeypatch.setattr(ai, "chat_json", lambda *a, **k: {"tool": "made-up", "args": {}})
+    assert sessions.tool_proposal(sid) is None          # a hallucinated tool is dropped
+    monkeypatch.setattr(ai, "chat_json", lambda *a, **k: {"server": "echo", "tool": "echo", "args": {"text": "pears"}, "why": "it echoes"})
+    p = sessions.tool_proposal(sid)
+    assert p == {"server": "echo", "tool": "echo", "args": {"text": "pears"}, "why": "it echoes", "mode": "ask"}
+
+    mcp_client.set_tool_mode("echo", "boom", "off")
+    with pytest.raises(ValueError, match="switched off"):
+        sessions.run_tool(sid, "echo", "boom", {})
+    res = sessions.run_tool(sid, "echo", "echo", {"text": "pears"})
+    assert res["text"].startswith("pears")
+    turn = sessions.get(sid)["transcript"][-1]
+    assert turn["role"] == "tool" and turn["tool"] == "echo/echo"
+    msg = sessions._as_message(turn)
+    assert msg["role"] == "user" and "not instructions" in msg["content"] and "pears" in msg["content"]
+
+    for _ in range(mcp_client and sessions.MAX_TOOL_CALLS):
+        try:
+            sessions.run_tool(sid, "echo", "echo", {"text": "again"})
+        except ValueError as e:
+            assert "at most" in str(e)
+            break
+    else:
+        raise AssertionError("the per-session tool cap did not bite")
+    assert sessions.tool_proposal(sid) is None          # capped sessions stop proposing
+    _db.execute("DELETE FROM sessions WHERE id=?", (sid,))
+    _db.set_setting("tools_in_chat", False)

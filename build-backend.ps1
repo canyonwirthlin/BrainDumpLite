@@ -37,7 +37,8 @@ $args = @(
     '--add-data', 'app;app',
     '--add-data', 'static;static',
     '--add-data', 'CHANGELOG.md;.',
-    '--add-data', 'catalog;catalog'
+    '--add-data', 'catalog;catalog',
+    '--add-data', 'examples;examples'
 )
 if ($voiceOk) {
     $args += @('--collect-all', 'faster_whisper', '--collect-all', 'ctranslate2', '--collect-all', 'av')
