@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from . import ai, db, engine, pipeline, transcribe
+from . import ai, changelog, db, engine, pipeline, transcribe
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -61,6 +61,11 @@ def status():
         "whisper": transcribe.available(),
         "data_dir": str(db.data_dir()),
     }
+
+
+@router.get("/changelog")
+def get_changelog():
+    return {"version": VERSION, "entries": changelog.load()}
 
 
 # ── Dumps ────────────────────────────────────────────────────────────────────

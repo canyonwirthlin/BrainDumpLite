@@ -220,6 +220,31 @@ async function refreshStatus() {
   }
 }
 
+// ── What's New (hand-written CHANGELOG.md, served by /api/changelog) ────────
+
+function maybeShowWhatsNew() {
+  const cur = status.version;
+  if (!cur) return;
+  let seen = null;
+  try { seen = localStorage.getItem("bdl-seen-version"); } catch {}
+  try { localStorage.setItem("bdl-seen-version", cur); } catch {}
+  if (seen && seen !== cur) showWhatsNew(cur);   // first-ever run: store silently
+}
+
+async function showWhatsNew(version) {
+  let entries = [];
+  try { entries = (await api.get("/changelog")).entries; } catch {}
+  const e = entries.find((x) => x.version === version) || entries[0];
+  const bg = document.createElement("div");
+  bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal">
+    <h2>What's new in v${esc(version)}</h2>
+    ${e ? md(e.body) : `<p class="muted">No notes for this version.</p>`}
+    <div class="row"><button class="btn" id="wn-ok">Nice</button></div></div>`;
+  document.body.appendChild(bg);
+  $("#wn-ok", bg).onclick = () => bg.remove();
+}
+
 // ── Capture ──────────────────────────────────────────────────────────────────
 
 function renderCapture() {
@@ -844,6 +869,13 @@ async function renderSettings() {
         </div>
         <div id="test-out"></div>
       </div>
+      <h2>About</h2>
+      <div class="card">
+        <p class="small" style="margin-bottom:12px">BrainDump Lite <b>v${esc(status.version || "?")}</b></p>
+        <div class="row" style="margin:0">
+          <button class="btn ghost" id="about-whatsnew">What's new</button>
+        </div>
+      </div>
       <p class="small muted">Data lives in <code>${esc(status.data_dir || "")}</code> — delete that folder to wipe everything.</p>`;
     $$(".theme-swatch").forEach((b) => b.onclick = () => {
       setTheme(b.dataset.theme);
@@ -864,6 +896,7 @@ async function renderSettings() {
       embed_model: $("#f-embed")?.value ?? s.embed_model,
       whisper_model: $("#f-whisper").value,
     });
+    $("#about-whatsnew").onclick = () => showWhatsNew(status.version);
     $("#save").onclick = async () => {
       const saved = await api.put("/settings", gather());
       Object.assign(s, saved);
@@ -1040,4 +1073,5 @@ document.addEventListener("click", (e) => {
 (async () => {
   await refreshStatus();
   route();
+  maybeShowWhatsNew();
 })();
