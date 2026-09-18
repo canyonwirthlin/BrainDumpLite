@@ -11,7 +11,10 @@ import re
 import traceback
 from datetime import datetime, timedelta
 
-from . import ai, db, item_types
+from . import ai, db, instrument, item_types
+
+TONES = ["calm", "hopeful", "excited", "neutral", "reflective", "anxious", "frustrated", "overwhelmed", "low"]
+EST_BUCKETS = [5, 15, 30, 60, 120, 240]
 
 # Small models (esp. 3B) love inventing due dates — dating every task, often
 # one-per-day down the lookup table. As a deterministic backstop to the prompt,
@@ -60,10 +63,13 @@ Respond with valid JSON matching this exact schema — no markdown, no extra key
       "content": "clear, complete statement — first person where natural",
       "priority": 1-5 or null,
       "due_date_iso": "YYYY-MM-DD" or null,
-      "first_tiny_step": "smallest possible first action" or null
+      "first_tiny_step": "smallest possible first action" or null,
+      "estimated_minutes": 5|15|30|60|120|240 or null,
+      "urgency": 0|1|2|3,
+      "time_hint": "the exact time phrase from the text, e.g. 'by Friday'" or null
     }
   ],
-  "emotional_tone": "anxious|excited|neutral|frustrated|hopeful|overwhelmed|reflective",
+  "tone": {"label": "calm|hopeful|excited|neutral|reflective|anxious|frustrated|overwhelmed|low", "valence": -2..2, "energy": 0..2},
   "people": ["first names or full names of people mentioned by name"],
   "concepts": ["key topics, projects, domains, or recurring named themes — NO generic words like want/need/feel/think/time/thing/work/life"]
 }
@@ -72,6 +78,15 @@ Item type rules:
 {TYPE_RULES}
 
 Priority (tasks only): 5=today, 4=this week, 3=moderate, 2=nice-to-have, 1=someday
+
+Time relevance: estimated_minutes is how long the item would take (pick the closest
+bucket, null if unknowable). urgency: 3 = must happen today or is overdue, 2 = this week
+or a stated deadline, 1 = eventually matters, 0 = no time pressure. Use the capture time
+and time of day below when judging "today"/"tonight". time_hint copies the user's own
+time words verbatim (null if none).
+
+Tone: one label for the whole dump, valence from -2 (very negative) to 2 (very positive),
+energy from 0 (flat/tired) to 2 (charged/agitated).
 
 Deadlines (due_date_iso): DEFAULT TO null. MOST TASKS HAVE NO DEADLINE. Only set a date
 when the text EXPLICITLY states a time reference for THAT specific task (e.g. "by Friday",
@@ -112,11 +127,23 @@ _CLASSIFY_SCHEMA = {
                     "priority": {"type": ["integer", "null"]},
                     "due_date_iso": {"type": ["string", "null"]},
                     "first_tiny_step": {"type": ["string", "null"]},
+                    "estimated_minutes": {"type": ["integer", "null"]},
+                    "urgency": {"type": ["integer", "null"]},
+                    "time_hint": {"type": ["string", "null"]},
                 },
                 "required": ["type", "content"],
             },
         },
-        "emotional_tone": {"type": "string"},
+        "tone": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "label": {"type": "string", "enum": TONES},
+                "valence": {"type": "integer"},
+                "energy": {"type": "integer"},
+            },
+            "required": ["label"],
+        },
         "people": {"type": "array", "items": {"type": "string"}},
         "concepts": {"type": "array", "items": {"type": "string"}},
     },
@@ -183,7 +210,9 @@ def _date_table() -> str:
         name = ("Today" if i == 0 else "Tomorrow" if i == 1
                 else ("This " if i < 7 else "Next ") + d.strftime("%A"))
         rows.append(f"  {name} ({d.strftime('%A')}) = {d.strftime('%Y-%m-%d')}")
-    return (f"Current date/time: {now.strftime('%A, %B %d, %Y at %I:%M %p')}\n"
+    h = now.hour
+    tod = "morning" if 5 <= h < 12 else "afternoon" if 12 <= h < 17 else "evening" if 17 <= h < 22 else "night"
+    return (f"Current date/time: {now.strftime('%A, %B %d, %Y at %I:%M %p')} ({tod})\n"
             "Date lookup table:\n" + "\n".join(rows))
 
 
@@ -200,7 +229,7 @@ def _fallback_items(text: str) -> list[dict]:
     action = re.compile(r"\b(need to|have to|must|remember to|todo|don't forget|should)\b", re.I)
     return [
         {"kind": "task" if action.search(c) else "note", "content": c[:500],
-         "detail": None, "priority": None, "due_date": None}
+         "detail": None, "priority": None, "due_date": None, "est_minutes": None, "urgency": None, "time_hint": None}
         for c in chunks
     ]
 
@@ -221,9 +250,24 @@ def _parse_items(data: dict) -> list[dict]:
         # Events are inherently scheduled, so trust those.
         if due and kind != "event" and not _has_time_ref(f"{content} {detail or ''}"):
             due = None
-        out.append({"kind": kind, "content": content[:500],
-                    "detail": detail, "priority": prio, "due_date": due})
+        est = it.get("estimated_minutes")
+        est = int(est) if isinstance(est, (int, float)) and int(est) in EST_BUCKETS else None
+        urg = it.get("urgency")
+        urg = max(0, min(3, int(urg))) if isinstance(urg, (int, float)) else None
+        hint = it.get("time_hint")
+        hint = str(hint).strip()[:60] or None if isinstance(hint, str) else None
+        out.append({"kind": kind, "content": content[:500], "detail": detail, "priority": prio,
+                    "due_date": due, "est_minutes": est, "urgency": urg, "time_hint": hint})
     return out
+
+
+def _parse_tone(data: dict) -> dict | None:
+    t = data.get("tone")
+    if not isinstance(t, dict) or t.get("label") not in TONES:
+        return None
+    def clamp(v, lo, hi, default):
+        return max(lo, min(hi, int(v))) if isinstance(v, (int, float)) else default
+    return {"label": t["label"], "valence": clamp(t.get("valence"), -2, 2, 0), "energy": clamp(t.get("energy"), 0, 2, 1)}
 
 
 def _parse_names(data: dict, key: str, limit: int) -> list[str]:
@@ -282,14 +326,17 @@ def run_pipeline(dump_id: str) -> None:
         return
     raw, mode = row["raw_text"], row["mode"]
     use_ai = ai.available()
+    provider = ai.config()["provider"] if use_ai else "off"
     try:
         # 1 · cleanup ---------------------------------------------------------
-        _set(dump_id, status="processing", stage="cleanup", error=None)
+        _set(dump_id, status="processing", stage="cleanup", error=None, provider=provider,
+             captured_local=row["captured_local"] or datetime.now().astimezone().isoformat(timespec="seconds"))
         clean = raw
         if use_ai:
             try:
-                clean = ai.chat(_CLEANUP_SYSTEM, raw,
-                                max_tokens=len(raw) // 2 + 500, temperature=0.1)
+                with instrument.timed(dump_id, "cleanup"):
+                    clean = ai.chat(_CLEANUP_SYSTEM, raw,
+                                    max_tokens=len(raw) // 2 + 500, temperature=0.1)
             except ai.AIError as e:
                 print(f"[pipeline] cleanup fell back to raw text: {e}", flush=True)
                 clean = raw
@@ -299,11 +346,13 @@ def run_pipeline(dump_id: str) -> None:
         title = " ".join(clean.split()[:6])[:60] or "Untitled dump"
         summary = "• " + clean[:220].replace("\n", " ")
         items = _fallback_items(clean)
-        people, concepts = [], []
+        people, concepts, tone = [], [], None
         if use_ai:
             try:
-                data = ai.chat_json(_classify_system() + "\n\n" + _date_table(), clean,
-                                    schema=_classify_schema())
+                with instrument.timed(dump_id, "classify"):
+                    data = ai.chat_json(_classify_system() + "\n\n" + _date_table(), clean,
+                                        schema=_classify_schema())
+                tone = _parse_tone(data)
                 title = (str(data.get("title") or title)).strip()[:80]
                 summ = data.get("summary")
                 if isinstance(summ, list):  # some models return the bullets as an array
@@ -317,28 +366,36 @@ def run_pipeline(dump_id: str) -> None:
             except ai.AIError as e:
                 print(f"[pipeline] classify fell back to heuristics: {e}", flush=True)
         db.execute("DELETE FROM items WHERE dump_id=?", (dump_id,))
+        db.execute("DELETE FROM items_fts WHERE dump_id=?", (dump_id,))
         for it in items:
+            iid = db.new_id()
             db.execute(
-                "INSERT INTO items (id, dump_id, kind, content, detail, priority, due_date, status, done, created_at) "
-                "VALUES (?,?,?,?,?,?,?, 'suggested', 0, ?)",
-                (db.new_id(), dump_id, it["kind"], it["content"], it["detail"],
-                 it["priority"], it["due_date"], db.now_iso()))
-        _set(dump_id, title=title, summary=summary,
+                "INSERT INTO items (id, dump_id, kind, content, detail, priority, due_date, status, done, created_at, "
+                "est_minutes, urgency, time_hint) VALUES (?,?,?,?,?,?,?, 'suggested', 0, ?, ?, ?, ?)",
+                (iid, dump_id, it["kind"], it["content"], it["detail"], it["priority"], it["due_date"],
+                 db.now_iso(), it.get("est_minutes"), it.get("urgency"), it.get("time_hint")))
+            db.execute("INSERT INTO items_fts (item_id, dump_id, body) VALUES (?,?,?)",
+                       (iid, dump_id, f"{it['content']} {it['detail'] or ''}"))
+        _set(dump_id, title=title, summary=summary, tone=json.dumps(tone) if tone else None,
              people=json.dumps(people), concepts=json.dumps(concepts), stage="expand")
 
         # 3 · expand ----------------------------------------------------------
         reflection = None
         if use_ai:
             try:
-                reflection = ai.chat(
-                    _EXPAND_SYSTEMS.get(mode, _EXPAND_SYSTEMS["freeform"]),
-                    clean, max_tokens=700, temperature=0.7)
+                with instrument.timed(dump_id, "expand"):
+                    reflection = ai.chat(
+                        _EXPAND_SYSTEMS.get(mode, _EXPAND_SYSTEMS["freeform"]),
+                        clean, max_tokens=700, temperature=0.7)
             except ai.AIError as e:
                 print(f"[pipeline] expand skipped: {e}", flush=True)
         _set(dump_id, reflection=reflection, stage="embed")
 
         # 4 · embed -----------------------------------------------------------
-        emb = ai.embed(f"{title}\n{summary}\n{clean}") if use_ai else None
+        emb = None
+        if use_ai:
+            with instrument.timed(dump_id, "embed"):
+                emb = ai.embed(f"{title}\n{summary}\n{clean}")
         _set(dump_id, embedding=json.dumps(emb) if emb else None, stage="link")
 
         # 5 · index + link ----------------------------------------------------

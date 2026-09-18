@@ -27,6 +27,26 @@ from . import db
 # they'd notice and makes local mode correct under real (impatient) usage.
 _llm_lock = threading.Lock()
 
+# Token usage of the last completion/embedding on THIS thread (instrument.py
+# reads it right after the call). Providers that omit usage leave it None.
+_usage = threading.local()
+
+
+def reset_usage() -> None:
+    _usage.value = None
+
+
+def last_usage() -> dict | None:
+    return getattr(_usage, "value", None)
+
+
+def _capture_usage(resp) -> None:
+    u = getattr(resp, "usage", None)
+    if u is None:
+        return
+    _usage.value = {"prompt_tokens": getattr(u, "prompt_tokens", None),
+                    "completion_tokens": getattr(u, "completion_tokens", None)}
+
 DEFAULTS = {
     # builtin's real base_url/model are managed by engine.py at runtime;
     # the settings rows exist only so provider switching has defaults to reset.
@@ -195,6 +215,7 @@ def chat(system: str, user: str, max_tokens: int = 2048, temperature: float = 0.
                 raise AIError(f"AI call failed: {e}") from e
 
     def _finish(resp):
+        _capture_usage(resp)
         choice = resp.choices[0]
         out = (choice.message.content or "").strip()
         # Some local models leak reasoning blocks into content.
@@ -269,6 +290,7 @@ def embed(text: str) -> list[float] | None:
     try:
         with _llm_lock:
             resp = _client(c).embeddings.create(model=model, input=text[:6000])
+        _capture_usage(resp)
         return list(resp.data[0].embedding)
     except Exception:
         return None

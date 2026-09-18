@@ -159,7 +159,11 @@ def export_theme(theme_id: str):
 def _dump_out(row, items=None, related=None):
     out = {k: row[k] for k in (
         "id", "created_at", "mode", "raw_text", "clean_text", "title",
-        "summary", "reflection", "status", "stage", "error")}
+        "summary", "reflection", "status", "stage", "error", "provider", "captured_local")}
+    try:
+        out["tone"] = json.loads(row["tone"]) if row["tone"] else None
+    except (ValueError, TypeError):
+        out["tone"] = None
     if items is not None:
         out["items"] = items
     if related is not None:
