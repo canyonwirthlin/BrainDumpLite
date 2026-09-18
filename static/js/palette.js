@@ -7,7 +7,7 @@ import { NAV } from "./shell.js";
 import { setActive } from "./theme.js";
 import { native, checkForUpdates } from "./native.js";
 
-const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["about", "About"]];
+const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["stats", "Stats"], ["about", "About"]];
 let root, items = [], filtered = [], sel = 0, open = false;
 
 function staticItems() {

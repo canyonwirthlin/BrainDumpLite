@@ -304,3 +304,22 @@ a.iconbtn.cal { text-decoration: none; }
 .wl-pop .k { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); width: 54px; flex: none; }
 .wl-pop .k.person { color: #60a5fa; } .wl-pop .k.concept { color: var(--amber); } .wl-pop .k.new { color: var(--green); }
 .git-log { margin-top: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font: 11.5px var(--mono); white-space: pre-wrap; max-height: 220px; overflow: auto; }
+
+
+/* ── Phase 7: model browser, stats ───────────────────────────────────────── */
+.browse .chip { cursor: pointer; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.tile-v { font-size: 22px; font-weight: 650; letter-spacing: -.01em; }
+.tile-l { color: var(--dim); font-size: 12px; margin-top: 2px; }
+.mono { font-family: var(--mono); }
+.bars { display: flex; flex-direction: column; gap: 5px; margin: 6px 0 10px; }
+.bar-row { display: grid; grid-template-columns: minmax(70px, 180px) 1fr 70px; align-items: center; gap: 10px; font-size: 12.5px; }
+.bar-label { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+.bar-track i { display: block; height: 100%; background: var(--accent); border-radius: 4px; min-width: 2px; }
+.bar-val { text-align: right; font-size: 12px; color: var(--text); }
+.stat-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
+.stat-table th { text-align: left; color: var(--dim); font-weight: 500; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.stat-table td { padding: 5px 6px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.stat-table td.mono { text-align: right; }

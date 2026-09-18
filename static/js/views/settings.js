@@ -7,7 +7,7 @@ import { native, showWhatsNew, checkForUpdates } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
 import { lockNow } from "../shell.js";
 
-const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["about", "About"]];
+const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["stats", "Stats"], ["about", "About"]];
 const advOn = (s) => { try { return localStorage.getItem("bdl-adv-" + s) === "1"; } catch { return false; } };
 const setAdv = (s, v) => { try { localStorage.setItem("bdl-adv-" + s, v ? "1" : "0"); } catch {} };
 
@@ -20,7 +20,7 @@ export async function render(ctx) {
     <div class="detail body" id="sec"><div class="center">Loading…</div></div></div>`;
   let s;
   try { s = await api.get("/settings"); } catch (e) { $("#sec").innerHTML = `<div class="center">Couldn't load settings: ${esc(e.message)}</div>`; return; }
-  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, about: sectionAbout }[section];
+  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, stats: sectionStats, about: sectionAbout }[section];
   paint($("#sec"), s);
 }
 
@@ -75,6 +75,7 @@ const PROVIDER_META = [
   { id: "builtin", name: "Built-in", desc: "Free · runs on this PC", help: "Runs a small AI model directly on this computer — GPU-accelerated, no account, no cost, and nothing you write ever leaves your machine. One-time model download (2–5 GB), then it works offline." },
   { id: "anthropic", name: "Claude", desc: "Anthropic API key", help: "Get a key at console.anthropic.com → API Keys. Costs cents/day at normal use." },
   { id: "openai", name: "OpenAI", desc: "OpenAI API key", help: "Get a key at platform.openai.com → API Keys. Also enables semantic search embeddings." },
+  { id: "gemini", name: "Gemini", desc: "Google · free tier", help: "Get a free key at aistudio.google.com → Get API key. Generous free quota; also enables semantic search embeddings." },
   { id: "local", name: "Self-hosted", desc: "LM Studio / Ollama", help: "Point at any OpenAI-compatible server. Nothing ever leaves your machine." },
   { id: "off", name: "Off", desc: "No AI", help: "Dumps are stored raw. You can turn AI on any time — old dumps stay as they are." },
 ];
@@ -83,7 +84,7 @@ function sectionAI(box, s) {
   const { on, body } = head(box, "ai", "AI provider", true, () => sectionAI(box, s));
   const cur = s.provider;
   const meta = PROVIDER_META.find((p) => p.id === cur) || PROVIDER_META[4];
-  const cloud = cur === "anthropic" || cur === "openai";
+  const cloud = cur === "anthropic" || cur === "openai" || cur === "gemini";
   const engineDir = (state.status.data_dir || "%LOCALAPPDATA%\\BrainDumpLite") + "\\engine";
   body.innerHTML = `
     <p class="small muted" style="margin-bottom:12px">Your dumps only ever go to the provider you choose.</p>
@@ -94,7 +95,7 @@ function sectionAI(box, s) {
       <p class="small muted" style="margin-bottom:14px">${meta.help}</p>
       ${cur === "builtin" ? `<div id="engine-panel"><div class="center"><span class="spin"></span></div></div>` : ""}
       ${cloud ? `<div class="field"><label>API key</label>
-        <input type="password" id="f-key" value="${esc(s.api_key)}" placeholder="${cur === "anthropic" ? "sk-ant-…" : "sk-…"}"></div>` : ""}
+        <input type="password" id="f-key" value="${esc(s.api_key)}" placeholder="${cur === "anthropic" ? "sk-ant-…" : cur === "gemini" ? "AIza…" : "sk-…"}"></div>` : ""}
       ${cur === "local" && !on ? `<p class="small muted">Server URL and model live under <b>Advanced</b>.</p>` : ""}
       ${on && cur !== "off" ? `<div class="adv">
         <div class="sec" style="margin-top:0">Advanced</div>
@@ -357,6 +358,7 @@ const ENGINE_PHASES = {
   starting: "Loading model into memory…",
 };
 let enginePrevPhase = null;
+const browseState = { q: "", vram: 0 };
 
 async function paintEnginePanel() {
   const box = $("#engine-panel");
@@ -372,7 +374,10 @@ async function paintEnginePanel() {
     ? `🎮 ${esc(es.gpu.name)} — about ${vramGb} GB VRAM. Models it can't fit run on the CPU instead (slower).`
     : `🎮 No GPU detected — models will run on the CPU. Slower, but it works.`;
 
-  const rows = es.models.map((m) => {
+  const q = (browseState.q || "").toLowerCase();
+  const shown = es.models.filter((m) => (!browseState.vram || m.vram_gb <= browseState.vram) &&
+    (!q || m.label.toLowerCase().includes(q) || (m.blurb || "").toLowerCase().includes(q) || (m.tags || []).some((t) => t.includes(q))));
+  const rows = shown.map((m) => {
     const gb = (m.size_mb / 1024).toFixed(1);
     let btn;
     if (m.active && es.server.running && !busy) btn = `<button class="btn ghost small" disabled>Running ✓</button>`;
@@ -384,6 +389,7 @@ async function paintEnginePanel() {
           <b>${esc(m.label)}</b>
           ${m.recommended ? `<span class="chip due">⭐ recommended for this PC</span>` : ""}
           ${m.downloaded ? `<span class="chip">downloaded</span>` : ""}
+          ${(m.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("")}
           <div class="small muted">${esc(m.blurb)} · needs ~${m.vram_gb} GB VRAM</div>
         </div>
         ${btn}
@@ -406,10 +412,22 @@ async function paintEnginePanel() {
 
   box.innerHTML = `
     <div class="small muted" style="margin-bottom:8px">${gpuLine}</div>
-    ${rows}
+    <div class="row browse" style="margin:0 0 8px">
+      <input type="text" id="mb-q" class="grow" placeholder="Search models…" value="${esc(browseState.q || "")}" style="padding:6px 10px;font-size:12.5px">
+      ${[0, 4, 6, 8].map((v) => `<button class="chip ${browseState.vram === v ? "on" : ""}" data-vram="${v}">${v ? "≤ " + v + " GB" : "Any VRAM"}</button>`).join("")}
+      <button class="btn ghost small" id="mb-refresh" title="Fetch the latest curated list">↻ Check for new models</button>
+    </div>
+    ${rows || `<div class="small muted" style="padding:8px 0">No models match.</div>`}
     ${foot}
     <p class="small muted" style="margin:12px 0 0">One-time download per model; it's saved for next time. A tiny semantic-search model (~0.15 GB) is included automatically.</p>`;
 
+  const qEl = $("#mb-q", box);
+  qEl.oninput = () => { browseState.q = qEl.value; const pos = qEl.selectionStart; paintEnginePanel(); setTimeout(() => { const el = $("#mb-q"); if (el) { el.focus(); el.setSelectionRange(pos, pos); } }, 0); };
+  $$("[data-vram]", box).forEach((b) => b.onclick = () => { browseState.vram = +b.dataset.vram; paintEnginePanel(); });
+  $("#mb-refresh", box).onclick = async () => {
+    try { const c = await api.get("/catalog?refresh=1"); toast(`Catalog v${c.version} — ${c.chat_models.length} models`); paintEnginePanel(); }
+    catch (e) { toast("Couldn't refresh the catalog: " + e.message, true); }
+  };
   $$("[data-em]", box).forEach((b) => b.onclick = async () => {
     try { await api.post("/engine/setup", { model: b.dataset.em }); }
     catch (e) { toast(e.message, true); return; }
@@ -559,4 +577,61 @@ async function paintGit(body) {
     finally { $("#git-sync", body).disabled = false; }
   };
   if ($("#git-off", body)) $("#git-off", body).onclick = async () => { await api.post("/gitsync/configure", { dir: null }); paintGit(body); };
+}
+
+
+// ── Stats (Phase 7) ──────────────────────────────────────────────────────────
+// Single-series bars in the accent hue, values in text tokens, one axis per chart.
+
+let statsDays = 30;
+
+function sectionStats(box, s) {
+  const { body } = head(box, "stats", "Stats", false, () => sectionStats(box, s));
+  body.innerHTML = `<div class="center"><span class="spin"></span></div>`;
+  paintStats(body);
+}
+
+const fmtMs = (ms) => ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : ms + " ms";
+const fmtBytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.round(b / 1024) + " KB";
+const fmtInt = (n) => (n || 0).toLocaleString();
+
+function bars(rows, key, label, fmt = fmtInt) {
+  const max = Math.max(1, ...rows.map((r) => r[key] || 0));
+  return `<div class="bars">${rows.map((r) => `<div class="bar-row" title="${esc(label(r))}: ${esc(fmt(r[key] || 0))}">
+    <span class="bar-label">${esc(label(r))}</span>
+    <span class="bar-track"><i style="width:${Math.round(100 * (r[key] || 0) / max)}%"></i></span>
+    <span class="bar-val mono">${esc(fmt(r[key] || 0))}</span></div>`).join("")}</div>`;
+}
+
+async function paintStats(body) {
+  let st;
+  try { st = await api.get("/stats?days=" + statsDays); } catch (e) { body.innerHTML = `<div class="center">Couldn't load stats: ${esc(e.message)}</div>`; return; }
+  const range = [7, 30, 90].map((d) => `<button class="chip ${statsDays === d ? "on" : ""}" data-days="${d}">${d} days</button>`).join("");
+  const rate = st.success_rate == null ? "—" : Math.round(st.success_rate * 100) + "%";
+  const cost = st.providers.reduce((a, p) => a + (p.est_cost_usd || 0), 0);
+  body.innerHTML = `
+    <div class="row" style="margin:0 0 14px">${range}<div class="grow"></div><span class="small muted">Estimates use list prices from the catalog; local models cost nothing.</span></div>
+    <div class="tiles">
+      <div class="tile"><div class="tile-v mono">${fmtInt(st.calls)}</div><div class="tile-l">model calls</div></div>
+      <div class="tile"><div class="tile-v mono">${rate}</div><div class="tile-l">success rate</div></div>
+      <div class="tile"><div class="tile-v mono">$${cost.toFixed(2)}</div><div class="tile-l">est. cloud cost</div></div>
+      <div class="tile"><div class="tile-v mono">${fmtInt(st.total_dumps)}</div><div class="tile-l">dumps · ${fmtBytes(st.db_bytes)} vault</div></div>
+    </div>
+    <div class="card"><h2>Latency by stage <span class="small muted">(median · p90)</span></h2>
+      ${st.stages.length ? bars(st.stages, "median_ms", (r) => r.stage, fmtMs) : `<p class="small muted">No model calls in this window.</p>`}
+      ${st.stages.length ? `<table class="stat-table"><tr><th>stage</th><th>calls</th><th>ok</th><th>median</th><th>p90</th></tr>
+        ${st.stages.map((r) => `<tr><td>${esc(r.stage)}</td><td class="mono">${r.calls}</td><td class="mono">${Math.round(r.success_rate * 100)}%</td><td class="mono">${fmtMs(r.median_ms)}</td><td class="mono">${fmtMs(r.p90_ms)}</td></tr>`).join("")}</table>` : ""}
+    </div>
+    <div class="card"><h2>Tokens by provider</h2>
+      ${st.providers.length ? bars(st.providers, "prompt_tokens", (r) => `${r.provider}/${r.model}${r.local ? " (on-device)" : ""}`) : `<p class="small muted">Nothing yet.</p>`}
+      ${st.providers.length ? `<table class="stat-table"><tr><th>provider / model</th><th>calls</th><th>ok</th><th>in</th><th>out</th><th>median</th><th>est. cost</th></tr>
+        ${st.providers.map((r) => `<tr><td>${esc(r.provider)}/${esc(r.model)}</td><td class="mono">${r.calls}</td><td class="mono">${Math.round(r.success_rate * 100)}%</td><td class="mono">${fmtInt(r.prompt_tokens)}</td><td class="mono">${fmtInt(r.completion_tokens)}</td><td class="mono">${fmtMs(r.median_ms)}</td><td class="mono">${r.local ? "free" : r.est_cost_usd == null ? "—" : "$" + r.est_cost_usd.toFixed(3)}</td></tr>`).join("")}</table>` : ""}
+    </div>
+    <div class="card"><h2>Dumps per day</h2>
+      ${st.dumps_per_day.length ? bars(st.dumps_per_day.slice(-30), "dumps", (r) => r.date.slice(5)) : `<p class="small muted">No dumps in this window.</p>`}
+    </div>
+    <div class="card"><h2>Vault growth</h2>
+      ${st.growth.length ? bars(st.growth.slice(-30), "db_bytes", (r) => r.date.slice(5), fmtBytes) : `<p class="small muted">Sampled once a day at launch — check back tomorrow.</p>`}
+    </div>`;
+  $$("[data-days]", body).forEach((b) => b.onclick = () => { statsDays = +b.dataset.days; paintStats(body); });
 }
