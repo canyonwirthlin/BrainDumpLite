@@ -57,8 +57,10 @@ cargo metadata --format-version 1 --offline --filter-platform x86_64-pc-windows-
 Pop-Location
 Write-Host "  wrote version into version.py, index.html, tauri.conf.json, Cargo.toml/lock" -ForegroundColor DarkGray
 
-git add -A
-git commit -q -m "Release v$new"
+# -c core.safecrlf=false: git's CRLF warning goes to stderr, which PowerShell
+# turns into a terminating error under $ErrorActionPreference = 'Stop'.
+git -c core.safecrlf=false add -A
+git -c core.safecrlf=false commit -q -m "Release v$new"
 git tag -a "v$new" -m "Release v$new"   # annotated: --follow-tags only pushes annotated tags
 if ($NoPush) { Write-Host "  committed + tagged v$new (not pushed)" -ForegroundColor Yellow; return }
 git push --follow-tags
