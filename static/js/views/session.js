@@ -5,6 +5,7 @@ import { api } from "../api.js";
 import { state } from "../state.js";
 import { go } from "../router.js";
 import { toggleRecording } from "./capture.js";
+import { attach as attachWikilinks } from "../wikilinks.js";
 
 let pollTimer = null;
 
@@ -39,6 +40,7 @@ export async function render(ctx) {
       <div class="small muted" style="padding:14px 16px;border-top:1px solid var(--line);margin-top:auto">Ending the conversation runs the full pipeline on the whole transcript, so the final items may differ from this preview.</div>
     </aside></div>`;
   const ta = $("#sess-text");
+  attachWikilinks(ta);
   ta.focus();
   const send = () => sendMessage(sid, ta.value.trim());
   $("#sess-send").onclick = send;

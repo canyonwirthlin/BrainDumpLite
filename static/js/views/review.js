@@ -150,6 +150,7 @@ export function reviewHtml(d, { showBack = false, detail = false } = {}) {
       <p class="small" style="margin-top:10px;white-space:pre-wrap">${esc(d.raw_text)}</p></details>
     <div class="row">
       ${showBack ? `<a class="btn ghost" href="#history">← History</a>` : ""}
+      ${detail ? `<a class="btn ghost" href="/api/dumps/${d.id}/markdown" download title="Obsidian-compatible markdown with [[wikilinks]]">Export .md</a>` : ""}
       ${showBack || detail ? `<button class="btn danger" id="delete-dump">Delete</button>` : ""}
       <div class="grow"></div>
       ${detail ? "" : `<a class="btn" href="#capture">New dump →</a>`}

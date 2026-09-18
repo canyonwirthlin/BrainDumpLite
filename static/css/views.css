@@ -294,3 +294,13 @@ a.iconbtn.cal { text-decoration: none; }
 .today-items .mi.done span { text-decoration: line-through; color: var(--dim); }
 .card.quick .editor { min-height: 56px; box-shadow: none; }
 .resurface { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+
+
+/* ── Phase 6: wikilink popover, git log ───────────────────────────────────── */
+.wl-pop { position: fixed; z-index: 80; width: 280px; max-height: 210px; overflow: auto; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: var(--shadow); padding: 4px 0; font-size: 13px; }
+.wl-pop .o { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; }
+.wl-pop .o.on, .wl-pop .o:hover { background: var(--accent-soft); }
+.wl-pop .k { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); width: 54px; flex: none; }
+.wl-pop .k.person { color: #60a5fa; } .wl-pop .k.concept { color: var(--amber); } .wl-pop .k.new { color: var(--green); }
+.git-log { margin-top: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font: 11.5px var(--mono); white-space: pre-wrap; max-height: 220px; overflow: auto; }

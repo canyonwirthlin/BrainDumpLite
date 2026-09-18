@@ -1,6 +1,7 @@
 // Capture stage, processing progress and voice recording.
 import { $, $$, esc, toast, MODES, STAGES } from "../ui.js";
 import { go } from "../router.js";
+import { attach as attachWikilinks } from "../wikilinks.js";
 import { api } from "../api.js";
 import { state, clearPoll } from "../state.js";
 import { renderReview } from "./review.js";
@@ -41,6 +42,7 @@ export function render(ctx) {
     } catch (e) { toast(e.message, true); }
   };
   $("#dump-text").oninput = (e) => { state.draft = e.target.value; };
+  attachWikilinks($("#dump-text"));
   $("#dump-text").onkeydown = (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitDump(); }
   };

@@ -212,6 +212,32 @@ async function paintData(body) {
       </div>
     </div>
     <div class="card">
+      <h2>Markdown export &amp; import</h2>
+      <p class="small muted" style="margin-bottom:12px">Every dump as an Obsidian-compatible <code>.md</code> file — frontmatter, items as a task list, concepts and people as <code>[[wikilinks]]</code>. Import a folder of notes the same way; each file becomes a dump and goes through the pipeline.</p>
+      <div class="row" style="margin:0">
+        <a class="btn small" id="md-export" href="/api/export/markdown.zip?wikilinks=1" download>Export all as markdown</a>
+        <label class="sw" title="Render concepts/people as [[wikilinks]]"><input type="checkbox" id="md-wiki" checked><i></i> wikilinks</label>
+        <label class="btn ghost small">Import markdown files… <input type="file" id="md-import" accept=".md,.txt,text/markdown,text/plain" multiple hidden></label>
+        <span class="small muted" id="md-msg"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Vaults</h2>
+      <p class="small muted" style="margin-bottom:10px">Keep separate vaults (Work, Personal…) and switch between them. A vault in a Dropbox/OneDrive/Drive folder syncs by itself.</p>
+      <div id="vault-list"></div>
+      <div class="row" style="margin:10px 0 0">
+        <input type="text" id="pv-name" placeholder="Name" style="width:140px">
+        <button class="btn ghost small" id="pv-create">Create new…</button>
+        <button class="btn ghost small" id="pv-add">Add existing…</button>
+        <span class="small muted" id="pv-msg"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Git mirror</h2>
+      <p class="small muted" style="margin-bottom:10px">Point at a folder that is a git repository you own. "Sync now" writes every dump as markdown plus a backup zip into it, commits, and pushes — readable version history for free.</p>
+      <div id="git-panel"><span class="spin"></span></div>
+    </div>
+    <div class="card">
       <h2>App lock</h2>
       <p class="small muted" style="margin-bottom:12px">${state.status.lock_set
         ? "A passphrase is set. The app locks at launch and after 10 minutes idle. There is no recovery if you forget it."
@@ -257,6 +283,21 @@ async function paintData(body) {
     if (!confirm("Switch back to the default vault location? The copy in the custom folder stays where it is.")) return;
     try { await api.post("/vault/reset"); await refreshStatus(); paintData(body); } catch (e) { toast(e.message, true); }
   };
+  // markdown export / import
+  $("#md-wiki", body).onchange = (e) => { $("#md-export", body).href = "/api/export/markdown.zip?wikilinks=" + (e.target.checked ? 1 : 0); };
+  $("#md-import", body).onchange = async (e) => {
+    const files = [...e.target.files]; if (!files.length) return;
+    const fd = new FormData(); files.forEach((f) => fd.append("files", f));
+    const m = (t, bad) => { const el = $("#md-msg", body); el.textContent = t; el.className = "small " + (bad ? "bad" : "muted"); };
+    m(`Importing ${files.length} file${files.length === 1 ? "" : "s"}…`);
+    try {
+      const r = await api.post("/import/markdown", fd);
+      m(`Imported ${r.imported}, skipped ${r.skipped}. Processing in the background — watch History.`);
+    } catch (err) { m(err.message, true); }
+    e.target.value = "";
+  };
+  paintVaults(body);
+  paintGit(body);
   const lkmsg = (m, bad) => { const el = $("#lk-msg", body); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
   if ($("#lk-set", body)) $("#lk-set", body).onclick = async () => {
     try { await api.post("/lock/set", { passphrase: $("#lk-new", body).value }); await refreshStatus(); paintData(body); toast("App lock set"); }
@@ -445,4 +486,77 @@ async function paintTypesEditor(box) {
     try { await api.post("/item-types", { label, hint: $(".t-new-hint", box).value.trim() }); await paintTypesEditor(box); toast(`Added "${label}" — the AI will look for it from the next dump on.`); }
     catch (e) { msg(e.message, true); }
   };
+}
+
+
+// ── Vault profiles (Phase 6) ─────────────────────────────────────────────────
+
+async function pickFolder(promptText, fallback) {
+  if (native && native.dialog) {
+    try { return await native.dialog.open({ directory: true, multiple: false, title: promptText }); }
+    catch (e) { toast("Couldn't open the folder picker: " + (e.message || e), true); return null; }
+  }
+  return prompt(promptText, fallback || "");
+}
+
+async function paintVaults(body) {
+  const box = $("#vault-list", body); if (!box) return;
+  let list;
+  try { list = await api.get("/profiles"); } catch (e) { box.innerHTML = `<span class="small bad">${esc(e.message)}</span>`; return; }
+  box.innerHTML = list.map((p) => `<div class="type-row">
+      <b style="width:140px">${esc(p.name)}${p.active ? ` <span class="tag">active</span>` : ""}</b>
+      <span class="small muted grow" style="font-family:var(--mono)">${esc(p.dir)}${p.exists === false ? " (no vault yet)" : ""}</span>
+      ${p.active ? "" : `<button class="btn ghost small" data-switch="${esc(p.name)}">Switch</button>`}
+      ${p.default || p.active ? "" : `<button class="iconbtn no" title="Forget (files stay)" data-forget="${esc(p.name)}">✕</button>`}
+    </div>`).join("");
+  const msg = (m, bad) => { const el = $("#pv-msg", body); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
+  $$("[data-switch]", box).forEach((b) => b.onclick = async () => {
+    if (!confirm(`Switch to the "${b.dataset.switch}" vault? The app reloads.`)) return;
+    try { await api.post("/profiles/switch", { name: b.dataset.switch }); location.reload(); } catch (e) { msg(e.message, true); }
+  });
+  $$("[data-forget]", box).forEach((b) => b.onclick = async () => {
+    try { await api.post("/profiles/remove", { name: b.dataset.forget }); paintVaults(body); } catch (e) { msg(e.message, true); }
+  });
+  const nameOf = () => $("#pv-name", body).value.trim();
+  $("#pv-create", body).onclick = async () => {
+    const name = nameOf(); if (!name) { msg("Give the vault a name first.", true); return; }
+    const dir = await pickFolder("Choose an empty folder for the new vault"); if (!dir) return;
+    try { await api.post("/profiles/create", { name, dir }); $("#pv-name", body).value = ""; msg(`Created "${name}". Switch to it when you're ready.`); paintVaults(body); }
+    catch (e) { msg(e.message, true); }
+  };
+  $("#pv-add", body).onclick = async () => {
+    const name = nameOf(); if (!name) { msg("Give the vault a name first.", true); return; }
+    const dir = await pickFolder("Choose a folder that already contains braindump.db"); if (!dir) return;
+    try { await api.post("/profiles/add", { name, dir }); $("#pv-name", body).value = ""; msg(`Added "${name}".`); paintVaults(body); }
+    catch (e) { msg(e.message, true); }
+  };
+}
+
+// ── Git mirror (Phase 6) ─────────────────────────────────────────────────────
+
+async function paintGit(body) {
+  const box = $("#git-panel", body); if (!box) return;
+  let g;
+  try { g = await api.get("/gitsync"); } catch (e) { box.innerHTML = `<span class="small bad">${esc(e.message)}</span>`; return; }
+  if (!g.git_available) { box.innerHTML = `<p class="small muted">git isn't installed (or not on PATH). Install it from git-scm.com to use the mirror.</p>`; return; }
+  box.innerHTML = `
+    <div class="row" style="margin:0">
+      <span class="small muted grow" style="font-family:var(--mono)">${g.configured ? esc(g.dir) : "No repository chosen"}</span>
+      <button class="btn ghost small" id="git-pick">${g.configured ? "Change folder…" : "Choose repository…"}</button>
+      ${g.configured ? `<button class="btn small" id="git-sync">Sync now</button><button class="btn ghost small" id="git-off">Disconnect</button>` : ""}
+    </div>
+    ${g.last_sync ? `<div class="small muted" style="margin-top:8px">Last sync ${esc(new Date(g.last_sync).toLocaleString())}</div>` : ""}
+    <pre class="git-log" id="git-log" ${g.last_log ? "" : "hidden"}>${esc(g.last_log || "")}</pre>`;
+  const showLog = (t) => { const el = $("#git-log", body); el.hidden = false; el.textContent = t; };
+  $("#git-pick", body).onclick = async () => {
+    const dir = await pickFolder("Choose a folder that is a git repository", g.dir); if (!dir) return;
+    try { await api.post("/gitsync/configure", { dir }); paintGit(body); } catch (e) { toast(e.message, true); }
+  };
+  if ($("#git-sync", body)) $("#git-sync", body).onclick = async () => {
+    $("#git-sync", body).disabled = true; showLog("Syncing…");
+    try { const r = await api.post("/gitsync/now", {}); showLog(r.log); toast(r.pushed === false ? "Committed, but push failed — see the log" : "Synced"); }
+    catch (e) { showLog(e.message); }
+    finally { $("#git-sync", body).disabled = false; }
+  };
+  if ($("#git-off", body)) $("#git-off", body).onclick = async () => { await api.post("/gitsync/configure", { dir: null }); paintGit(body); };
 }

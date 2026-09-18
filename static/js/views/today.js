@@ -4,6 +4,7 @@ import { $, $$, esc, toast, kindBadge, timeChips, toneChip, trustBadge, MODES, t
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { go } from "../router.js";
+import { attach as attachWikilinks } from "../wikilinks.js";
 
 const shift = (day, n) => { const d = new Date(day + "T12:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 
@@ -19,6 +20,7 @@ export async function render(ctx) {
     <div id="today-list" class="center">Loading…</div>`;
   if (isToday) {
     const ta = $("#quick-text");
+    attachWikilinks(ta);
     const save = async () => {
       const text = ta.value.trim(); if (!text) return;
       $("#quick-go").disabled = true;
