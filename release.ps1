@@ -57,7 +57,7 @@ Write-Host "  wrote version into version.py, index.html, tauri.conf.json, Cargo.
 
 git add -A
 git commit -q -m "Release v$new"
-git tag "v$new"
+git tag -a "v$new" -m "Release v$new"   # annotated: --follow-tags only pushes annotated tags
 if ($NoPush) { Write-Host "  committed + tagged v$new (not pushed)" -ForegroundColor Yellow; return }
 git push --follow-tags
 Write-Host ""
