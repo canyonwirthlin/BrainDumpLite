@@ -1,58 +1,6 @@
 /* BrainDump Lite — themeable via CSS variables. JS sets data-theme on <html>.
    Perf budget: no webfonts, no images, backdrop-filter on the header only,
    animations are one-shot or tiny; ambient glows are a single static layer. */
-:root, :root[data-theme="midnight"] {
-  --bg: #0d1017;
-  --panel: #151b28;
-  --panel-2: #1b2334;
-  --line: #263049;
-  --text: #e6e9f2;
-  --dim: #8b93a8;
-  --accent: #8b7cf6;
-  --accent-2: #5ea2f7;
-  --accent-soft: rgba(139, 124, 246, .16);
-  --green: #4ade80;
-  --red: #f87171;
-  --amber: #fbbf24;
-  --shadow: 0 6px 24px rgba(0, 0, 0, .25);
-  --radius: 16px;
-  color-scheme: dark;
-}
-:root[data-theme="ocean"] {
-  --bg: #0a121f; --panel: #101a2b; --panel-2: #16233a; --line: #23344f;
-  --text: #e2ecf7; --dim: #85929f;
-  --accent: #38bdf8; --accent-2: #34d399; --accent-soft: rgba(56, 189, 248, .15);
-  color-scheme: dark;
-}
-:root[data-theme="forest"] {
-  --bg: #0c1210; --panel: #121b17; --panel-2: #18251f; --line: #24382e;
-  --text: #e4efe8; --dim: #86988d;
-  --accent: #4ade80; --accent-2: #a3e635; --accent-soft: rgba(74, 222, 128, .13);
-  color-scheme: dark;
-}
-:root[data-theme="ember"] {
-  --bg: #16100e; --panel: #201613; --panel-2: #2a1c18; --line: #402c25;
-  --text: #f2e8e3; --dim: #a3908a;
-  --accent: #fb923c; --accent-2: #f43f5e; --accent-soft: rgba(251, 146, 60, .15);
-  color-scheme: dark;
-}
-:root[data-theme="paper"] {
-  --bg: #f4f5f9; --panel: #ffffff; --panel-2: #eceef5; --line: #d9dded;
-  --text: #1c2130; --dim: #626b81;
-  --accent: #6d5ce6; --accent-2: #2f7de1; --accent-soft: rgba(109, 92, 230, .12);
-  --green: #15803d; --red: #dc2626; --amber: #b45309;
-  --shadow: 0 4px 16px rgba(30, 35, 60, .08);
-  color-scheme: light;
-}
-:root[data-theme="sakura"] {
-  --bg: #faf3f5; --panel: #ffffff; --panel-2: #f5e6eb; --line: #e9d2db;
-  --text: #2e2027; --dim: #826a75;
-  --accent: #d6488f; --accent-2: #9b5de5; --accent-soft: rgba(214, 72, 143, .12);
-  --green: #15803d; --red: #dc2626; --amber: #b45309;
-  --shadow: 0 4px 16px rgba(90, 40, 70, .08);
-  color-scheme: light;
-}
-
 * { box-sizing: border-box; margin: 0; }
 * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -61,7 +9,7 @@
 
 body {
   background: var(--bg); color: var(--text);
-  font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+  font: var(--fs)/1.55 var(--font);
   min-height: 100vh;
   transition: background .25s, color .25s;
 }

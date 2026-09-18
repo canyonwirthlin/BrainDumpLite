@@ -3,21 +3,7 @@ import { $, $$, esc, toast } from "../ui.js";
 import { api } from "../api.js";
 import { state, clearPoll, refreshStatus } from "../state.js";
 import { native, showWhatsNew, checkForUpdates } from "../native.js";
-
-const THEMES = [
-  { id: "midnight", label: "Midnight", sw: ["#0d1017", "#151b28", "#8b7cf6"] },
-  { id: "ocean", label: "Ocean", sw: ["#0a121f", "#101a2b", "#38bdf8"] },
-  { id: "forest", label: "Forest", sw: ["#0c1210", "#121b17", "#4ade80"] },
-  { id: "ember", label: "Ember", sw: ["#16100e", "#201613", "#fb923c"] },
-  { id: "paper", label: "Paper", sw: ["#f4f5f9", "#ffffff", "#6d5ce6"] },
-  { id: "sakura", label: "Sakura", sw: ["#faf3f5", "#ffffff", "#d6488f"] },
-];
-
-function setTheme(id) {
-  document.documentElement.dataset.theme = id;
-  try { localStorage.setItem("bdl-theme", id); } catch {}
-}
-const curTheme = () => document.documentElement.dataset.theme || "midnight";
+import { setActive, importTheme, deleteTheme, exportUrl, BUILTIN_IDS } from "../theme.js";
 
 const PROVIDER_META = [
   { id: "builtin", name: "Built-in", desc: "Free · runs on this PC", help: "Runs a small AI model directly on this computer — GPU-accelerated, no account, no cost, and nothing you write ever leaves your machine. One-time model download (2–5 GB), then it works offline." },
@@ -37,10 +23,16 @@ export async function render(ctx) {
       <h1>Settings</h1>
       <p class="sub">Make it yours — theme, AI provider, voice.</p>
       <h2>Appearance</h2>
-      <div class="themes" style="margin-bottom:24px">${THEMES.map((t) => `
-        <button class="theme-swatch ${t.id === curTheme() ? "active" : ""}" data-theme="${t.id}">
-          <div class="sw">${t.sw.map((c) => `<i style="background:${c}"></i>`).join("")}</div>
-          <span>${t.label}</span></button>`).join("")}
+      <div class="themes" style="margin-bottom:12px">${state.themes.map((t) => `
+        <button class="theme-swatch ${t.id === state.activeTheme ? "active" : ""}" data-theme="${t.id}" title="${esc(t.name)}">
+          <div class="sw"><i style="background:${t.colors.bg}"></i><i style="background:${t.colors.panel}"></i><i style="background:${t.colors.accent}"></i></div>
+          <span>${esc(t.name)}</span></button>`).join("")}
+      </div>
+      <div class="row" style="margin:0 0 24px">
+        <label class="btn ghost small">Import theme… <input type="file" id="theme-file" accept=".json,application/json" hidden></label>
+        <a class="btn ghost small" href="${exportUrl(state.activeTheme)}" download>Export current</a>
+        ${BUILTIN_IDS.includes(state.activeTheme) ? "" : `<button class="btn danger small" id="theme-del">Delete current</button>`}
+        <span class="small muted" id="theme-msg"></span>
       </div>
       <h2>AI provider</h2>
       <p class="small muted" style="margin-bottom:12px">Your dumps only ever go to the provider you choose.</p>
@@ -85,10 +77,13 @@ export async function render(ctx) {
         </div>
       </div>
       <p class="small muted">Data lives in <code>${esc(state.status.data_dir || "")}</code> — delete that folder to wipe everything.</p>`;
-    $$(".theme-swatch").forEach((b) => b.onclick = () => {
-      setTheme(b.dataset.theme);
-      $$(".theme-swatch").forEach((x) => x.classList.toggle("active", x === b));
-    });
+    $$(".theme-swatch").forEach((b) => b.onclick = async () => { await setActive(b.dataset.theme); paint(); });
+    $("#theme-file").onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { const t = await importTheme(f); await setActive(t.id); paint(); toast(`Imported "${t.name}"`); }
+      catch (err) { $("#theme-msg").textContent = err.message; }
+    };
+    if ($("#theme-del")) $("#theme-del").onclick = async () => { await deleteTheme(state.activeTheme); await setActive("midnight"); paint(); };
     $$(".provider").forEach((b) => b.onclick = async () => {
       clearPoll();  // engine-panel poll
       s.provider = b.dataset.p;

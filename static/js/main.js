@@ -3,6 +3,7 @@ import { refreshStatus, state, on } from "./state.js";
 import { $, PROVIDER_NAMES } from "./ui.js";
 import { register, start } from "./router.js";
 import { initNative, maybeShowWhatsNew, checkForUpdates } from "./native.js";
+import { loadThemes, restorePrefs } from "./theme.js";
 import * as capture from "./views/capture.js";
 import * as history from "./views/history.js";
 import * as tasks from "./views/tasks.js";
@@ -28,8 +29,10 @@ on("status", (status) => {
 });
 on("route", ({ name }) => document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.dataset.v === name)));
 
+restorePrefs();
 (async () => {
   await refreshStatus();
+  await loadThemes();
   initNative();
   start();
   maybeShowWhatsNew();

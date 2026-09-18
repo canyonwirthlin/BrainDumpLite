@@ -5,9 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BrainDump Lite</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+<link rel="stylesheet" href="css/tokens.css?v=0.5.0">
 <script>
-/* Apply saved theme before first paint — no flash of wrong colors. */
-try { document.documentElement.dataset.theme = localStorage.getItem("bdl-theme") || "midnight"; } catch (e) {}
+/* Re-apply the cached theme + prefs before first paint — no flash of Midnight. */
+try {
+  var r = document.documentElement, c = JSON.parse(localStorage.getItem("bdl-theme-css") || "null");
+  if (c) { for (var k in c.vars) r.style.setProperty(k, c.vars[k]); r.dataset.theme = c.id; r.style.colorScheme = c.scheme; }
+  r.dataset.density = localStorage.getItem("bdl-density") || "comfortable";
+  r.dataset.motion = localStorage.getItem("bdl-motion") || "auto";
+} catch (e) {}
 </script>
 <link rel="stylesheet" href="style.css?v=0.5.0">
 </head>

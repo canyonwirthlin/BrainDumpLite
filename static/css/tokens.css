@@ -1,0 +1,30 @@
+/* Design tokens. Values here are the Midnight defaults; the active theme
+   overrides them as inline custom properties on <html> (see js/theme.js). */
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("../fonts/InterVariable.woff2") format("woff2");
+}
+:root {
+  --bg: #0d1017; --rail: #0a0d13; --panel: #151b28; --panel-2: #1b2334; --line: #263049;
+  --text: #e6e9f2; --dim: #8b93a8;
+  --accent: #8b7cf6; --accent-2: #5ea2f7; --accent-soft: rgba(139, 124, 246, .16);
+  --green: #4ade80; --red: #f87171; --amber: #fbbf24;
+  --radius: 12px; --radius-lg: 14px;
+  --shadow: 0 6px 24px rgba(0, 0, 0, .25);
+  --sp: 8px;                      /* spacing unit */
+  --fs: 14px;                     /* base font size */
+  --row-pad: 12px;
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, Consolas, "Cascadia Mono", monospace;
+  --ease: 150ms ease;
+  color-scheme: dark;
+}
+:root[data-density="compact"] { --sp: 6px; --fs: 13px; --row-pad: 8px; }
+:root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after {
+  animation: none !important; transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="auto"]) *, :root:not([data-motion="auto"]) *::before, :root:not([data-motion="auto"]) *::after {
+    animation: none !important; transition: none !important;
+  }
+}
