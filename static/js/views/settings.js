@@ -5,6 +5,7 @@ import { api } from "../api.js";
 import { state, clearPoll, refreshStatus, loadTypes } from "../state.js";
 import { native, showWhatsNew, checkForUpdates } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
+import { lockNow } from "../shell.js";
 
 const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["about", "About"]];
 const advOn = (s) => { try { return localStorage.getItem("bdl-adv-" + s) === "1"; } catch { return false; } };
@@ -209,7 +210,28 @@ async function paintData(body) {
         <label class="btn ghost small">Restore from backup… <input type="file" id="restore-file" accept=".zip,application/zip" hidden></label>
         <span class="small muted" id="data-msg"></span>
       </div>
-    </div>`;
+    </div>
+    <div class="card">
+      <h2>App lock</h2>
+      <p class="small muted" style="margin-bottom:12px">${state.status.lock_set
+        ? "A passphrase is set. The app locks at launch and after 10 minutes idle. There is no recovery if you forget it."
+        : "Optional. Ask for a passphrase at launch and after 10 minutes idle — handy if Therapy conversations get personal. No recovery if you forget it."}</p>
+      <div class="row" style="margin:0;gap:8px">
+        ${state.status.lock_set ? `
+          <input type="password" id="lk-cur" placeholder="Current passphrase" style="width:170px">
+          <input type="password" id="lk-new" placeholder="New passphrase" style="width:170px">
+          <button class="btn ghost small" id="lk-change">Change</button>
+          <button class="btn danger small" id="lk-remove">Remove lock</button>
+          <button class="btn ghost small" id="lk-now">Lock now</button>`
+        : `<input type="password" id="lk-new" placeholder="Choose a passphrase (4+ chars)" style="width:240px">
+          <button class="btn small" id="lk-set">Set passphrase</button>`}
+        <span class="small muted" id="lk-msg"></span>
+      </div>
+    </div>
+    ${native ? `<div class="card">
+      <h2>Notifications</h2>
+      <label class="sw" style="font-size:13.5px;color:var(--text)"><input type="checkbox" id="nudge-on" ${localStorage.getItem("bdl-nudge") === "1" ? "checked" : ""}><i></i> Nudge me when I haven't captured anything for 3 days</label>
+    </div>` : ""}`;
   const msg = (m, bad) => { const el = $("#data-msg", body); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
   $("#reveal", body).onclick = async () => {
     if (native) { try { await native.opener.revealItemInDir(v.db_path); } catch (e) { toast("Couldn't open Explorer: " + (e.message || e), true); } }
@@ -234,6 +256,26 @@ async function paintData(body) {
   if ($("#vault-reset", body)) $("#vault-reset", body).onclick = async () => {
     if (!confirm("Switch back to the default vault location? The copy in the custom folder stays where it is.")) return;
     try { await api.post("/vault/reset"); await refreshStatus(); paintData(body); } catch (e) { toast(e.message, true); }
+  };
+  const lkmsg = (m, bad) => { const el = $("#lk-msg", body); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
+  if ($("#lk-set", body)) $("#lk-set", body).onclick = async () => {
+    try { await api.post("/lock/set", { passphrase: $("#lk-new", body).value }); await refreshStatus(); paintData(body); toast("App lock set"); }
+    catch (e) { lkmsg(e.message, true); }
+  };
+  if ($("#lk-change", body)) $("#lk-change", body).onclick = async () => {
+    try { await api.post("/lock/set", { passphrase: $("#lk-new", body).value, current: $("#lk-cur", body).value }); lkmsg("Passphrase changed."); $("#lk-cur", body).value = $("#lk-new", body).value = ""; }
+    catch (e) { lkmsg(e.message, true); }
+  };
+  if ($("#lk-remove", body)) $("#lk-remove", body).onclick = async () => {
+    try { await api.post("/lock/clear", { passphrase: $("#lk-cur", body).value }); await refreshStatus(); paintData(body); toast("App lock removed"); }
+    catch (e) { lkmsg(e.message, true); }
+  };
+  if ($("#lk-now", body)) $("#lk-now", body).onclick = () => lockNow();
+  if ($("#nudge-on", body)) $("#nudge-on", body).onchange = async (e) => {
+    try { localStorage.setItem("bdl-nudge", e.target.checked ? "1" : "0"); } catch {}
+    if (e.target.checked && native?.notification) {
+      try { if (!(await native.notification.isPermissionGranted())) await native.notification.requestPermission(); } catch {}
+    }
   };
   $("#restore-file", body).onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;

@@ -100,3 +100,25 @@ export function initNative() {
   });
   $("#update-pill").onclick = showUpdateModal;
 }
+
+
+// ── Idle nudge (Phase 4): one native notification per launch when nothing was
+// captured for 3 days and the user opted in (Settings → Data → Notifications).
+export async function maybeNudge() {
+  if (!native?.notification) return;
+  let on = false;
+  try { on = localStorage.getItem("bdl-nudge") === "1"; } catch {}
+  if (!on) return;
+  const last = state.status.last_dump_at ? new Date(state.status.last_dump_at) : null;
+  const days = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : null;
+  if (days !== null && days < 3) return;
+  try {
+    let ok = await native.notification.isPermissionGranted();
+    if (!ok) ok = (await native.notification.requestPermission()) === "granted";
+    if (!ok) return;
+    native.notification.sendNotification({
+      title: "BrainDump Lite",
+      body: days === null ? "Nothing captured yet — anything on your mind?" : `It's been ${days} days — anything on your mind?`,
+    });
+  } catch (e) { console.warn("nudge failed", e); }
+}
