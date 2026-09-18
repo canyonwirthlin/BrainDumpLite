@@ -41,6 +41,7 @@ class SettingsIn(BaseModel):
     model: str | None = None
     embed_model: str | None = None
     whisper_model: str | None = None
+    tools_in_chat: bool | None = None
 
 
 class ReflectIn(BaseModel):
@@ -1105,11 +1106,14 @@ def transcribe_audio(file: UploadFile = File(...)):
 def get_settings():
     c = ai.config()
     return {**c, "whisper_model": db.get_setting("whisper_model", "base"),
+            "tools_in_chat": bool(db.get_setting("tools_in_chat", False)),
             "defaults": ai.DEFAULTS}
 
 
 @router.put("/settings")
 def put_settings(body: SettingsIn):
+    if body.tools_in_chat is not None:
+        db.set_setting("tools_in_chat", bool(body.tools_in_chat))
     if body.provider is not None:
         if body.provider not in ("builtin", "anthropic", "openai", "gemini", "local", "off"):
             raise HTTPException(400, "Bad provider")

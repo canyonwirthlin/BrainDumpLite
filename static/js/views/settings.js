@@ -1,13 +1,14 @@
 // Settings: sectioned (Appearance, AI, Voice, Data, About) with a per-section
 // "Advanced" switch — the standing progressive-disclosure rule for every settings screen.
-import { $, $$, esc, toast, colorCss } from "../ui.js";
+import { $, $$, esc, toast, modal, colorCss } from "../ui.js";
 import { api } from "../api.js";
 import { state, clearPoll, refreshStatus, loadTypes } from "../state.js";
 import { native, openExternal, showWhatsNew, checkForUpdates } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
 import { lockNow } from "../shell.js";
+import { runTool, MODE_LABEL } from "../tools.js";
 
-const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["stats", "Stats"], ["about", "About"]];
+const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["stats", "Stats"], ["about", "About"]];
 const advOn = (s) => { try { return localStorage.getItem("bdl-adv-" + s) === "1"; } catch { return false; } };
 const setAdv = (s, v) => { try { localStorage.setItem("bdl-adv-" + s, v ? "1" : "0"); } catch {} };
 
@@ -20,7 +21,7 @@ export async function render(ctx) {
     <div class="detail body" id="sec"><div class="center">Loading…</div></div></div>`;
   let s;
   try { s = await api.get("/settings"); } catch (e) { $("#sec").innerHTML = `<div class="center">Couldn't load settings: ${esc(e.message)}</div>`; return; }
-  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, integrations: sectionIntegrations, stats: sectionStats, about: sectionAbout }[section];
+  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, integrations: sectionIntegrations, extend: sectionExtend, stats: sectionStats, about: sectionAbout }[section];
   paint($("#sec"), s);
 }
 
@@ -692,4 +693,152 @@ async function sectionIntegrations(box, s) {
     catch (e) { toast(e.message, true); b.disabled = false; }
   });
   $("#td-off", body)?.addEventListener("click", async () => { await api.put("/integrations/todoist", { token: "" }); toast("Disconnected"); again(); });
+}
+
+// ── Plugins & MCP (Phase 9) ──────────────────────────────────────────────────
+async function sectionExtend(box, s) {
+  const { on, body } = head(box, "extend", "Plugins & MCP", true, () => sectionExtend(box, s));
+  body.innerHTML = `<div class="center">Loading…</div>`;
+  let servers = [], plugins = [], examples = [], folder = "";
+  try {
+    [servers, plugins, examples, folder] = await Promise.all([
+      api.get("/mcp/servers"), api.get("/plugins"), api.get("/plugins/examples").catch(() => []),
+      api.get("/plugins/folder").then((r) => r.path).catch(() => ""),
+    ]);
+  } catch (e) { body.innerHTML = `<div class="center">${esc(e.message)}</div>`; return; }
+  const again = () => sectionExtend(box, s);
+  const installed = new Set(plugins.map((p) => p.id));
+
+  body.innerHTML = `
+    <div class="sec" style="margin-top:0">MCP servers</div>
+    <p class="small muted">Connect a Model Context Protocol server and its tools show up here. Paste the same
+      <code>mcpServers</code> block you would give any other desktop client. Servers run as programs on this
+      machine with your permissions.</p>
+    ${servers.length ? `<div class="card">${servers.map(serverRow).join("")}</div>` : ""}
+    <div class="card">
+      <div class="sec" style="margin-top:0">Add a server</div>
+      <textarea id="mcp-cfg" class="editor" rows="5" spellcheck="false" placeholder='{ "mcpServers": { "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:/Notes"] } } }'></textarea>
+      <div class="row"><div class="grow"></div><button class="btn small" id="mcp-add">Add</button></div>
+    </div>
+    ${on ? `<div class="card">
+      <div class="sec" style="margin-top:0">Tools in chat</div>
+      <div class="row" style="margin:0">
+        <div class="grow small muted">After each reply in a conversation, let the AI propose one tool call.
+          You confirm every call unless its tool is set to “AI may run”. Off by default — small local models propose poorly.</div>
+        <label class="sw"><input type="checkbox" id="tools-chat" ${s.tools_in_chat ? "checked" : ""}><i></i></label>
+      </div></div>` : ""}
+
+    <div class="sec">Plugins</div>
+    <p class="small muted">Plugins are folders of Python that run <b>inside the app with your permissions</b>, like a
+      code-editor extension. Only enable code you trust. <a href="#" id="plug-docs">How to write one</a>.</p>
+    ${plugins.length ? `<div class="card">${plugins.map(pluginRow).join("")}</div>`
+      : `<div class="card small muted">No plugins installed yet.</div>`}
+    ${examples.filter((e) => !installed.has(e.id)).length ? `<div class="card">
+      <div class="sec" style="margin-top:0">Included examples</div>
+      ${examples.filter((e) => !installed.has(e.id)).map((e) => `<div class="row" style="margin:6px 0">
+        <div class="grow"><b>${esc(e.name)}</b> <span class="small muted">${esc(e.description)}</span></div>
+        <button class="btn ghost small" data-example="${esc(e.path)}">Install</button></div>`).join("")}</div>` : ""}
+    <div class="row">
+      <input type="text" id="plug-path" class="grow" placeholder="Path to a plugin folder or .zip">
+      <button class="btn ghost small" id="plug-install">Install</button>
+      <button class="btn ghost small" id="plug-reload">Reload all</button>
+    </div>
+    ${folder ? `<p class="small muted" style="margin-top:8px">Plugins folder: <code>${esc(folder)}</code></p>` : ""}`;
+
+  $("#mcp-add", body).onclick = async () => {
+    const t = $("#mcp-cfg", body).value.trim();
+    if (!t) return;
+    try { const r = await api.post("/mcp/servers", { config: t }); toast(`Added ${r.added.join(", ")}`); again(); }
+    catch (e) { toast(e.message, true); }
+  };
+  if ($("#tools-chat", body)) $("#tools-chat", body).onchange = async (e) => {
+    await api.put("/settings", { tools_in_chat: e.target.checked });
+    toast(e.target.checked ? "The AI may propose tool calls in conversations" : "Tools in chat off");
+  };
+  $("#plug-docs", body).onclick = (e) => { e.preventDefault(); openExternal("https://github.com/canyonwirthlin/BrainDumpLite/blob/master/docs/plugins.md"); };
+  $$("[data-example]", body).forEach((b) => b.onclick = () => installPlugin(b.dataset.example, again));
+  $("#plug-install", body).onclick = () => installPlugin($("#plug-path", body).value.trim(), again);
+  $("#plug-reload", body).onclick = async () => { await api.post("/plugins/reload"); toast("Plugins reloaded"); again(); };
+
+  $$("[data-srv]", body).forEach((el) => {
+    const name = el.dataset.srv;
+    const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg); again(); } catch (e) { toast(e.message, true); } };
+    $(".srv-start", el)?.addEventListener("click", () => act(() => api.post(`/mcp/servers/${encodeURIComponent(name)}/start`), "Started"));
+    $(".srv-stop", el)?.addEventListener("click", () => act(() => api.post(`/mcp/servers/${encodeURIComponent(name)}/stop`), "Stopped"));
+    $(".srv-enable", el)?.addEventListener("change", (e) => act(() => api.put(`/mcp/servers/${encodeURIComponent(name)}/enabled`, { enabled: e.target.checked })));
+    $(".srv-remove", el)?.addEventListener("click", () => {
+      if (confirm(`Remove '${name}'? Its tools disappear from the app; the program itself is untouched.`)) act(() => api.del("/mcp/servers/" + encodeURIComponent(name)), "Removed");
+    });
+    $$("[data-tool]", el).forEach((row) => {
+      const tool = servers.find((x) => x.name === name).tools.find((t) => t.name === row.dataset.tool);
+      $(".t-run", row).onclick = () => runTool({ ...tool, server: name });
+      $(".t-mode", row).onchange = async (e) => {
+        try { await api.put(`/mcp/tools/${encodeURIComponent(name)}/${encodeURIComponent(tool.name)}/mode`, { mode: e.target.value }); }
+        catch (err) { toast(err.message, true); }
+      };
+    });
+  });
+
+  $$("[data-plug]", body).forEach((el) => {
+    const pid = el.dataset.plug;
+    $(".p-enable", el).onchange = async (e) => {
+      if (e.target.checked && !confirm(`Enable '${pid}'?\n\nIt runs inside BrainDump Lite with your permissions and is not sandboxed.`)) { e.target.checked = false; return; }
+      try { await api.put(`/plugins/${encodeURIComponent(pid)}/enabled`, { enabled: e.target.checked }); again(); }
+      catch (err) { toast(err.message, true); }
+    };
+    $(".p-remove", el).onclick = async () => {
+      if (!confirm(`Delete the '${pid}' folder from your plugins directory?`)) return;
+      await api.del("/plugins/" + encodeURIComponent(pid)); toast("Removed"); again();
+    };
+    $$("[data-act]", el).forEach((b) => b.onclick = async () => {
+      try { const r = await api.post(`/plugins/${encodeURIComponent(pid)}/actions/${encodeURIComponent(b.dataset.act)}`, { args: {} });
+        modal(`<h2>${esc(b.textContent)}</h2><pre class="toolout">${esc(JSON.stringify(r, null, 2))}</pre>`);
+      } catch (e) { toast(e.message, true); }
+    });
+  });
+}
+
+async function installPlugin(path, again) {
+  if (!path) return toast("Give a folder or .zip path first", true);
+  try { const r = await api.post("/plugins/install", { path }); toast(`Installed ${r.name} — enable it to run it`); again(); }
+  catch (e) { toast(e.message, true); }
+}
+
+function serverRow(s) {
+  const dot = s.error ? "bad" : s.running ? "on" : "";
+  return `<div class="srv" data-srv="${esc(s.name)}">
+    <div class="row" style="margin:0">
+      <span class="dot ${dot}" title="${s.error ? "error" : s.running ? "running" : "stopped"}"></span>
+      <div class="grow"><b>${esc(s.name)}</b>
+        <div class="small muted mono">${esc(s.command)} ${esc((s.args || []).join(" ")).slice(0, 90)}</div>
+        ${s.error ? `<div class="small bad">${esc(s.error).slice(0, 200)}</div>` : ""}
+        ${s.env_keys.length ? `<div class="small muted">env: ${s.env_keys.map(esc).join(", ")}</div>` : ""}</div>
+      <label class="sw" title="Enabled"><input type="checkbox" class="srv-enable" ${s.enabled ? "checked" : ""}><i></i></label>
+      ${s.running ? `<button class="btn ghost small srv-stop">Stop</button>` : `<button class="btn ghost small srv-start">Start</button>`}
+      <button class="iconbtn srv-remove" title="Remove">✕</button>
+    </div>
+    ${s.tools.length ? `<div class="tools">${s.tools.map((t) => `
+      <div class="trow" data-tool="${esc(t.name)}">
+        <span class="grow"><b class="mono">${esc(t.name)}</b> <span class="small muted">${esc(t.description).slice(0, 110)}</span></span>
+        <select class="t-mode">${Object.entries(MODE_LABEL).map(([v, l]) => `<option value="${v}" ${t.mode === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+        <button class="btn ghost small t-run">Run</button>
+      </div>`).join("")}</div>`
+      : `<div class="small muted" style="margin-top:6px">${s.running ? "This server offers no tools." : "Start it to see its tools."}</div>`}
+  </div>`;
+}
+
+function pluginRow(p) {
+  return `<div class="srv" data-plug="${esc(p.id)}">
+    <div class="row" style="margin:0">
+      <span class="dot ${p.error ? "bad" : p.loaded ? "on" : ""}"></span>
+      <div class="grow"><b>${esc(p.name)}</b> <span class="small muted mono">v${esc(p.version)}</span>
+        <div class="small muted">${esc(p.description || "")}</div>
+        ${p.permissions.length ? `<div class="small muted">wants: ${p.permissions.map((x) => `<span class="chip">${esc(x)}</span>`).join(" ")}</div>` : ""}
+        ${p.error ? `<pre class="toolout bad">${esc(p.error).slice(0, 400)}</pre>` : ""}</div>
+      <label class="sw"><input type="checkbox" class="p-enable" ${p.enabled ? "checked" : ""}><i></i></label>
+      <button class="iconbtn p-remove" title="Delete">✕</button>
+    </div>
+    ${p.actions.length ? `<div class="row" style="margin:8px 0 0">${p.actions.map((a) =>
+      `<button class="btn ghost small" data-act="${esc(a.id)}">${esc(a.label)}</button>`).join("")}</div>` : ""}
+  </div>`;
 }

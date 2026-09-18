@@ -1,13 +1,16 @@
 // AI Suggestions inbox (Phase 8): every proposed action waits here. Accept
 // (optionally after editing the title/date), dismiss, or clear a whole kind.
-import { $, $$, esc, relTime, toast, fmtDay } from "../ui.js";
+import { $, $$, esc, relTime, toast, modal, fmtDay } from "../ui.js";
 import { api } from "../api.js";
 import { refreshStatus } from "../state.js";
 
 const KINDS = {
-  calendar_push: { icon: "📅", label: "Google Calendar", verb: "Add event" },
-  todoist_push: { icon: "✅", label: "Todoist", verb: "Send task" },
+  calendar_push: { icon: "📅", label: "Google Calendar", plural: "calendar events", verb: "Add event" },
+  todoist_push: { icon: "✅", label: "Todoist", plural: "Todoist tasks", verb: "Send task" },
+  mcp_tool: { icon: "🔌", label: "MCP tool", plural: "tool calls", verb: "Run tool" },
+  plugin_action: { icon: "🧩", label: "Plugin action", plural: "plugin actions", verb: "Run" },
 };
+const DATED = ["calendar_push", "todoist_push"];
 const kindOf = (k) => KINDS[k] || { icon: "✨", label: k, verb: "Run" };
 
 export async function render(ctx) {
@@ -25,7 +28,7 @@ export async function render(ctx) {
     ${pending.length ? `
       <div class="row" style="margin:0 0 10px">
         <span class="small muted grow">${pending.length} waiting</span>
-        ${kinds.map((k) => `<button class="btn ghost small" data-clear="${k}">Dismiss all ${esc(kindOf(k).label)}</button>`).join("")}
+        ${kinds.map((k) => `<button class="btn ghost small" data-clear="${k}">Dismiss all ${esc(kindOf(k).plural || kindOf(k).label)}</button>`).join("")}
       </div>
       <div class="inbox">${pending.map(card).join("")}</div>`
     : `<div class="card center"><div class="big">📭</div>Inbox zero. Suggestions appear here when a dump has tasks or events and an integration is connected
@@ -46,11 +49,13 @@ export async function render(ctx) {
   $$(".sugg").forEach((el) => {
     const s = pending.find((x) => x.id === el.dataset.id);
     $(".accept", el).onclick = async () => {
-      const edits = { title: $(".e-title", el).value.trim() || undefined, due: $(".e-due", el)?.value || undefined };
+      const edits = { title: $(".e-title", el)?.value.trim() || undefined, due: $(".e-due", el)?.value || undefined };
       el.classList.add("busy");
       try {
         const r = await api.post(`/suggestions/${s.id}/accept`, edits);
         if (r.status === "failed") toast("Couldn't send: " + (r.result?.error || "unknown error"), true);
+        else if (s.kind === "mcp_tool" || s.kind === "plugin_action")
+          modal(`<h2>${esc(s.title)}</h2><pre class="toolout">${esc(r.result?.text || JSON.stringify(r.result, null, 2))}</pre>`);
         else toast(`${kindOf(s.kind).verb} done` + (r.result?.link ? " — open it from Recently handled" : ""));
       } catch (e) { toast(e.message, true); }
       reload();
@@ -68,14 +73,28 @@ function card(s) {
       <span class="small muted grow">${s.source === "pipeline" ? "from a dump" : s.source === "planner" ? "from Plan my day" : esc(s.source)} · ${relTime(s.created_at)}</span>
       ${s.dump_id ? `<a class="small" href="#history/${s.dump_id}">source ↗</a>` : ""}
     </div>
-    <input class="e-title" value="${esc(p.title || "")}" placeholder="Title">
+    ${DATED.includes(s.kind) ? `<input class="e-title" value="${esc(p.title || s.title)}" placeholder="Title">`
+      : `<b>${esc(s.title)}</b>`}
     <div class="row" style="margin:8px 0 0">
-      ${s.kind === "calendar_push" || s.kind === "todoist_push"
+      ${DATED.includes(s.kind)
         ? `<input class="e-due" type="${tm ? "datetime-local" : "date"}" value="${esc(p.due || "")}" title="${d ? fmtDay(d) : "Pick a date"}">` : ""}
       <div class="grow"></div>
       <button class="btn ghost small dismiss">Dismiss</button>
       <button class="btn small accept">${k.verb}</button>
     </div>
     ${p.description ? `<div class="small muted" style="margin-top:6px">${esc(p.description).slice(0, 200)}</div>` : ""}
+    ${argsPreview(s)}
   </div>`;
+}
+
+// What a generic suggestion would actually do, in full, before you press Run.
+function argsPreview(s) {
+  const p = s.payload || {};
+  if (s.kind === "mcp_tool") return `<div class="small muted" style="margin-top:6px">
+    <span class="mono">${esc(p.server || "?")}/${esc(p.tool || "?")}</span>
+    <pre class="toolout">${esc(JSON.stringify(p.args || {}, null, 2))}</pre></div>`;
+  if (s.kind === "plugin_action") return `<div class="small muted" style="margin-top:6px">
+    <span class="mono">${esc(p.plugin || "?")} → ${esc(p.action || "?")}</span>
+    ${Object.keys(p.args || {}).length ? `<pre class="toolout">${esc(JSON.stringify(p.args, null, 2))}</pre>` : ""}</div>`;
+  return "";
 }

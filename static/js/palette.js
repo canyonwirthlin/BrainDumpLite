@@ -6,8 +6,9 @@ import { go } from "./router.js";
 import { NAV } from "./shell.js";
 import { setActive } from "./theme.js";
 import { native, checkForUpdates } from "./native.js";
+import { allTools, runTool } from "./tools.js";
 
-const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["stats", "Stats"], ["about", "About"]];
+const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["stats", "Stats"], ["about", "About"]];
 let root, items = [], filtered = [], sel = 0, open = false;
 
 function staticItems() {
@@ -19,6 +20,12 @@ function staticItems() {
   for (const n of NAV) out.push({ group: "Go to", label: n.label, run: () => go(n.id) });
   for (const [id, label] of SECTIONS) out.push({ group: "Go to", label: `Settings → ${label}`, run: () => go("settings/" + id) });
   return out;
+}
+
+async function toolItems() {
+  const tools = await allTools();
+  return tools.map((t) => ({ group: "Tools", label: `Run tool → ${t.server}/${t.name}`,
+    hint: t.description.slice(0, 40), run: () => runTool(t) }));
 }
 
 async function recentItems() {
@@ -42,7 +49,7 @@ export function score(query, text) {
   return qi === q.length ? s : 0;
 }
 
-const GROUP_ORDER = { Actions: 0, "Go to": 1, "Recent dumps": 2, Themes: 3 };
+const GROUP_ORDER = { Actions: 0, Tools: 1, "Go to": 2, "Recent dumps": 3, Themes: 4 };
 
 function paint() {
   const q = $("#pal-q", root).value.trim();
@@ -55,7 +62,7 @@ function paint() {
   let html = "", lastGroup = null;
   filtered.forEach((it, i) => {
     if (it.group !== lastGroup) { html += `<div class="g">${it.group}</div>`; lastGroup = it.group; }
-    const icon = it.group === "Go to" ? ICONS.search : it.group === "Recent dumps" ? ICONS.history : ICONS.capture;
+    const icon = it.group === "Go to" ? ICONS.search : it.group === "Recent dumps" ? ICONS.history : it.group === "Tools" ? ICONS.inbox : ICONS.capture;
     html += `<div class="o ${i === sel ? "on" : ""}" data-i="${i}"><span class="ic">${icon}</span>${esc(it.label)}${it.hint ? `<span class="r">${esc(it.hint)}</span>` : ""}</div>`;
   });
   $("#pal-list", root).innerHTML = html || `<div class="g">No matches</div>`;
@@ -78,7 +85,7 @@ export async function openPalette() {
   $("#pal-q", root).oninput = () => { sel = 0; paint(); };
   $(".scrim", root).onclick = closePalette;
   $("#pal-list", root).onclick = (e) => { const o = e.target.closest(".o"); if (o) run(+o.dataset.i); };
-  items = items.concat(await recentItems());
+  items = items.concat(...await Promise.all([recentItems(), toolItems()]));
   if (open) paint();
 }
 
