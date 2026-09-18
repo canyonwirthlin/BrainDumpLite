@@ -51,7 +51,9 @@ $conf = [IO.File]::ReadAllText("src-tauri\tauri.conf.json")
 $cargo = [IO.File]::ReadAllText("src-tauri\Cargo.toml")
 [IO.File]::WriteAllText("src-tauri\Cargo.toml", ([regex]'(?m)^version = "[\d.]+"').Replace($cargo, "version = `"$new`"", 1))
 Push-Location src-tauri
-cargo metadata --format-version 1 --offline -q | Out-Null   # refresh Cargo.lock's own-package version
+# Refresh Cargo.lock's own-package version. --filter-platform keeps the resolve on this
+# machine's target so macOS-only deps (mac-notification-sys) aren't demanded offline.
+cargo metadata --format-version 1 --offline --filter-platform x86_64-pc-windows-msvc -q | Out-Null
 Pop-Location
 Write-Host "  wrote version into version.py, index.html, tauri.conf.json, Cargo.toml/lock" -ForegroundColor DarkGray
 
