@@ -14,7 +14,8 @@ export async function render(ctx) {
   $("#view").innerHTML = `<div class="split ${id ? "has-detail" : ""}" id="hist">
     <div class="master"><div class="chips" id="hist-chips"></div><div id="hist-list" class="center">Loading…</div></div>
     <div class="detail" id="hist-detail"></div></div>`;
-  let dumps;
+  let dumps, open = [];
+  try { open = await api.get("/sessions?open=1"); } catch {}
   try { dumps = await api.get("/dumps?limit=200"); }
   catch (e) { $("#hist-list").textContent = "Couldn't load: " + e.message; return; }
   const paintList = () => {
@@ -25,14 +26,22 @@ export async function render(ctx) {
     const rows = dumps.filter((d) => (filterMode === "all" || d.mode === filterMode) &&
       (!q || (d.title || "").toLowerCase().includes(q) || (d.raw_text || "").toLowerCase().includes(q)));
     $("#hist-list").className = "";
-    $("#hist-list").innerHTML = rows.length ? rows.map((d) => {
+    const openRows = (filterMode === "all" && !q) ? open.map((o) => {
+      const mode = MODES.find((m) => m.id === o.mode) || MODES[0];
+      const last = [...o.transcript].reverse().find((t) => t.role === "user");
+      return `<a class="drow sess" href="#session/${o.id}">
+        <b>${mode.icon} Unfinished ${mode.label.toLowerCase()} conversation</b>
+        <div class="m"><span>${relTime(o.started_at)}</span><span class="tag">conversation</span><span>${o.transcript.filter((t) => t.role === "user").length} turns</span><span class="resume">Resume →</span></div>
+        <p>${esc(last ? last.content.slice(0, 160) : "Nothing said yet.")}</p></a>`;
+    }).join("") : "";
+    $("#hist-list").innerHTML = openRows + (rows.length ? rows.map((d) => {
       const mode = MODES.find((m) => m.id === d.mode) || MODES[0];
       return `<a class="drow ${d.id === id ? "sel" : ""}" href="#history/${d.id}">
         <b>${esc(d.title || (d.raw_text || "").slice(0, 60) || "Untitled")}</b>
         <div class="m"><span>${relTime(d.created_at)}</span><span class="tag">${mode.label}</span><span>${d.item_count} item${d.item_count === 1 ? "" : "s"}</span>${toneChip(d.tone)}${trustBadge(d.provider)}
           ${d.status === "processing" || d.status === "pending" ? "<span>processing…</span>" : d.status === "failed" ? "<span>failed</span>" : ""}</div>
         <p>${esc((d.clean_text || d.raw_text || "").slice(0, 160))}</p></a>`;
-    }).join("") : `<div class="center"><div class="big">🌱</div>${dumps.length ? "No dumps match." : `Nothing here yet.<br><br><a class="btn" href="#capture">Make your first dump</a>`}</div>`;
+    }).join("") : (openRows ? "" : `<div class="center"><div class="big">🌱</div>${dumps.length ? "No dumps match." : `Nothing here yet.<br><br><a class="btn" href="#capture">Make your first dump</a>`}</div>`));
   };
   paintList();
   const qEl = $("#hist-q");
@@ -49,7 +58,7 @@ async function paintDetail(id) {
   let d;
   try { d = await api.get("/dumps/" + id); }
   catch { box.innerHTML = `<div class="center">Dump not found. <a href="#history">Back</a></div>`; return; }
-  if (d.status === "processing" || d.status === "pending") { renderProcessing(id, box); return; }
+  if (d.status === "processing" || d.status === "pending") { renderProcessing(id, box, () => paintDetail(id)); return; }
   box.innerHTML = `<a class="btn ghost small back" href="#history">← All dumps</a>` + reviewHtml(d, { detail: true });
   bindItemRows(box, d.items, () => paintDetail(id));
   if ($("#approve-all", box)) $("#approve-all", box).onclick = async () => {

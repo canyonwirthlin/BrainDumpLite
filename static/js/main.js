@@ -12,6 +12,7 @@ import * as graph from "./views/graph.js";
 import * as search from "./views/search.js";
 import * as reflect from "./views/reflect.js";
 import * as settings from "./views/settings.js";
+import * as session from "./views/session.js";
 
 register("capture", capture.render);
 register("history", history.render);
@@ -20,6 +21,7 @@ register("graph", graph.render);
 register("search", search.render);
 register("reflect", reflect.render);
 register("settings", settings.render);
+register("session", session.render);
 
 restorePrefs();
 mountShell();

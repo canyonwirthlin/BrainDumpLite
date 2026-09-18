@@ -260,3 +260,21 @@ a.iconbtn.cal { text-decoration: none; }
 .small.bad { color: var(--red); }
 .matched { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 4px; }
 .matched .mi { font-size: 12.5px; display: flex; align-items: center; gap: 8px; }
+
+
+/* ── Conversational capture (sessions) ───────────────────────────────────── */
+.chat { display: flex; flex-direction: column; padding: 0 !important; }
+.bubbles { flex: 1; overflow: auto; padding: 24px 28px; display: flex; flex-direction: column; gap: 12px; }
+.bubble { max-width: 72%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.bubble.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.bubble.assistant { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.bubble.assistant .md p { margin: 0 0 6px; } .bubble.assistant .md p:last-child { margin: 0; }
+.bubble.streaming::after { content: "▍"; color: var(--accent); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.composer { flex: none; padding: 12px 28px 18px; border-top: 1px solid var(--line); background: var(--bg); }
+.composer .editor { min-height: 72px; box-shadow: none; width: 100%; }
+.noticed { display: flex; flex-direction: column; }
+.noticed-list { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; }
+.noticed-list .mi { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.drow.sess { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); }
+.drow.sess .resume { color: var(--accent); font-weight: 600; }
