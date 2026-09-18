@@ -4,6 +4,13 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.12.0 — 2026-09-18
+- New Inbox: when a dump produces a dated task or event, the app proposes sending it to your connected services and waits. Nothing leaves your machine until you press the button, and you can edit the title and date first.
+- Google Calendar connects with one click (Settings → Integrations). Tokens are encrypted with Windows DPAPI, and the app only ever pushes what you approve.
+- Todoist connects with a personal API token.
+- "Send to…" on any task pushes it straight to Calendar or Todoist.
+- Reflect → Plan my day fits your open tasks into the free gaps around your real calendar events, then blocks the ones you pick.
+
 ## 0.11.0 — 2026-09-18
 - Google Gemini is a provider now (free tier from AI Studio), with embeddings for semantic search.
 - Built-in AI has a browsable model catalog: search, filter by VRAM, see tags; nothing downloads until you press Get. "Check for new models" pulls the latest curated list.

@@ -1,5 +1,5 @@
 // Review pieces shared by the capture flow, History detail and Tasks.
-import { $, $$, esc, md, toast, fmtDate, fmtDay, fmtTime, todayIso, MODES, kindBadge, timeChips, toneChip, trustBadge } from "../ui.js";
+import { $, $$, esc, md, toast, modal, fmtDate, fmtDay, fmtTime, todayIso, MODES, kindBadge, timeChips, toneChip, trustBadge } from "../ui.js";
 import { api } from "../api.js";
 import { state } from "../state.js";
 
@@ -23,7 +23,8 @@ function gcalUrl(t) {
 }
 
 export function calBtns(t) {
-  return `<a class="iconbtn cal" title="Add to Google Calendar" target="_blank" rel="noopener" href="${esc(gcalUrl(t))}">📅</a>
+  return `<button class="iconbtn send" data-send="${t.id}" title="Send to Google Calendar / Todoist">⇪</button>
+    <a class="iconbtn cal" title="Add to Google Calendar" target="_blank" rel="noopener" href="${esc(gcalUrl(t))}">📅</a>
     <a class="iconbtn cal" title="Download .ics (Apple Calendar / Outlook / Reminders)" href="/api/items/${t.id}/ics">⬇</a>`;
 }
 
@@ -170,3 +171,35 @@ export function renderReview(d) {
     $$("#items .item:not(.rejected) .ok").forEach((b) => b.classList.add("active"));
   };
 }
+
+// ── Send to… (Phase 8) ───────────────────────────────────────────────────────
+let integ = null, integAt = 0;
+async function integrations() {
+  if (!integ || Date.now() - integAt > 60_000) { try { integ = await api.get("/integrations"); integAt = Date.now(); } catch { integ = null; } }
+  return integ;
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-send]");
+  if (!b) return;
+  e.preventDefault();
+  const id = b.dataset.send, i = await integrations();
+  const opt = (target, icon, label, on) => on
+    ? `<button class="btn ghost" data-target="${target}" style="justify-content:flex-start">${icon} ${label}</button>`
+    : `<a class="btn ghost" href="#settings/integrations" style="justify-content:flex-start;opacity:.7">${icon} ${label} — connect in Settings</a>`;
+  const m = modal(`<h2>Send to…</h2>
+    <div style="display:grid;gap:8px">
+      ${opt("calendar", "📅", "Google Calendar" + (i?.google?.account ? ` (${esc(i.google.account)})` : ""), i?.google?.connected)}
+      ${opt("todoist", "✅", "Todoist", i?.todoist?.connected)}
+    </div>
+    <p class="small muted" style="margin:14px 0 0">Sends right away. Suggested sends from new dumps land in the <a href="#inbox">Inbox</a> first.</p>`);
+  $$("[data-target]", m.el).forEach((o) => o.onclick = async () => {
+    o.disabled = true;
+    try {
+      const r = await api.post(`/items/${id}/send`, { target: o.dataset.target });
+      if (r.status === "failed") toast("Couldn't send: " + (r.result?.error || "unknown error"), true);
+      else toast("Sent" + (r.result?.link ? " — open it from Inbox → Recently handled" : ""));
+    } catch (err) { toast(err.message, true); }
+    m.close();
+  });
+  $$("a[href]", m.el).forEach((a) => a.addEventListener("click", () => m.close()));
+});

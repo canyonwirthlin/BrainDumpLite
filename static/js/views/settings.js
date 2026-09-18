@@ -3,11 +3,11 @@
 import { $, $$, esc, toast, colorCss } from "../ui.js";
 import { api } from "../api.js";
 import { state, clearPoll, refreshStatus, loadTypes } from "../state.js";
-import { native, showWhatsNew, checkForUpdates } from "../native.js";
+import { native, openExternal, showWhatsNew, checkForUpdates } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
 import { lockNow } from "../shell.js";
 
-const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["stats", "Stats"], ["about", "About"]];
+const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["stats", "Stats"], ["about", "About"]];
 const advOn = (s) => { try { return localStorage.getItem("bdl-adv-" + s) === "1"; } catch { return false; } };
 const setAdv = (s, v) => { try { localStorage.setItem("bdl-adv-" + s, v ? "1" : "0"); } catch {} };
 
@@ -20,7 +20,7 @@ export async function render(ctx) {
     <div class="detail body" id="sec"><div class="center">Loading…</div></div></div>`;
   let s;
   try { s = await api.get("/settings"); } catch (e) { $("#sec").innerHTML = `<div class="center">Couldn't load settings: ${esc(e.message)}</div>`; return; }
-  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, stats: sectionStats, about: sectionAbout }[section];
+  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, integrations: sectionIntegrations, stats: sectionStats, about: sectionAbout }[section];
   paint($("#sec"), s);
 }
 
@@ -634,4 +634,62 @@ async function paintStats(body) {
       ${st.growth.length ? bars(st.growth.slice(-30), "db_bytes", (r) => r.date.slice(5), fmtBytes) : `<p class="small muted">Sampled once a day at launch — check back tomorrow.</p>`}
     </div>`;
   $$("[data-days]", body).forEach((b) => b.onclick = () => { statsDays = +b.dataset.days; paintStats(body); });
+}
+
+// ── Integrations (Phase 8) ───────────────────────────────────────────────────
+async function sectionIntegrations(box, s) {
+  const { on, body } = head(box, "integrations", "Integrations", true, () => sectionIntegrations(box, s));
+  body.innerHTML = `<div class="center">Loading…</div>`;
+  let i;
+  try { i = await api.get("/integrations"); } catch (e) { body.innerHTML = `<div class="center">${esc(e.message)}</div>`; return; }
+  const g = i.google, t = i.todoist;
+  body.innerHTML = `
+    <p class="small muted" style="margin-bottom:14px">Connected services only ever receive what you approve in the <a href="#inbox">Inbox</a> or send yourself.
+      Tokens are stored ${i.secrets === "dpapi" ? "encrypted with Windows DPAPI (tied to your Windows account)" : "<b>unencrypted</b> on this platform"}.</p>
+    <div class="card">
+      <div class="row" style="margin:0">
+        <div class="grow"><b>📅 Google Calendar</b>
+          <div class="small muted">${g.connected ? `Connected${g.account ? " as " + esc(g.account) : ""}. New dated tasks and events show up in the Inbox; “Plan my day” uses your free time.` : "One-click sign-in. Push-only, plus reading your day for the planner."}</div></div>
+        ${g.connected ? `<button class="btn ghost" id="g-off">Disconnect</button>`
+          : `<button class="btn" id="g-on" ${g.client_id ? "" : `disabled title="Add a Google OAuth client id under Advanced first"`}>Sign in with Google</button>`}
+      </div>
+      ${on ? `<div class="sec">OAuth client (Advanced)</div>
+        <p class="small muted">Create a <b>Desktop app</b> OAuth client in Google Cloud Console (Calendar API enabled), then paste it here. The secret is optional for desktop clients with PKCE.</p>
+        <div class="row" style="margin-top:8px">
+          <input type="text" id="g-cid" class="grow" placeholder="Client id (…apps.googleusercontent.com)" value="${esc(g.client_id || "")}">
+          <input type="password" id="g-sec" placeholder="${g.has_secret ? "Client secret (saved)" : "Client secret (optional)"}">
+          <button class="btn ghost small" id="g-save">Save</button>
+        </div>` : ""}
+    </div>
+    <div class="card">
+      <div class="row" style="margin:0">
+        <div class="grow"><b>✅ Todoist</b>
+          <div class="small muted">${t.connected ? "Connected. New tasks are proposed in the Inbox; “Send to…” pushes any task." : "Paste a personal API token from Todoist → Settings → Integrations → Developer."}</div></div>
+        ${t.connected ? `<button class="btn ghost" id="td-off">Disconnect</button>` : ""}
+      </div>
+      ${t.connected ? "" : `<div class="row" style="margin-top:8px">
+        <input type="password" id="td-tok" class="grow" placeholder="Todoist API token">
+        <button class="btn small" id="td-save">Connect</button></div>`}
+    </div>`;
+  const again = () => sectionIntegrations(box, s);
+  $("#g-on", body)?.addEventListener("click", async () => {
+    try {
+      const r = await api.post("/integrations/google/connect");
+      openExternal(r.url);
+      toast("Finish signing in in your browser, then come back here.");
+      const poll = setInterval(async () => { const j = await api.get("/integrations"); if (j.google.connected) { clearInterval(poll); toast("Google Calendar connected"); again(); } }, 2000);
+      setTimeout(() => clearInterval(poll), 5 * 60 * 1000);
+    } catch (e) { toast(e.message, true); }
+  });
+  $("#g-off", body)?.addEventListener("click", async () => { await api.post("/integrations/google/disconnect"); toast("Disconnected"); again(); });
+  $("#g-save", body)?.addEventListener("click", async () => {
+    await api.put("/integrations/google/client", { client_id: $("#g-cid", body).value, client_secret: $("#g-sec", body).value });
+    toast("Saved"); again();
+  });
+  $("#td-save", body)?.addEventListener("click", async () => {
+    const b = $("#td-save", body); b.disabled = true;
+    try { await api.put("/integrations/todoist", { token: $("#td-tok", body).value }); toast("Todoist connected"); again(); }
+    catch (e) { toast(e.message, true); b.disabled = false; }
+  });
+  $("#td-off", body)?.addEventListener("click", async () => { await api.put("/integrations/todoist", { token: "" }); toast("Disconnected"); again(); });
 }

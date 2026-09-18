@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db, engine, item_types, lock, stats
-from .routes import router
+from .routes import oauth_router, router
 
 
 def static_dir() -> Path:
@@ -42,5 +42,6 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     app.include_router(router, prefix="/api")
+    app.include_router(oauth_router)
     app.mount("/", StaticFiles(directory=static_dir(), html=True), name="static")
     return app
