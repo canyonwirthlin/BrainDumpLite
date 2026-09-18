@@ -4,6 +4,11 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.11.0 — 2026-09-18
+- Google Gemini is a provider now (free tier from AI Studio), with embeddings for semantic search.
+- Built-in AI has a browsable model catalog: search, filter by VRAM, see tags; nothing downloads until you press Get. "Check for new models" pulls the latest curated list.
+- New Settings → Stats: model calls, success rate, latency per stage, tokens and estimated cost per provider, dumps per day, vault growth.
+
 ## 0.10.0 — 2026-09-18
 - Export any dump, or the whole vault, as Obsidian-compatible markdown with [[wikilinks]] (toggleable).
 - Type [[ in the editor to link concepts, people or dumps with autocomplete; explicit links always count.
