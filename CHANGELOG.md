@@ -4,6 +4,12 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.9.0 — 2026-09-18
+- The graph knows your item types: every type is a colored node kind you can toggle from the legend (off by default), and Focus dims everything more than two hops from what you select.
+- Click a concept or person to browse every dump that mentions it; every dump shows what it's linked from.
+- New Today view: the day's dumps in order with their items, a quick-capture box on top, and a way to walk back day by day.
+- Reflect opens with an "on this day" card resurfacing an older dump.
+
 ## 0.8.0 — 2026-09-18
 - Therapy and Brainstorm are now conversations: pick the mode, hit "Talk it through", and the AI replies live while it notes the items it hears. Ending the chat saves it as one dump.
 - Unfinished conversations wait in History with a Resume link.
