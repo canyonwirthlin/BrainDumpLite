@@ -210,3 +210,17 @@ a.iconbtn.cal { text-decoration: none; }
 .drow p { color: color-mix(in srgb, var(--text) 75%, var(--dim)); font-size: 12.5px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tag { font-size: 10.5px; padding: 1px 7px; border-radius: 5px; background: var(--panel-2); color: var(--dim); }
 .meta { color: var(--dim); font-size: 12.5px; margin-bottom: 18px; display: flex; gap: 14px; flex-wrap: wrap; }
+
+/* ── Tasks groups ─────────────────────────────────────────────────────────── */
+.glist { padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+.grow-row { display: flex; justify-content: space-between; padding: 9px 12px; border-radius: 8px; color: var(--dim); font-size: 13.5px; transition: background var(--ease); }
+.grow-row:hover { background: var(--panel); }
+.grow-row.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.grow-row .count { font-family: var(--mono); font-size: 12px; opacity: .8; }
+#tasks > .master { width: 220px; }
+@media (max-width: 959px) {
+  #tasks { flex-direction: column; }
+  #tasks > .master { width: 100%; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: block !important; }
+  #tasks > .detail { display: block !important; }
+  #tasks .glist { flex-direction: row; flex-wrap: wrap; }
+}
