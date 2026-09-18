@@ -4,6 +4,12 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.8.0 — 2026-09-18
+- Therapy and Brainstorm are now conversations: pick the mode, hit "Talk it through", and the AI replies live while it notes the items it hears. Ending the chat saves it as one dump.
+- Unfinished conversations wait in History with a Resume link.
+- Optional app lock: set a passphrase in Settings → Data and the app locks at launch and after 10 idle minutes.
+- Optional nudge notification when you haven't captured anything for three days (Settings → Data).
+
 ## 0.7.0 — 2026-09-18
 - Extraction types are yours to customize: add "Question", "Decision", anything — the AI looks for them from the next dump on (Settings → AI → Advanced).
 - Every dump now gets a tone (calm, anxious, excited…) and every item an effort estimate, an urgency marker and the time phrase it came from.
