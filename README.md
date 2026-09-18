@@ -41,8 +41,7 @@ Data dir override for testing: set `BRAINDUMP_LITE_DATA=<path>`.
 ## Build & ship
 
 ```powershell
-.\build.ps1              # → BrainDumpLite-win64.zip (with voice)
-.\build.ps1 -NoVoice     # smaller zip, no mic button
+.\build-backend.ps1      # freezes the backend into src-tauri\backend\ (used by the Tauri shell)
 ```
 
 Send the zip. Friend unzips, double-clicks `BrainDumpLite.exe`, follows
