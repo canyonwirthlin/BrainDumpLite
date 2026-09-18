@@ -27,8 +27,23 @@ Voice is always local (faster-whisper, CPU) — audio never leaves the machine.
   review/approve, tasks, search, reflect, and an Obsidian-style **brain map**
   (force-directed canvas graph of dumps/concepts/people — ~200 lines of vanilla
   JS physics, no graph DB, no chart library).
-- **Cut**: week planner, Google Calendar, Todoist, habits, templates,
-  admin hot-swap, live dictation. See `RECOMMENDATIONS.md` for the port-back list.
+- **Back since the native port**: Google Calendar and Todoist (Phase 8), an AI
+  Suggestions **Inbox** that gates every outward action, a daily planner, and
+  **MCP servers + plugins** (Phase 9).
+- **Still cut**: habits, templates, admin hot-swap, live dictation.
+  See `RECOMMENDATIONS.md` for the port-back list.
+
+### Extending it
+
+- **MCP**: Settings -> Plugins & MCP takes the same `mcpServers` block other
+  desktop clients use. Each tool is hidden from the AI, proposed-and-confirmed,
+  or free to run. Tool output is treated as data, never as instructions.
+- **Plugins**: a folder with `plugin.json` + a Python entry module in
+  `%LOCALAPPDATA%\BrainDumpLite\plugins\`. They run unsandboxed, in-process, and
+  only after you enable them. See `docs/plugins.md` and
+  `examples/plugins/daily-digest/`.
+- Anything either one proposes lands in the Inbox and runs only when you press
+  the button.
 
 ## Dev
 
@@ -78,6 +93,15 @@ app/                  # FastAPI backend
   routes.py           # every API route
   launch.py           # sidecar helpers: port, log file, parent watchdog
   changelog.py        # CHANGELOG.md parser -> /api/changelog
+  suggestions.py      # the Inbox: every proposed action waits here for a human press
+  secrets.py          # DPAPI-protected tokens in the settings table
+  google_cal.py       # Calendar OAuth (PKCE, loopback) + event push
+  todoist.py          # Todoist API v1 push
+  planner.py          # "Plan my day": free gaps + backlog -> slots
+  mcp_client.py       # stdio JSON-RPC client for MCP servers, per-tool gating
+  plugins.py          # folder plugins: loader, narrow API, isolation
+examples/plugins/     # a working example plugin, bundled with the app
+docs/plugins.md       # how to write one
 static/               # vanilla-JS SPA, served by the backend (no build step)
   js/                 # ES modules: main, shell (rail/top bar), palette, theme, router, views/*
   css/                # tokens.css (theme tokens), shell.css (layout), views.css
