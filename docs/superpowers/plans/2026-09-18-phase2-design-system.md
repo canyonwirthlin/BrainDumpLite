@@ -63,7 +63,7 @@ DELETED at Task 10: static/app.js, static/style.css
 - Produces: `themes.validate(raw: dict) -> dict` (raises `ValueError(reason)`), `themes.all_themes() -> list[dict]`, `themes.get(id) -> dict|None`, `themes.active_id() -> str`, `themes.set_active(id)`, `themes.import_theme(raw) -> dict`, `themes.delete(id)`, `themes.BUILTIN`, `themes.COLOR_KEYS`.
 - Produces HTTP: `GET /api/themes → {active, themes}`, `PUT /api/themes/active {id}`, `POST /api/themes/import <theme json>`, `DELETE /api/themes/{id}`, `GET /api/themes/{id}/export` (attachment).
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_themes.py`:
+- [x] **Step 1: Write the failing tests** — `tests/test_themes.py`:
 
 ```python
 import json
@@ -137,14 +137,14 @@ def test_import_replaces_same_id_and_bad_json_is_400():
     client.delete("/api/themes/solar")
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 ```bash
 .venv/Scripts/python -m pytest tests/test_themes.py -q
 ```
 Expected: FAIL with `ModuleNotFoundError: No module named 'app.themes'`.
 
-- [ ] **Step 3: Create `app/themes.py`**
+- [x] **Step 3: Create `app/themes.py`**
 
 ```python
 """Theme JSON schema, the six built-in themes, and custom-theme storage.
@@ -278,7 +278,7 @@ def delete(theme_id: str) -> None:
         db.set_setting("theme", DEFAULT_ID)
 ```
 
-- [ ] **Step 4: Routes.** In `app/routes.py` change the module import to `from . import ai, changelog, db, engine, pipeline, themes, transcribe`, add `from fastapi import Response` next to the existing fastapi imports (keep what is already imported), and add after the `/changelog` route:
+- [x] **Step 4: Routes.** In `app/routes.py` change the module import to `from . import ai, changelog, db, engine, pipeline, themes, transcribe`, add `from fastapi import Response` next to the existing fastapi imports (keep what is already imported), and add after the `/changelog` route:
 
 ```python
 # ── Themes ───────────────────────────────────────────────────────────────────
@@ -328,14 +328,14 @@ def export_theme(theme_id: str):
 ```
 (`json` is already imported in routes.py; verify with `grep -n "^import json" app/routes.py`, add it if not.)
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 .venv/Scripts/python -m pytest -q
 ```
 Expected: all pass (15 existing + 9 new).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/themes.py app/routes.py tests/test_themes.py
@@ -362,7 +362,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - `views/capture.js`: `export function render(ctx), renderProcessing(id)`.
 - Every other view: `export function render(ctx)` (`async` where the original was async).
 
-- [ ] **Step 1: Glue modules.** Create these files verbatim.
+- [x] **Step 1: Glue modules.** Create these files verbatim.
 
 `static/js/api.js` — lines 9-29 of `app.js` with `export` in front of `const api`.
 
@@ -570,7 +570,7 @@ register("settings", settings.render);
 })();
 ```
 
-- [ ] **Step 2: View modules — mechanical moves.** For each, create the file with the imports listed, paste the referenced `app.js` lines, and apply the substitutions: `status.` → `state.status.`, `curMode` → `state.curMode`, `draft` → `state.draft`, `pollTimer` → `state.pollTimer` (and `clearInterval(pollTimer); pollTimer = null` → `clearPoll()`), `view()` → `$("#view")`, `location.hash='dump/…'` stays (router redirects), function `renderX` → `export function render(ctx)` (async where it was).
+- [x] **Step 2: View modules — mechanical moves.** For each, create the file with the imports listed, paste the referenced `app.js` lines, and apply the substitutions: `status.` → `state.status.`, `curMode` → `state.curMode`, `draft` → `state.draft`, `pollTimer` → `state.pollTimer` (and `clearInterval(pollTimer); pollTimer = null` → `clearPoll()`), `view()` → `$("#view")`, `location.hash='dump/…'` stays (router redirects), function `renderX` → `export function render(ctx)` (async where it was).
 
 | File | app.js lines | Imports |
 |---|---|---|
@@ -585,11 +585,11 @@ register("settings", settings.render);
 
 In `history.js`, `render(ctx)` = `ctx.params[0] ? renderDumpDetail(ctx.params[0]) : renderHistory()`; the old `#dump/<id>` links keep working through the router redirect.
 
-- [ ] **Step 3: index.html.** Replace `<script src="app.js?v=0.5.0"></script>` with `<script type="module" src="js/main.js?v=0.5.0"></script>`. Add to `package.json` scripts: `"lint:js": "node -e \"const fs=require('fs'),p=require('path');const walk=d=>fs.readdirSync(d).flatMap(f=>{const q=p.join(d,f);return fs.statSync(q).isDirectory()?walk(q):q.endsWith('.js')?[q]:[]});for(const f of walk('static/js')){require('child_process').execFileSync(process.execPath,['--check',f]);console.log('ok',f)}\""`.
+- [x] **Step 3: index.html.** Replace `<script src="app.js?v=0.5.0"></script>` with `<script type="module" src="js/main.js?v=0.5.0"></script>`. Add to `package.json` scripts: `"lint:js": "node -e \"const fs=require('fs'),p=require('path');const walk=d=>fs.readdirSync(d).flatMap(f=>{const q=p.join(d,f);return fs.statSync(q).isDirectory()?walk(q):q.endsWith('.js')?[q]:[]});for(const f of walk('static/js')){require('child_process').execFileSync(process.execPath,['--check',f]);console.log('ok',f)}\""`.
 
-- [ ] **Step 4: Verify** (browser mode, port 8779): every view renders and behaves as before — capture a dump (AI on), processing → review, history → detail → delete, tasks due-date edit, search, reflect generate, graph drag, settings save/test, theme switch, What's new. `npm run lint:js` prints `ok` for 16 files. No console errors.
+- [x] **Step 4: Verify** (browser mode, port 8779): every view renders and behaves as before — capture a dump (AI on), processing → review, history → detail → delete, tasks due-date edit, search, reflect generate, graph drag, settings save/test, theme switch, What's new. `npm run lint:js` prints `ok` for 16 files. No console errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add static/index.html static/js package.json
@@ -610,7 +610,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - `theme.js`: `export function apply(theme), cssVars(theme), setDensity(id), setMotion(id); export async function loadThemes(), setActive(id), importTheme(file), deleteTheme(id); export function exportUrl(id)`.
 - `localStorage`: `bdl-theme` (id), `bdl-theme-css` (`{id, scheme, vars}`), `bdl-density` (`comfortable|compact`), `bdl-motion` (`auto|reduce`).
 
-- [ ] **Step 1: `static/js/theme.js`**
+- [x] **Step 1: `static/js/theme.js`**
 
 ```js
 // Applies a theme (from /api/themes) as CSS custom properties on <html>.
@@ -689,7 +689,7 @@ export function restorePrefs() {
 }
 ```
 
-- [ ] **Step 2: `static/css/tokens.css`** (defaults = Midnight; themes override on `<html style>`):
+- [x] **Step 2: `static/css/tokens.css`** (defaults = Midnight; themes override on `<html style>`):
 
 ```css
 /* Design tokens. Values here are the Midnight defaults; the active theme
@@ -724,7 +724,7 @@ export function restorePrefs() {
 }
 ```
 
-- [ ] **Step 3: Font file.** Download Inter (PowerShell; the zip is ~10 MB, the woff2 ~350 KB):
+- [x] **Step 3: Font file.** Download Inter (PowerShell; the zip is ~10 MB, the woff2 ~350 KB):
 
 ```powershell
 Invoke-WebRequest https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip -OutFile "$env:TEMP\inter.zip"
@@ -735,7 +735,7 @@ Copy-Item (Get-ChildItem "$env:TEMP\inter" -Recurse -Filter InterVariable.woff2 
 ```
 Expected: a file of roughly 300-400 KB. Add `static/fonts/LICENSE.txt` with the OFL text from the zip (`LICENSE.txt`).
 
-- [ ] **Step 4: index.html head.** Replace the existing inline theme script with:
+- [x] **Step 4: index.html head.** Replace the existing inline theme script with:
 
 ```html
 <link rel="stylesheet" href="css/tokens.css?v=0.5.0">
@@ -752,7 +752,7 @@ try {
 ```
 In `style.css` delete the six `:root[data-theme=…]` blocks (lines 4-54) and change the `body` font to `font: var(--fs)/1.55 var(--font);`. In `main.js` import `{ loadThemes, restorePrefs }` from `./theme.js`, call `restorePrefs()` first thing and `loadThemes()` right after `refreshStatus()`.
 
-- [ ] **Step 5: Appearance in settings.js (temporary home until Task 6).** Replace the `THEMES`/`setTheme`/`curTheme` copies and the theme-swatch markup with:
+- [x] **Step 5: Appearance in settings.js (temporary home until Task 6).** Replace the `THEMES`/`setTheme`/`curTheme` copies and the theme-swatch markup with:
 
 ```js
 import { setActive, importTheme, deleteTheme, exportUrl } from "../theme.js";
@@ -778,9 +778,9 @@ import { setActive, importTheme, deleteTheme, exportUrl } from "../theme.js";
     if ($("#theme-del")) $("#theme-del").onclick = async () => { await deleteTheme(state.activeTheme); await setActive("midnight"); paint(); };
 ```
 
-- [ ] **Step 6: Verify.** Themes switch instantly and survive reload with no flash (check `localStorage bdl-theme-css`); reload with the backend stopped still shows the chosen theme; import the `GOOD` theme from `tests/test_themes.py` saved as a file → appears, applies, exports as a download, deletes; light themes flip `color-scheme`. Inter renders (DevTools → Computed → font-family shows Inter). `npm run lint:js` + `pytest -q` pass.
+- [x] **Step 6: Verify.** Themes switch instantly and survive reload with no flash (check `localStorage bdl-theme-css`); reload with the backend stopped still shows the chosen theme; import the `GOOD` theme from `tests/test_themes.py` saved as a file → appears, applies, exports as a download, deletes; light themes flip `color-scheme`. Inter renders (DevTools → Computed → font-family shows Inter). `npm run lint:js` + `pytest -q` pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add static/ package.json
@@ -801,7 +801,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - `shell.js`: `export function mountShell(), setTitle(title, slotHtml = ""), setUpdate(version|null), setBusy(bool)`; `NAV` array `[{id, label}]` (Capture, History, Tasks, Graph, Search, Reflect).
 - Layout classes (used by later tasks): `.stage` (centered column, 720px), `.split` with `.master`/`.detail`, `.wide` (full-width view), `.topbar-slot` (per-view controls).
 
-- [ ] **Step 1: index.html body** becomes:
+- [x] **Step 1: index.html body** becomes:
 
 ```html
 <body>
@@ -823,7 +823,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
 and the head links `css/tokens.css`, `css/shell.css`, `style.css` (in that order).
 
-- [ ] **Step 2: `static/js/shell.js`**
+- [x] **Step 2: `static/js/shell.js`**
 
 ```js
 // Left rail + top bar. Views call ctx.setTitle(title, slotHtml) to own the
@@ -878,7 +878,7 @@ export function setUpdate(version) {
 ```
 In `native.js`, `checkForUpdates` replaces its direct `#update-pill` writes with `setUpdate(u.version)` (import from `./shell.js`). In `main.js` call `mountShell()` before `refreshStatus()`.
 
-- [ ] **Step 3: `static/css/shell.css`**
+- [x] **Step 3: `static/css/shell.css`**
 
 ```css
 * { box-sizing: border-box; margin: 0; }
@@ -975,11 +975,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 ```
 Then in `style.css` delete every rule now defined in shell.css (`header`, `.logo`, `nav`, `.pill*`, `main`, `#view.fade`, `.card*`, `h1`, `h2`, `.sub`, `.muted`, `.small`, `.row`, `.grow`, `.btn*`, `.chip` base, `.field*`, `.center*`, `.toast*`, `.modal*`, `.progress*`, `body::before`) so the two files don't fight.
 
-- [ ] **Step 4: Views set their titles and wrappers.** At the top of each `render`: `ctx.setTitle("Capture")` / `"History"` / `"Tasks"` / `"Brain map"` / `"Search"` / `"Reflect"` / `"Settings"`, and wrap each view's root markup in `<div class="stage">…</div>` (Graph: `<div class="wide">…</div>`). Remove the old in-view `<h1>` + `.sub` from Capture only (its stage h1 stays as the big prompt); others keep their `h1.page`.
+- [x] **Step 4: Views set their titles and wrappers.** At the top of each `render`: `ctx.setTitle("Capture")` / `"History"` / `"Tasks"` / `"Brain map"` / `"Search"` / `"Reflect"` / `"Settings"`, and wrap each view's root markup in `<div class="stage">…</div>` (Graph: `<div class="wide">…</div>`). Remove the old in-view `<h1>` + `.sub` from Capture only (its stage h1 stays as the big prompt); others keep their `h1.page`.
 
-- [ ] **Step 5: Verify.** Rail renders with icons + labels, active item follows the route, AI dot/pill reflect status, update badge appears when `setUpdate("9.9.9")` is called from the console, all views render inside `#view` with correct titles, window at 720px wide shows no horizontal scroll. Check in `tauri dev` too (bump `?v=`): rail looks right in the native window.
+- [x] **Step 5: Verify.** Rail renders with icons + labels, active item follows the route, AI dot/pill reflect status, update badge appears when `setUpdate("9.9.9")` is called from the console, all views render inside `#view` with correct titles, window at 720px wide shows no horizontal scroll. Check in `tauri dev` too (bump `?v=`): rail looks right in the native window.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add static/
@@ -999,7 +999,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Interfaces:**
 - `palette.js`: `export function initPalette(), openPalette(), closePalette()`; item shape `{group, label, hint, run}`.
 
-- [ ] **Step 1: `static/js/palette.js`**
+- [x] **Step 1: `static/js/palette.js`**
 
 ```js
 // Ctrl+K command palette: actions, navigation, recent dumps, themes.
@@ -1096,7 +1096,7 @@ export function initPalette() {
 ```
 `main.js`: `import { initPalette } from "./palette.js";` and call `initPalette()` after `mountShell()`.
 
-- [ ] **Step 2: Palette CSS** (append to `shell.css`):
+- [x] **Step 2: Palette CSS** (append to `shell.css`):
 
 ```css
 /* ── Command palette ──────────────────────────────────────────────────────── */
@@ -1114,9 +1114,9 @@ export function initPalette() {
 #palette-root .o .r { margin-left: auto; color: var(--dim); font-size: 11.5px; font-family: var(--mono); }
 ```
 
-- [ ] **Step 3: Verify.** Ctrl+K opens with Actions/Go to/Recent dumps; typing "oce" surfaces "Switch theme → Ocean" and Enter applies it; arrows + Enter navigate to History; Esc and scrim click close; Ctrl+N focuses the editor; the `Ctrl K` hint in the top bar opens it. Quick unit check of `score` in the console: `score("hst","History") > 0`, `score("zzz","History") === 0`.
+- [x] **Step 3: Verify.** Ctrl+K opens with Actions/Go to/Recent dumps; typing "oce" surfaces "Switch theme → Ocean" and Enter applies it; arrows + Enter navigate to History; Esc and scrim click close; Ctrl+N focuses the editor; the `Ctrl K` hint in the top bar opens it. Quick unit check of `score` in the console: `score("hst","History") > 0`, `score("zzz","History") === 0`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add static/
@@ -1138,7 +1138,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - `advOn(section) -> bool`, `setAdv(section, bool)` persisted in `localStorage bdl-adv-<section>`.
 - Native reveal: `native.opener.revealItemInDir(path)`.
 
-- [ ] **Step 1: Rewrite `settings.js`** around this skeleton (keep `PROVIDER_META`, `ENGINE_PHASES`, `paintEnginePanel` from Task 2 unchanged; the Appearance bindings from Task 3 move into `sectionAppearance`):
+- [x] **Step 1: Rewrite `settings.js`** around this skeleton (keep `PROVIDER_META`, `ENGINE_PHASES`, `paintEnginePanel` from Task 2 unchanged; the Appearance bindings from Task 3 move into `sectionAppearance`):
 
 ```js
 import { $, $$, esc, toast } from "../ui.js";
@@ -1181,7 +1181,7 @@ Section bodies (each is `function sectionX(box, s)` that calls `head(...)` then 
 - **Data**: `<code>` path from `state.status.data_dir`, buttons: "Reveal in Explorer" (native: `native.opener.revealItemInDir(path).catch(e => toast(String(e), true))`; browser: `navigator.clipboard.writeText(path)` + toast "Path copied"), note "Delete that folder to wipe everything." (`hasAdv: false`).
 - **About**: version line (`native ? "native app" : "browser mode"`), What's new, Check for updates (native only) — Task 2's markup (`hasAdv: false`).
 
-- [ ] **Step 2: `static/css/views.css`** — create it, move these blocks from `style.css` unchanged: Capture (130-187), Pipeline progress (188-201), Items (202-226), Editable due date (227-265), Lists (266-280), Settings (281-296), Built-in engine panel (297-314), Theme picker (315-330), Graph (331-343), `.md p/.md ul` (354-355). Append:
+- [x] **Step 2: `static/css/views.css`** — create it, move these blocks from `style.css` unchanged: Capture (130-187), Pipeline progress (188-201), Items (202-226), Editable due date (227-265), Lists (266-280), Settings (281-296), Built-in engine panel (297-314), Theme picker (315-330), Graph (331-343), `.md p/.md ul` (354-355). Append:
 
 ```css
 /* ── Settings sections ───────────────────────────────────────────────────── */
@@ -1202,9 +1202,9 @@ Section bodies (each is `function sectionX(box, s)` that calls `head(...)` then 
 ```
 Link `css/views.css` in `index.html` after `shell.css`; `style.css` stays linked until Task 10 (it should now contain only Voice/graph leftovers — check with `grep -c "{" static/style.css`).
 
-- [ ] **Step 3: Verify.** `#settings` opens Appearance; sub-nav switches sections and the URL; Advanced switch state persists per section across reloads; AI section with Built-in shows the engine panel and read-only Advanced rows; with OpenAI shows key + (Advanced) model/embedding fields; Save/Test work with Advanced both on and off; Voice saves; Data reveals the folder in Explorer inside `tauri dev` (copy-path toast in the browser); About buttons work. Palette "Settings → Data" lands on the section.
+- [x] **Step 3: Verify.** `#settings` opens Appearance; sub-nav switches sections and the URL; Advanced switch state persists per section across reloads; AI section with Built-in shows the engine panel and read-only Advanced rows; with OpenAI shows key + (Advanced) model/embedding fields; Save/Test work with Advanced both on and off; Voice saves; Data reveals the folder in Explorer inside `tauri dev` (copy-path toast in the browser); About buttons work. Palette "Settings → Data" lands on the section.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add static/
@@ -1225,7 +1225,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Route `#history` (wide: auto-selects newest) and `#history/<id>`.
 - `reviewHtml(d, {showBack, detail})`: `detail: true` renders the h1/meta/summary/items/related for the right pane and omits the "New dump →" button.
 
-- [ ] **Step 1: `history.js`**
+- [x] **Step 1: `history.js`**
 
 ```js
 import { $, $$, esc, relTime, MODES } from "../ui.js";
@@ -1289,7 +1289,7 @@ async function paintDetail(id) {
 ```
 `renderProcessing(id, container = $("#view"))` in `capture.js` gains an optional container so the detail pane can show the stage progress. In `review.js`, `reviewHtml` with `detail: true` renders `<h1 class="page">`, the meta line as `<div class="meta">${mode.label} · ${fmtDate(...)} · ${items} items</div>`, the summary/reflection/items/related/raw sections, and a final row with only the Delete button (`id="delete-dump"`).
 
-- [ ] **Step 2: CSS** (append to `views.css`):
+- [x] **Step 2: CSS** (append to `views.css`):
 
 ```css
 .chips { display: flex; gap: 6px; padding: 12px 14px 8px; flex-wrap: wrap; }
@@ -1304,9 +1304,9 @@ async function paintDetail(id) {
 .meta { color: var(--dim); font-size: 12.5px; margin-bottom: 18px; display: flex; gap: 14px; }
 ```
 
-- [ ] **Step 3: Verify.** `#history` on a wide window auto-selects the newest dump and shows it on the right; clicking rows swaps the detail without reloading the list; chips and the top-bar filter narrow the list; `#dump/<id>` legacy links redirect to `#history/<id>`; at 800px width the list shows alone, a row opens the detail with "← All dumps"; delete returns to the list; item keep/reject and due-date editing still work in the pane; a processing dump shows the stage progress in the pane.
+- [x] **Step 3: Verify.** `#history` on a wide window auto-selects the newest dump and shows it on the right; clicking rows swaps the detail without reloading the list; chips and the top-bar filter narrow the list; `#dump/<id>` legacy links redirect to `#history/<id>`; at 800px width the list shows alone, a row opens the detail with "← All dumps"; delete returns to the list; item keep/reject and due-date editing still work in the pane; a processing dump shows the stage progress in the pane.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add static/
@@ -1325,7 +1325,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Interfaces:** route `#tasks/<group>`, groups `overdue|today|upcoming|someday|done`; default = first non-empty in that order.
 
-- [ ] **Step 1: `tasks.js`**
+- [x] **Step 1: `tasks.js`**
 
 ```js
 import { $, $$, esc, todayIso } from "../ui.js";
@@ -1376,7 +1376,7 @@ export async function render(ctx) {
 ```
 Tasks always shows both panes (`has-detail` + the master is a short group list), so at narrow widths the group list sits above the list: add `@media (max-width: 959px) { #tasks { flex-direction: column; } #tasks .master { height: auto; } #tasks .master, #tasks .detail { display: block; } }` in views.css.
 
-- [ ] **Step 2: CSS** (append):
+- [x] **Step 2: CSS** (append):
 
 ```css
 .glist { padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
@@ -1385,9 +1385,9 @@ Tasks always shows both panes (`has-detail` + the master is a short group list),
 .grow-row .count { font-family: var(--mono); font-size: 12px; opacity: .8; }
 ```
 
-- [ ] **Step 3: Verify.** Groups with counts on the left, list on the right; group selection is in the URL; checking a task moves it to Done; due-date edit reloads in place; "from" links open History detail; narrow width stacks.
+- [x] **Step 3: Verify.** Groups with counts on the left, list on the right; group selection is in the URL; checking a task moves it to Done; due-date edit reloads in place; "from" links open History detail; narrow width stacks.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add static/
@@ -1403,13 +1403,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Modify: `static/js/views/graph.js`, `static/css/views.css`
 
-- [ ] **Step 1: graph.js changes.**
+- [x] **Step 1: graph.js changes.**
   - `render(ctx)`: `ctx.setTitle("Brain map", legendHtml())` where `legendHtml()` returns three `.chip` toggles (`data-type="dump|concept|person"`, class `on` unless hidden) with a colored dot; view root is `<div class="wide"><div class="graph-wrap" id="graph-wrap"><canvas id="graph-canvas"></canvas><div id="graph-info" class="graph-info" style="display:none"></div></div></div>`.
   - Keep a module-level `const hidden = new Set()`; chip click toggles the type in `hidden`, re-renders the chip class and calls `mount()` again with `data.nodes.filter((n) => !hidden.has(n.type))` (edges filtered to surviving nodes).
   - In `mountForceGraph`: replace the fixed `H = 560` with `const H = () => wrap.clientHeight;` and use `H()` everywhere `H` was used; `resize()` sets both width and height from the wrap; the wrap is `flex: 1` so the canvas fills the window.
   - `showInfo` links become `#history/${d.id}`; clicking a dump node goes to `history/<id>`.
 
-- [ ] **Step 2: CSS** (append; also delete the old `.graph-legend` rules):
+- [x] **Step 2: CSS** (append; also delete the old `.graph-legend` rules):
 
 ```css
 .graph-wrap { flex: 1; min-height: 320px; position: relative; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); overflow: hidden; }
@@ -1418,9 +1418,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 ```
 
-- [ ] **Step 3: Verify.** Canvas fills the content area and follows window resizes; toggling "Concepts" off removes concept nodes and their edges; dump click opens History detail; drag/zoom/pan unchanged; the info box appears top-right.
+- [x] **Step 3: Verify.** Canvas fills the content area and follows window resizes; toggling "Concepts" off removes concept nodes and their edges; dump click opens History detail; drag/zoom/pan unchanged; the info box appears top-right.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add static/
@@ -1438,7 +1438,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Delete: `static/app.js`, `static/style.css`
 - Modify: `CHANGELOG.md`, `README.md` (frontend layout section)
 
-- [ ] **Step 1: Capture stage.** In `capture.js` wrap the view in `<div class="stage capture"><div class="glow"></div>…</div>`; the prompt `h1` becomes `<h1 class="hero">What's on your mind?</h1>`; the editor gets `class="editor"`; the bottom row: mic, `Ctrl+Enter` hint, `grow`, Dump button. Move the remaining `style.css` Capture rules into `views.css` and add:
+- [x] **Step 1: Capture stage.** In `capture.js` wrap the view in `<div class="stage capture"><div class="glow"></div>…</div>`; the prompt `h1` becomes `<h1 class="hero">What's on your mind?</h1>`; the editor gets `class="editor"`; the bottom row: mic, `Ctrl+Enter` hint, `grow`, Dump button. Move the remaining `style.css` Capture rules into `views.css` and add:
 
 ```css
 .stage.capture { position: relative; padding-top: 72px; }
@@ -1449,13 +1449,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
 Processing/Review keep the `.stage` column.
 
-- [ ] **Step 2: Search + Reflect.** Both use `.stage`; Search's input moves into the top-bar slot (`ctx.setTitle("Search", <input id="q" class="topbar-input" …>)`) with results in the stage as `.card.click` rows linking to `#history/<id>`; Reflect unchanged apart from `h1.page`.
+- [x] **Step 2: Search + Reflect.** Both use `.stage`; Search's input moves into the top-bar slot (`ctx.setTitle("Search", <input id="q" class="topbar-input" …>)`) with results in the stage as `.card.click` rows linking to `#history/<id>`; Reflect unchanged apart from `h1.page`.
 
-- [ ] **Step 3: Cleanup.** `git rm static/app.js static/style.css`; remove the `style.css` link from `index.html`; `grep -rn "style.css\|app.js" static/ src-tauri/ README.md` must return only the README layout text (update it: `static/js/*` modules, `static/css/*`). Run `npm run lint:js`, `pytest -q`.
+- [x] **Step 3: Cleanup.** `git rm static/app.js static/style.css`; remove the `style.css` link from `index.html`; `grep -rn "style.css\|app.js" static/ src-tauri/ README.md` must return only the README layout text (update it: `static/js/*` modules, `static/css/*`). Run `npm run lint:js`, `pytest -q`.
 
-- [ ] **Step 4: Full visual pass in `tauri dev`** (bump `?v=` to force WebView2 to refetch): every view, every theme (light ones included), density compact, reduced motion, palette, settings sections, master/detail at 720px window width, update pill via `setUpdate`. Fix anything off before committing.
+- [x] **Step 4: Full visual pass in `tauri dev`** (bump `?v=` to force WebView2 to refetch): every view, every theme (light ones included), density compact, reduced motion, palette, settings sections, master/detail at 720px window width, update pill via `setUpdate`. Fix anything off before committing.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
