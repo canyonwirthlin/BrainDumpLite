@@ -4,4 +4,12 @@ build/
 *.spec
 __pycache__/
 *.pyc
+.pytest_cache/
 BrainDumpLite-win64.zip
+BrainDumpLite-win64/
+update/
+node_modules/
+src-tauri/target/
+src-tauri/backend/
+src-tauri/gen/schemas/
+*.log
