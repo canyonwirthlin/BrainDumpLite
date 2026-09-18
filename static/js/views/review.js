@@ -125,11 +125,13 @@ export function bindItemRows(container, items, reload) {
   });
 }
 
-export function reviewHtml(d, { showBack = false } = {}) {
+export function reviewHtml(d, { showBack = false, detail = false } = {}) {
   const mode = MODES.find((m) => m.id === d.mode) || MODES[0];
+  const n = d.items.length;
   return `
-    <h1>${esc(d.title || "Untitled dump")}</h1>
-    <p class="sub">${mode.icon} ${mode.label} · ${fmtDate(d.created_at)}</p>
+    <h1 class="page">${esc(d.title || "Untitled dump")}</h1>
+    ${detail ? `<div class="meta"><span>${fmtDate(d.created_at)}</span><span>${mode.icon} ${mode.label}</span><span>${n} item${n === 1 ? "" : "s"}</span></div>`
+             : `<p class="sub">${mode.icon} ${mode.label} · ${fmtDate(d.created_at)}</p>`}
     ${d.summary ? `<div class="card">${md(d.summary)}</div>` : ""}
     ${d.reflection ? `<div class="reflection"><div class="tag">${mode.icon} ${mode.label} take</div>${md(d.reflection)}</div>` : ""}
     ${d.items.length ? `<div class="card"><h2>Extracted items <span class="muted small">(✓ keep · ✕ reject)</span></h2>
@@ -137,15 +139,15 @@ export function reviewHtml(d, { showBack = false } = {}) {
       <div class="row"><button class="btn ghost" id="approve-all">Keep all</button></div></div>` : ""}
     ${d.related && d.related.length ? `<div class="card"><h2>Related dumps</h2>
       ${d.related.map((r) => `<div class="dump-row" style="padding:6px 0">
-        <a href="#dump/${r.id}" class="grow">🔗 ${esc(r.title || "Untitled")}</a>
+        <a href="#history/${r.id}" class="grow">🔗 ${esc(r.title || "Untitled")}</a>
         <span class="meta">${fmtDate(r.created_at)}</span></div>`).join("")}</div>` : ""}
     <details class="card"><summary class="muted">Raw text</summary>
       <p class="small" style="margin-top:10px;white-space:pre-wrap">${esc(d.raw_text)}</p></details>
     <div class="row">
-      ${showBack ? `<a class="btn ghost" href="#history">← History</a>
-        <button class="btn danger" id="delete-dump">Delete</button>` : ""}
+      ${showBack ? `<a class="btn ghost" href="#history">← History</a>` : ""}
+      ${showBack || detail ? `<button class="btn danger" id="delete-dump">Delete</button>` : ""}
       <div class="grow"></div>
-      <a class="btn" href="#capture">New dump →</a>
+      ${detail ? "" : `<a class="btn" href="#capture">New dump →</a>`}
     </div>`;
 }
 

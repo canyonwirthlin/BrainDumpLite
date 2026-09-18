@@ -47,13 +47,13 @@ code { font: 12.5px var(--mono); background: var(--panel-2); padding: 1px 6px; b
 #view h1 { font-size: 24px; font-weight: 650; letter-spacing: -.01em; margin-bottom: 4px; }
 .wide { padding: 16px 20px 24px; height: 100%; display: flex; flex-direction: column; }
 .split { display: flex; height: 100%; min-height: 0; }
-.split .master { width: 360px; flex: none; border-right: 1px solid var(--line); overflow: auto; display: flex; flex-direction: column; }
-.split .detail { flex: 1; min-width: 0; overflow: auto; padding: 24px 32px 60px; }
+.split > .master { width: 360px; flex: none; border-right: 1px solid var(--line); overflow: auto; display: flex; flex-direction: column; }
+.split > .detail { flex: 1; min-width: 0; overflow: auto; padding: 24px 32px 60px; }
 .split .back { display: none; }
 @media (max-width: 959px) {              /* 60px rail + 900px content */
-  .split .master { width: 100%; border-right: 0; }
-  .split.has-detail .master { display: none; }
-  .split:not(.has-detail) .detail { display: none; }
+  .split > .master { width: 100%; border-right: 0; }
+  .split.has-detail > .master { display: none; }
+  .split:not(.has-detail) > .detail { display: none; }
   .split .back { display: inline-flex; margin-bottom: 12px; }
 }
 
