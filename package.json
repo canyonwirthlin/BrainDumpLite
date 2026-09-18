@@ -3,7 +3,8 @@
   "private": true,
   "description": "npm is only here to run the Tauri CLI. The frontend has no build step.",
   "scripts": {
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "lint:js": "node -e \"const fs=require('fs'),p=require('path'),cp=require('child_process');const walk=d=>fs.readdirSync(d).flatMap(f=>{const q=p.join(d,f);return fs.statSync(q).isDirectory()?walk(q):q.endsWith('.js')?[q]:[]});for(const f of walk('static/js')){cp.execFileSync(process.execPath,['--check',f]);console.log('ok',f)}\""
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"
