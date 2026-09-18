@@ -1,0 +1,62 @@
+# Tag push (vX.Y.Z, made by release.ps1) -> tests -> frozen Python backend ->
+# Tauri NSIS installer -> GitHub Release with installer, .sig and latest.json.
+# The updater in every installed app reads latest.json from /releases/latest.
+name: release
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Python tests
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+          pytest -q
+
+      - name: Tag must match app/version.py
+        shell: bash
+        run: |
+          v=$(python -c "from app.version import __version__; print(__version__)")
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME != version $v"; exit 1; }
+
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        shell: bash
+        run: |
+          { echo "body<<BDL_EOF"; python -m app.changelog "${GITHUB_REF_NAME#v}"; echo "BDL_EOF"; } >> "$GITHUB_OUTPUT"
+
+      - name: Freeze Python backend
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File build-backend.ps1
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "BrainDump Lite ${{ github.ref_name }}"
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
