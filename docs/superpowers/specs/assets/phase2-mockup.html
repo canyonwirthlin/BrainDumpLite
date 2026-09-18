@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>BrainDump Lite — Phase 2 mockup</title>
+<style>
+:root{--bg:#0d1017;--rail:#0a0d13;--panel:#151b28;--panel2:#1b2334;--line:#263049;--text:#e6e9f2;--dim:#8b93a8;--accent:#8b7cf6;--accent2:#5ea2f7;--soft:rgba(139,124,246,.16);--green:#4ade80;--amber:#fbbf24;--r:12px}
+*{box-sizing:border-box;margin:0}
+body{background:#05070b;color:var(--text);font:14px/1.5 Inter,"Segoe UI",system-ui,sans-serif;padding:24px;display:flex;flex-direction:column;gap:28px}
+.label{color:#6f7891;font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.screen{width:1200px;height:760px;background:var(--bg);border:1px solid #1c2333;border-radius:14px;overflow:hidden;display:flex;position:relative}
+.rail{width:60px;background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.brain{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));margin-bottom:14px;box-shadow:0 0 18px rgba(139,124,246,.35)}
+.nav{width:48px;height:48px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--dim);font-size:9.5px;letter-spacing:.02em}
+.nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav.on{background:var(--soft);color:var(--accent)}
+.rail .sp{flex:1}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);margin:6px 0}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{height:52px;display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid var(--line)}
+.top h1{font-size:15px;font-weight:600}
+.top .sub{color:var(--dim);font-size:12.5px}
+.top .grow{flex:1}
+.pill{font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+.pill.on{color:var(--green);border-color:rgba(74,222,128,.35)}
+.pill.up{color:var(--amber);border-color:rgba(251,191,36,.4)}
+.kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--dim);background:var(--panel)}
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:5px 10px;width:260px;color:var(--dim);font-size:12.5px;background:var(--panel)}
+.split{flex:1;display:flex;min-height:0}
+.list{width:360px;border-right:1px solid var(--line);overflow:hidden}
+.chips{display:flex;gap:6px;padding:12px 14px 6px}
+.chip{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+.chip.on{background:var(--soft);color:var(--accent);border-color:transparent}
+.row{padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.row.sel{background:var(--panel);box-shadow:inset 3px 0 0 var(--accent)}
+.row b{display:block;font-weight:600;font-size:13.5px;margin-bottom:2px}
+.row .m{color:var(--dim);font-size:11.5px;display:flex;gap:8px;margin-bottom:4px}
+.row p{color:#aeb5c6;font-size:12.5px;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tag{font-size:10.5px;padding:1px 7px;border-radius:5px;background:var(--panel2);color:var(--dim)}
+.detail{flex:1;padding:24px 32px;overflow:hidden}
+.detail h2{font-size:22px;font-weight:650;letter-spacing:-.01em;margin-bottom:4px}
+.meta{color:var(--dim);font-size:12.5px;margin-bottom:18px;display:flex;gap:14px}
+.sec{color:var(--dim);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:18px 0 8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.item{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.box{width:15px;height:15px;border:1.5px solid var(--dim);border-radius:4px;margin-top:2px;flex:none}
+.box.on{background:var(--accent);border-color:var(--accent)}
+.item .t{font-size:13.5px}
+.item .d{color:var(--dim);font-size:11.5px}
+.item .k{margin-left:auto;font-size:10.5px;padding:1px 7px;border-radius:5px;background:var(--panel2);color:var(--dim);flex:none}
+.wl{display:flex;flex-wrap:wrap;gap:6px}
+.wl span{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:#c5cbdb}
+.wl span.p{border-color:rgba(94,162,247,.4);color:var(--accent2)}
+/* settings */
+.subnav{width:200px;border-right:1px solid var(--line);padding:14px 10px}
+.subnav div{padding:8px 12px;border-radius:8px;color:var(--dim);font-size:13.5px}
+.subnav div.on{background:var(--soft);color:var(--accent);font-weight:600}
+.body{flex:1;padding:24px 36px;max-width:760px}
+.h{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.h h2{font-size:18px;font-weight:650}
+.h .grow{flex:1}
+.sw{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:12.5px}
+.tog{width:34px;height:19px;border-radius:999px;background:var(--accent);position:relative}
+.tog::after{content:"";position:absolute;right:2px;top:2px;width:15px;height:15px;border-radius:50%;background:#fff}
+.prov{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+.prov div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--dim)}
+.prov div b{display:block;color:var(--text);font-size:13px;margin-bottom:2px}
+.prov div.on{border-color:var(--accent);background:var(--soft)}
+.mrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.mrow:first-child{border-top:0}
+.mrow b{font-size:13.5px}.mrow small{color:var(--dim);font-size:12px;display:block}
+.btn{font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:8px;background:var(--accent);color:#fff;margin-left:auto}
+.btn.g{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.adv{border-left:2px solid var(--accent);padding-left:14px;margin-top:14px;opacity:.95}
+.adv .f{margin-bottom:10px}
+.adv label{display:block;color:var(--dim);font-size:11.5px;margin-bottom:4px}
+.adv .in{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:12.5px ui-monospace,monospace;background:var(--panel);color:#c5cbdb}
+/* capture + palette */
+.stage{flex:1;display:flex;flex-direction:column;align-items:center;padding-top:110px;position:relative;overflow:hidden}
+.glow{position:absolute;top:-120px;left:50%;width:700px;height:420px;transform:translateX(-50%);background:radial-gradient(ellipse at center,rgba(139,124,246,.16),transparent 65%);pointer-events:none}
+.stage h1{font-size:26px;font-weight:650;letter-spacing:-.01em}
+.stage .s{color:var(--dim);margin:6px 0 18px}
+.modes{display:flex;gap:8px;margin-bottom:12px}
+.mode{font-size:12.5px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+.mode.on{background:var(--soft);color:var(--accent);border-color:transparent}
+.ed{width:720px;height:200px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:16px;color:var(--dim);font-size:15px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.edb{width:720px;display:flex;align-items:center;gap:10px;margin-top:12px;color:var(--dim);font-size:12px}
+.mic{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--panel)}
+.dump{margin-left:auto;background:var(--accent);color:#fff;font-weight:600;padding:9px 18px;border-radius:10px;font-size:13.5px;box-shadow:0 6px 20px rgba(139,124,246,.35)}
+.scrim{position:absolute;inset:0;background:rgba(5,7,11,.55);backdrop-filter:blur(2px)}
+.pal{position:absolute;left:50%;top:96px;transform:translateX(-50%);width:560px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5);overflow:hidden}
+.pal .q{display:flex;gap:10px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);font-size:15px}
+.pal .q i{width:1px;height:18px;background:var(--accent);animation:none}
+.pal .g{padding:8px 16px 2px;color:var(--dim);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
+.pal .o{display:flex;align-items:center;gap:10px;padding:8px 16px;font-size:13.5px}
+.pal .o.on{background:var(--soft)}
+.pal .o .ic{width:22px;height:22px;border-radius:6px;background:var(--panel2);flex:none}
+.pal .o .r{margin-left:auto}
+</style></head><body>
+
+<div class="label">1 · History — master/detail, rail navigation</div>
+<div class="screen">
+  <div class="rail">
+    <div class="brain"></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg>Capture</div>
+    <div class="nav on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/></svg>Tasks</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="10" cy="18" r="2.5"/><path d="M8 7l8 1M8 8l2 8M16 10l-6 8"/></svg>Graph</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Search</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Reflect</div>
+    <div class="sp"></div>
+    <div class="dot"></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M5.6 18.4l2-2M16.4 7.6l2-2"/></svg>Settings</div>
+  </div>
+  <div class="main">
+    <div class="top"><h1>History</h1><span class="sub">31 dumps</span><div class="grow"></div><div class="search">⌕ Filter dumps… <span class="grow"></span><span class="kbd">/</span></div><span class="pill on">● Built-in AI</span><span class="pill up">⬆ v0.6.0</span></div>
+    <div class="split">
+      <div class="list">
+        <div class="chips"><span class="chip on">All</span><span class="chip">Freeform</span><span class="chip">Brainstorm</span><span class="chip">Therapy</span><span class="chip">Execution</span></div>
+        <div class="row sel"><b>Sleep, work, and life organization</b><div class="m">Today · 9:12 AM <span class="tag">Freeform</span> <span>5 items</span></div><p>okay so this has been floating around for a while, I keep going to bed at 2am and then work is a fog, need a real system for…</p></div>
+        <div class="row"><b>Digital Clutter and Productivity</b><div class="m">Yesterday <span class="tag">Execution</span> <span>7 items</span></div><p>Desktop has 200 files on it. Downloads folder is a landfill. Idea: one weekly reset ritual, Sunday night, 20 minutes max.</p></div>
+        <div class="row"><b>Hiking plans with Jeremy</b><div class="m">Mon <span class="tag">Brainstorm</span> <span>3 items</span></div><p>Timpanogos in October? Need to check permits, and Jeremy said he's free the second weekend. Pack list from last time…</p></div>
+        <div class="row"><b>Me and Bella did something today</b><div class="m">Sun <span class="tag">Therapy</span> <span>2 items</span></div><p>Went to the farmers market, felt like the first normal weekend in a month. Noticed I was less on my phone…</p></div>
+        <div class="row"><b>Q4 side-project reset</b><div class="m">Sep 9 <span class="tag">Execution</span> <span>6 items</span></div><p>Ship the native app, then stop adding features for a month and actually use the thing daily.</p></div>
+      </div>
+      <div class="detail">
+        <h2>Sleep, work, and life organization</h2>
+        <div class="meta"><span>Today · 9:12 AM</span><span>Freeform</span><span>5 items · 6 concepts · 1 person</span></div>
+        <div class="card" style="color:#c5cbdb;font-size:13.5px">You're running on a 2am schedule that's eating your mornings. The dump circles three things: sleep, a real work-block system, and the guilt of not having one yet. The concrete moves are small and all about evenings.</div>
+        <div class="sec">Extracted</div>
+        <div class="card">
+          <div class="item"><div class="box on"></div><div><div class="t">Set a hard 11:30 pm phone-off alarm</div><div class="d">Task · due tonight</div></div><span class="k">task</span></div>
+          <div class="item"><div class="box"></div><div><div class="t">Try 2 × 90-min deep-work blocks before noon</div><div class="d">Task · this week</div></div><span class="k">task</span></div>
+          <div class="item"><div class="box"></div><div><div class="t">"I keep planning systems instead of using one"</div><div class="d">Insight</div></div><span class="k">insight</span></div>
+          <div class="item"><div class="box"></div><div><div class="t">Worry: work fog is being noticed by Sam</div><div class="d">Worry</div></div><span class="k">worry</span></div>
+        </div>
+        <div class="sec">Concepts &amp; people</div>
+        <div class="wl"><span>sleep schedule</span><span>deep work</span><span>evening routine</span><span>work fog</span><span>planning vs doing</span><span class="p">@Sam</span></div>
+        <div class="sec">Related dumps</div>
+        <div class="wl"><span>Digital Clutter and Productivity</span><span>Q4 side-project reset</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">2 · Settings — sections, simple by default, "Advanced" per section</div>
+<div class="screen">
+  <div class="rail">
+    <div class="brain"></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg>Capture</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/></svg>Tasks</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="10" cy="18" r="2.5"/><path d="M8 7l8 1M8 8l2 8M16 10l-6 8"/></svg>Graph</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Search</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Reflect</div>
+    <div class="sp"></div>
+    <div class="dot"></div>
+    <div class="nav on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M5.6 18.4l2-2M16.4 7.6l2-2"/></svg>Settings</div>
+  </div>
+  <div class="main">
+    <div class="top"><h1>Settings</h1><div class="grow"></div><span class="pill on">● Built-in AI</span></div>
+    <div class="split">
+      <div class="subnav"><div>Appearance</div><div class="on">AI</div><div>Voice</div><div>Data</div><div>About</div></div>
+      <div class="body">
+        <div class="h"><h2>AI provider</h2><div class="grow"></div><div class="sw">Advanced <div class="tog"></div></div></div>
+        <div class="prov"><div class="on"><b>Built-in</b>Free · on this PC</div><div><b>Claude</b>API key</div><div><b>OpenAI</b>API key</div><div><b>Self-hosted</b>LM Studio / Ollama</div><div><b>Off</b>No AI</div></div>
+        <div class="card">
+          <div class="mrow"><div><b>Llama 3.2 3B</b><small>Running · 4 GB VRAM</small></div><span class="btn g">Running ✓</span></div>
+          <div class="mrow"><div><b>Qwen3 4B Instruct</b><small>Best quality for its size · 6 GB VRAM</small></div><span class="btn">Get · 2.3 GB</span></div>
+          <div class="mrow"><div><b>Llama 3.1 8B</b><small>⭐ Recommended for this PC · 8 GB VRAM</small></div><span class="btn">Get · 4.6 GB</span></div>
+        </div>
+        <div class="adv">
+          <div class="sec" style="margin-top:0">Advanced</div>
+          <div class="f"><label>Context window</label><div class="in">4096 tokens</div></div>
+          <div class="f"><label>Embedding model</label><div class="in">nomic-embed-text-v1.5 (CPU)</div></div>
+          <div class="f"><label>Engine ports</label><div class="in">chat 8790 · embed 8820</div></div>
+          <div class="f"><label>Engine folder</label><div class="in">C:\Users\canyo\AppData\Local\BrainDumpLite\engine</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">3 · Capture stage with the Ctrl+K command palette open</div>
+<div class="screen">
+  <div class="rail">
+    <div class="brain"></div>
+    <div class="nav on"><svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg>Capture</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/></svg>Tasks</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="10" cy="18" r="2.5"/><path d="M8 7l8 1M8 8l2 8M16 10l-6 8"/></svg>Graph</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Search</div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Reflect</div>
+    <div class="sp"></div>
+    <div class="dot"></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M5.6 18.4l2-2M16.4 7.6l2-2"/></svg>Settings</div>
+  </div>
+  <div class="main">
+    <div class="top"><h1>Capture</h1><div class="grow"></div><span class="kbd">Ctrl</span><span class="kbd">K</span><span class="sub">command palette</span><span class="pill on">● Built-in AI</span></div>
+    <div class="stage">
+      <div class="glow"></div>
+      <h1>What's on your mind?</h1>
+      <div class="s">Dump it all — tasks, worries, ideas. The AI sorts it out.</div>
+      <div class="modes"><span class="mode on">🌀 Freeform</span><span class="mode">💡 Brainstorm</span><span class="mode">🫂 Therapy</span><span class="mode">⚡ Execution</span></div>
+      <div class="ed">Type, paste, or hit the mic…</div>
+      <div class="edb"><div class="mic"></div><span><span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> to dump</span><span class="dump">Dump it →</span></div>
+      <div class="scrim"></div>
+      <div class="pal">
+        <div class="q">the<i></i><span style="color:var(--dim)">|</span></div>
+        <div class="g">Actions</div>
+        <div class="o on"><span class="ic"></span>Switch theme → Ocean<span class="r kbd">↵</span></div>
+        <div class="o"><span class="ic"></span>New dump<span class="r kbd">Ctrl N</span></div>
+        <div class="g">Go to</div>
+        <div class="o"><span class="ic"></span>Settings → Appearance (themes)</div>
+        <div class="g">Recent dumps</div>
+        <div class="o"><span class="ic"></span>Sleep, work, and life organization <span class="r" style="color:var(--dim);font-size:11.5px">today</span></div>
+        <div class="o"><span class="ic"></span>Digital Clutter and Productivity <span class="r" style="color:var(--dim);font-size:11.5px">yesterday</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>
