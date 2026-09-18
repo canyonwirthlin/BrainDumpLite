@@ -27,7 +27,9 @@ def client() -> dict:
 
 
 def set_client(client_id: str, secret: str) -> None:
-    db.set_setting("google_client", {"id": client_id.strip(), "secret": secret.strip()})
+    """An empty secret keeps the saved one (the UI never echoes it back)."""
+    secret = secret.strip() or client().get("secret", "")
+    db.set_setting("google_client", {"id": client_id.strip(), "secret": secret})
 
 
 def _http(method: str, url: str, data: dict | None = None, token: str | None = None, form: bool = False) -> dict:

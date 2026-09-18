@@ -27,6 +27,8 @@ code { font: 12.5px var(--mono); background: var(--panel-2); padding: 1px 6px; b
 #rail .nav:hover { color: var(--text); background: var(--panel); }
 #rail .nav.active { background: var(--accent-soft); color: var(--accent); }
 #rail .badge { position: absolute; top: 6px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+#rail .nbadge { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #fff;
+  font: 600 10px/16px var(--mono); text-align: center; box-shadow: 0 0 0 2px var(--rail); }
 #rail .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); margin: 6px 0; }
 #rail .ai-dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
 

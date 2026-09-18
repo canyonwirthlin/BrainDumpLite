@@ -1,4 +1,4 @@
-"""Todoist push (Phase 8) with a personal API token (REST v2)."""
+"""Todoist push (Phase 8) with a personal API token (unified API v1; REST v2 is retired)."""
 from __future__ import annotations
 
 import json
@@ -6,7 +6,7 @@ import urllib.request
 
 from . import secrets
 
-API = "https://api.todoist.com/rest/v2"
+API = "https://api.todoist.com/api/v1"
 
 
 def _http(method: str, url: str, data: dict | None, token: str) -> dict:
@@ -44,7 +44,7 @@ def create_task(content: str, due: str | None = None, description: str = "") -> 
         else:
             body["due_date"] = due
     t = _http("POST", API + "/tasks", body, token)
-    return {"id": t.get("id"), "link": t.get("url")}
+    return {"id": t.get("id"), "link": t.get("url") or (f"https://app.todoist.com/app/task/{t['id']}" if t.get("id") else None)}
 
 
 def execute_push(payload: dict) -> dict:

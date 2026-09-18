@@ -323,3 +323,18 @@ a.iconbtn.cal { text-decoration: none; }
 .stat-table th { text-align: left; color: var(--dim); font-weight: 500; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 4px 6px; border-bottom: 1px solid var(--line); }
 .stat-table td { padding: 5px 6px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .stat-table td.mono { text-align: right; }
+
+/* ── Inbox + planner (Phase 8) ─────────────────────────────────────────── */
+.inbox { display: grid; gap: 10px; }
+.sugg .e-title { width: 100%; font: inherit; font-weight: 600; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; margin: 0 -8px; }
+.sugg .e-title:hover, .sugg .e-title:focus { border-color: var(--line); background: var(--bg); outline: none; }
+.sugg.busy { opacity: .5; pointer-events: none; }
+.recent { display: flex; flex-direction: column; }
+.recent-row { display: flex; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.recent-row:first-child { border-top: none; }
+.recent-row.dismissed .grow { color: var(--dim); text-decoration: line-through; }
+.plan-row { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13.5px; cursor: pointer; }
+.plan-row:first-of-type { border-top: none; }
+.plan-row.ev { color: var(--dim); cursor: default; }
+.plan-row .mono { font-family: var(--mono); font-size: 12px; min-width: 96px; }
+.plan-row input[type=checkbox] { accent-color: var(--accent); }
