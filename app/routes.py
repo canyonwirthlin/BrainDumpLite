@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from . import ai, changelog, db, engine, pipeline, themes, transcribe
+from . import ai, changelog, db, engine, item_types, pipeline, themes, transcribe
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -66,6 +66,46 @@ def status():
 @router.get("/changelog")
 def get_changelog():
     return {"version": VERSION, "entries": changelog.load()}
+
+
+# ── Item types ───────────────────────────────────────────────────────────────
+
+class ItemTypeIn(BaseModel):
+    label: str | None = None
+    icon: str | None = None
+    color: str | None = None
+    hint: str | None = None
+    enabled: bool | None = None
+
+
+@router.get("/item-types")
+def list_item_types():
+    return item_types.all()
+
+
+@router.post("/item-types")
+def create_item_type(body: ItemTypeIn):
+    try:
+        return item_types.create(body.label or "", body.icon or "", body.color or "accent", body.hint or "")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.put("/item-types/{type_id}")
+def update_item_type(type_id: str, body: ItemTypeIn):
+    try:
+        return item_types.update(type_id, **body.model_dump())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/item-types/{type_id}")
+def delete_item_type(type_id: str):
+    try:
+        item_types.delete(type_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
 
 
 # ── Themes ───────────────────────────────────────────────────────────────────

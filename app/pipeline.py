@@ -11,9 +11,7 @@ import re
 import traceback
 from datetime import datetime, timedelta
 
-from . import ai, db
-
-KINDS = {"task", "goal", "idea", "concern", "event", "note"}
+from . import ai, db, item_types
 
 # Small models (esp. 3B) love inventing due dates — dating every task, often
 # one-per-day down the lookup table. As a deterministic backstop to the prompt,
@@ -48,7 +46,7 @@ Rules:
 - Return ONLY the cleaned transcript. No preamble, no commentary.
 """.strip()
 
-_CLASSIFY_SYSTEM = """
+_CLASSIFY_TEMPLATE = """
 You are a cognitive assistant parsing raw thought transcripts into structured data.
 Extract EVERY distinct thought and classify it.
 
@@ -58,7 +56,7 @@ Respond with valid JSON matching this exact schema — no markdown, no extra key
   "summary": ["array of 3-5 JSON strings, each one bullet starting with •, covering every key action, decision, or emotion. First person. Be all-inclusive — miss nothing."],
   "items": [
     {
-      "type": "task|goal|idea|concern|event|note",
+      "type": "{TYPE_ENUM}",
       "content": "clear, complete statement — first person where natural",
       "priority": 1-5 or null,
       "due_date_iso": "YYYY-MM-DD" or null,
@@ -71,12 +69,7 @@ Respond with valid JSON matching this exact schema — no markdown, no extra key
 }
 
 Item type rules:
-- task: clear action verb (do, call, write, fix, send, build, schedule, buy, complete)
-- goal: desired outcome, aspiration, or self-improvement aim — even without action verbs
-- idea: creative or speculative thought, hypothetical plan, new concept to explore
-- concern: worry, fear, anxiety, stress, or something weighing on the person
-- event: has explicit or implied date/time scheduling intent
-- note: purely factual reference info or context that is NOT aspirational
+{TYPE_RULES}
 
 Priority (tasks only): 5=today, 4=this week, 3=moderate, 2=nice-to-have, 1=someday
 
@@ -100,7 +93,7 @@ Return ONLY the JSON object.
 # Strict schema for local/built-in models: llama.cpp turns this into a grammar
 # that forces valid, correctly-shaped JSON (see ai.chat's schema path). Only
 # title/summary/items are required; the rest are optional so a weak model that
-# omits them still validates. Keys mirror _CLASSIFY_SYSTEM exactly.
+# omits them still validates. Keys mirror _CLASSIFY_TEMPLATE exactly; the type enum is replaced per run.
 _CLASSIFY_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -166,6 +159,19 @@ You are a thoughtful thinking partner reading a raw dump. In under 80 words:
 }
 
 
+def _classify_system() -> str:
+    """The classify prompt with the CURRENT enabled item types baked in."""
+    return (_CLASSIFY_TEMPLATE
+            .replace("{TYPE_ENUM}", "|".join(item_types.enum()))
+            .replace("{TYPE_RULES}", item_types.prompt_rules()))
+
+
+def _classify_schema() -> dict:
+    schema = json.loads(json.dumps(_CLASSIFY_SCHEMA))
+    schema["properties"]["items"]["items"]["properties"]["type"]["enum"] = item_types.enum()
+    return schema
+
+
 def _date_table() -> str:
     # LOCAL time, not UTC — UTC rolls to the wrong weekday every evening.
     # Small models are unreliable at date arithmetic; hand them a literal
@@ -205,7 +211,7 @@ def _parse_items(data: dict) -> list[dict]:
         content = (it.get("content") or "").strip()
         if not content:
             continue
-        kind = it.get("type") if it.get("type") in KINDS else "note"
+        kind = it.get("type") if it.get("type") in item_types.enum() else "note"
         prio = it.get("priority")
         prio = int(prio) if isinstance(prio, (int, float)) and 1 <= prio <= 5 else None
         due = it.get("due_date_iso")
@@ -296,8 +302,8 @@ def run_pipeline(dump_id: str) -> None:
         people, concepts = [], []
         if use_ai:
             try:
-                data = ai.chat_json(_CLASSIFY_SYSTEM + "\n\n" + _date_table(), clean,
-                                    schema=_CLASSIFY_SCHEMA)
+                data = ai.chat_json(_classify_system() + "\n\n" + _date_table(), clean,
+                                    schema=_classify_schema())
                 title = (str(data.get("title") or title)).strip()[:80]
                 summ = data.get("summary")
                 if isinstance(summ, list):  # some models return the bullets as an array

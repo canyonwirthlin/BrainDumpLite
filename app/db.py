@@ -76,6 +76,22 @@ CREATE TABLE IF NOT EXISTS reflections (
   created_at TEXT NOT NULL
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS dumps_fts USING fts5(id UNINDEXED, body);
+CREATE TABLE IF NOT EXISTS item_types (
+  id      TEXT PRIMARY KEY,
+  label   TEXT NOT NULL,
+  icon    TEXT NOT NULL DEFAULT '',
+  color   TEXT NOT NULL,                       -- token name (accent|green|amber|red|blue|dim) or #rrggbb
+  hint    TEXT NOT NULL DEFAULT '',            -- one-line rule shown to the model
+  builtin INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  sort    INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS runs (                -- one row per model call (Phase 7 Stats reads it)
+  id TEXT PRIMARY KEY, dump_id TEXT, stage TEXT NOT NULL, provider TEXT, model TEXT,
+  started_at TEXT NOT NULL, ms INTEGER NOT NULL, prompt_tokens INTEGER, completion_tokens INTEGER,
+  ok INTEGER NOT NULL, error TEXT
+);
+CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(item_id UNINDEXED, dump_id UNINDEXED, body);
 """
 
 
@@ -100,9 +116,14 @@ def init_db() -> None:
 def _migrate() -> None:
     """Additive column migrations for dbs created before a schema addition."""
     cols = {r["name"] for r in conn().execute("PRAGMA table_info(dumps)")}
-    for col in ("people", "concepts"):
+    for col, typ in (("people", "TEXT"), ("concepts", "TEXT"), ("captured_local", "TEXT"),
+                     ("tone", "TEXT"), ("provider", "TEXT")):
         if col not in cols:
-            conn().execute(f"ALTER TABLE dumps ADD COLUMN {col} TEXT")
+            conn().execute(f"ALTER TABLE dumps ADD COLUMN {col} {typ}")
+    icols = {r["name"] for r in conn().execute("PRAGMA table_info(items)")}
+    for col, typ in (("est_minutes", "INTEGER"), ("urgency", "INTEGER"), ("time_hint", "TEXT")):
+        if col not in icols:
+            conn().execute(f"ALTER TABLE items ADD COLUMN {col} {typ}")
 
 
 def query(sql: str, params: tuple = ()) -> list[sqlite3.Row]:

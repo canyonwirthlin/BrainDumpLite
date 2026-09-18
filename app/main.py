@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from . import db, engine
+from . import db, engine, item_types
 from .routes import router
 
 
@@ -28,6 +28,7 @@ def static_dir() -> Path:
 
 def create_app() -> FastAPI:
     db.init_db()
+    item_types.seed()
     engine.autostart()  # warm the built-in AI servers (no-op unless configured)
     app = FastAPI(title="BrainDump Lite", docs_url=None, redoc_url=None)
     app.include_router(router, prefix="/api")
