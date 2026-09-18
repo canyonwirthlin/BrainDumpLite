@@ -240,6 +240,51 @@ def chat(system: str, user: str, max_tokens: int = 2048, temperature: float = 0.
         return _finish(resp)
 
 
+def chat_stream(messages: list[dict], max_tokens: int = 400, temperature: float = 0.7):
+    """Stream a chat completion as text deltas (Phase 4 sessions). `messages`
+    includes the system message. Raises AIError before the first delta if the
+    provider can't be reached; errors mid-stream end the generator."""
+    c = config()
+    if not available():
+        raise AIError("No AI provider configured")
+    if c["provider"] == "builtin":
+        from . import engine
+        try:
+            engine.ensure_chat_running()
+        except Exception as e:
+            raise AIError(str(e)) from e
+        c = config()
+    kwargs: dict = {"model": c["model"], "messages": messages, "stream": True}
+    if c["provider"] == "openai":
+        kwargs["max_completion_tokens"] = max(max_tokens, 2048)
+    else:
+        kwargs["max_tokens"] = min(max(max_tokens, 400), 2048)
+        kwargs["temperature"] = temperature
+    if c["provider"] in ("local", "builtin", "openai"):
+        kwargs["extra_body"] = {"reasoning_effort": "low"}
+    try:
+        with _llm_lock:
+            stream = _client(c).chat.completions.create(**kwargs)
+    except BadRequestError as e:
+        # Same param-style fallback as chat(): retry once without the extras.
+        kwargs.pop("extra_body", None)
+        kwargs.pop("temperature", None)
+        try:
+            with _llm_lock:
+                stream = _client(c).chat.completions.create(**kwargs)
+        except Exception as e2:
+            raise AIError(f"AI call failed: {e2}") from e2
+    except Exception as e:
+        raise AIError(f"AI call failed: {e}") from e
+    for chunk in stream:
+        if not getattr(chunk, "choices", None):
+            continue
+        delta = chunk.choices[0].delta
+        text = getattr(delta, "content", None)
+        if text:
+            yield text
+
+
 def chat_json(system: str, user: str, max_tokens: int = 3000, schema: dict | None = None) -> dict:
     text = chat(
         system + "\n\nRespond with ONLY a valid JSON object. No markdown fences.",

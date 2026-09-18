@@ -4,10 +4,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, engine, item_types
+from . import db, engine, item_types, lock
 from .routes import router
 
 
@@ -30,7 +31,15 @@ def create_app() -> FastAPI:
     db.init_db()
     item_types.seed()
     engine.autostart()  # warm the built-in AI servers (no-op unless configured)
+    lock.boot()  # a set passphrase means the app starts locked
     app = FastAPI(title="BrainDump Lite", docs_url=None, redoc_url=None)
+
+    @app.middleware("http")
+    async def app_lock_gate(request: Request, call_next):
+        if lock.locked() and not lock.allowed(request.url.path):
+            return JSONResponse({"detail": "locked"}, status_code=423)
+        return await call_next(request)
+
     app.include_router(router, prefix="/api")
     app.mount("/", StaticFiles(directory=static_dir(), html=True), name="static")
     return app

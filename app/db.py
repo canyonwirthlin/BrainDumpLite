@@ -92,6 +92,23 @@ CREATE TABLE IF NOT EXISTS runs (                -- one row per model call (Phas
   ok INTEGER NOT NULL, error TEXT
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(item_id UNINDEXED, dump_id UNINDEXED, body);
+CREATE TABLE IF NOT EXISTS sessions (          -- Phase 4 conversational capture
+  id         TEXT PRIMARY KEY,
+  mode       TEXT NOT NULL,                    -- therapy|brainstorm
+  started_at TEXT NOT NULL,
+  ended_at   TEXT,
+  transcript TEXT NOT NULL DEFAULT '[]',       -- JSON [{role, content, at}]
+  dump_id    TEXT,
+  status     TEXT NOT NULL DEFAULT 'active'    -- active|ended
+);
+CREATE TABLE IF NOT EXISTS session_items (     -- live preview items, dropped when the session ends
+  id         TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  turn       INTEGER NOT NULL,
+  kind       TEXT NOT NULL,
+  content    TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 """
 
 

@@ -9,10 +9,10 @@ import threading
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, changelog, db, engine, item_types, pipeline, themes, transcribe, vault
+from . import ai, changelog, db, engine, item_types, lock, pipeline, sessions, themes, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -61,6 +61,9 @@ def status():
         "whisper": transcribe.available(),
         "data_dir": str(db.data_dir()),
         "vault_dir": str(db.vault_dir()),
+        "locked": lock.locked(),
+        "lock_set": lock.is_set(),
+        "last_dump_at": (db.query_one("SELECT MAX(created_at) AS m FROM dumps") or {"m": None})["m"],
     }
 
 
@@ -147,6 +150,122 @@ def vault_move(body: VaultMoveIn):
 @router.post("/vault/reset")
 def vault_reset():
     return vault.reset_location()
+
+
+# ── Sessions (conversational capture) ────────────────────────────────────────
+
+class SessionIn(BaseModel):
+    mode: str = "therapy"
+
+
+class MessageIn(BaseModel):
+    text: str
+
+
+@router.post("/sessions")
+def create_session(body: SessionIn):
+    try:
+        return sessions.start(body.mode)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/sessions")
+def list_sessions(open: int = 1):
+    return sessions.list_open()
+
+
+@router.get("/sessions/{sid}")
+def get_session(sid: str):
+    s = sessions.get(sid)
+    if not s:
+        raise HTTPException(404, "Session not found")
+    return s
+
+
+@router.get("/sessions/{sid}/items")
+def session_items(sid: str):
+    return sessions.items(sid)
+
+
+@router.post("/sessions/{sid}/message")
+def session_message(sid: str, body: MessageIn):
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(400, "Empty message")
+    try:
+        turn = sessions.append(sid, "user", text)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    sessions.extract_lite_async(sid, turn, text)
+
+    def gen():
+        try:
+            for delta in sessions.reply_stream(sid):
+                yield f"data: {json.dumps(delta)}\n\n"
+            yield "event: done\ndata: {}\n\n"
+        except ai.AIError as e:
+            yield f"event: error\ndata: {json.dumps(str(e))}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.post("/sessions/{sid}/end")
+def end_session(sid: str):
+    try:
+        return {"dump_id": sessions.end(sid)}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/sessions/{sid}")
+def delete_session(sid: str):
+    sessions.delete(sid)
+    return {"ok": True}
+
+
+# ── App lock ─────────────────────────────────────────────────────────────────
+
+class PassIn(BaseModel):
+    passphrase: str
+    current: str | None = None
+
+
+@router.get("/lock")
+def lock_state():
+    return {"locked": lock.locked(), "lock_set": lock.is_set()}
+
+
+@router.post("/lock/set")
+def lock_set(body: PassIn):
+    try:
+        lock.set_passphrase(body.passphrase, body.current)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+@router.post("/lock/clear")
+def lock_clear(body: PassIn):
+    try:
+        lock.clear(body.passphrase)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+@router.post("/lock/now")
+def lock_now():
+    lock.lock()
+    return {"locked": lock.locked()}
+
+
+@router.post("/unlock")
+def unlock(body: PassIn):
+    if not lock.unlock(body.passphrase):
+        raise HTTPException(401, "Wrong passphrase")
+    return {"locked": False}
 
 
 # ── Themes ───────────────────────────────────────────────────────────────────
