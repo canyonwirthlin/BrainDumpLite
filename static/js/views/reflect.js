@@ -1,10 +1,11 @@
 // Daily / weekly reflections.
-import { $, $$, md } from "../ui.js";
+import { $, $$, md, esc, relTime, toneChip } from "../ui.js";
 import { api } from "../api.js";
 
 export function render(ctx) {
   ctx.setTitle("Reflect");
   $("#view").innerHTML = `
+    <div id="resurface"></div>
     <h1>Reflect</h1>
     <p class="sub">Your second brain reads everything back to you.</p>
     ${["daily", "weekly"].map((k) => `
@@ -16,6 +17,7 @@ export function render(ctx) {
         </div>
         <div id="reflect-${k}" class="muted small">Press Generate.</div>
       </div>`).join("")}`;
+  paintResurface();
   $$("[data-kind]").forEach((b) => b.onclick = async () => {
     const box = $("#reflect-" + b.dataset.kind);
     box.innerHTML = `<span class="spin"></span>`;
@@ -28,4 +30,17 @@ export function render(ctx) {
       box.textContent = "Failed: " + e.message;
     }
   });
+}
+
+
+async function paintResurface() {
+  const box = $("#resurface");
+  if (!box) return;
+  let r;
+  try { r = await api.get("/resurface"); } catch { return; }
+  if (!r || !r.dump) return;
+  box.innerHTML = `<div class="card click resurface" onclick="location.hash='history/${r.dump.id}'">
+    <div class="sec" style="margin-top:0">🕰️ ${esc(r.reason)}</div>
+    <b>${esc(r.dump.title)}</b> <span class="small muted">${relTime(r.dump.created_at)}</span> ${toneChip(r.dump.tone)}
+    <p class="small muted" style="margin-top:6px">${esc(r.dump.raw_text)}</p></div>`;
 }

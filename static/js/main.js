@@ -13,6 +13,7 @@ import * as search from "./views/search.js";
 import * as reflect from "./views/reflect.js";
 import * as settings from "./views/settings.js";
 import * as session from "./views/session.js";
+import * as today from "./views/today.js";
 
 register("capture", capture.render);
 register("history", history.render);
@@ -22,6 +23,7 @@ register("search", search.render);
 register("reflect", reflect.render);
 register("settings", settings.render);
 register("session", session.render);
+register("today", today.render);
 
 restorePrefs();
 mountShell();

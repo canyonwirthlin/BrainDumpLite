@@ -1,29 +1,45 @@
 // Force-directed brain map (canvas, no library).
-import { $, $$, esc } from "../ui.js";
+import { $, $$, esc, colorCss } from "../ui.js";
 import { api } from "../api.js";
+import { go } from "../router.js";
+import * as browse from "./browse.js";
 
 const GRAPH_R = { dump: 7, concept: 5, person: 5 };
+const ITEM_R = 3.5;
 
-// Node/label colors follow the active theme.
+// Node/label colors follow the active theme; item-type colors come from /graph/types.
+let TYPES = [];
+function resolveColor(c) {
+  const css = colorCss(c);
+  if (css.startsWith("var(")) return getComputedStyle(document.documentElement).getPropertyValue(css.slice(4, -1)).trim() || "#999";
+  return css;
+}
 function graphColors() {
   const cs = getComputedStyle(document.documentElement);
   const v = (n, fb) => (cs.getPropertyValue(n) || fb).trim();
-  return {
-    dump: v("--accent", "#8b7cf6"),
-    concept: "#f59e0b",
-    person: "#3b82f6",
-    text: v("--text", "#e6e9f2"),
-    edge: v("--dim", "#8b93a8"),
-  };
+  const colors = {};
+  for (const t of TYPES) colors[t.id] = resolveColor(t.color);
+  return { colors, text: v("--text", "#e6e9f2"), edge: v("--dim", "#8b93a8"), dump: colors.dump || v("--accent", "#8b7cf6") };
 }
 
-const hidden = new Set();  // node types toggled off in the legend
-let lastData = null;
+const hidden = new Set();  // node types toggled off in the legend (persisted per device)
+let lastData = null, focus = false, hiddenLoaded = false;
+
+function loadHidden() {
+  if (hiddenLoaded) return;
+  hiddenLoaded = true;
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem("bdl-graph-types") || "null"); } catch {}
+  if (saved) saved.forEach((t) => hidden.add(t));
+  else TYPES.filter((t) => !t.builtin).forEach((t) => hidden.add(t.id));   // item nodes off by default
+}
+const saveHidden = () => { try { localStorage.setItem("bdl-graph-types", JSON.stringify([...hidden])); } catch {} };
 
 function legendHtml() {
   const gc = graphColors();
-  return [["dump", "Dumps"], ["concept", "Concepts"], ["person", "People"]].map(([t, l]) =>
-    `<button class="chip ${hidden.has(t) ? "off" : "on"}" data-type="${t}" title="Show/hide ${l.toLowerCase()}"><i class="legend-dot" style="background:${gc[t]}"></i>${l}</button>`).join("");
+  return TYPES.map((t) =>
+    `<button class="chip ${hidden.has(t.id) ? "off" : "on"}" data-type="${t.id}" title="Show/hide ${t.label.toLowerCase()}"><i class="legend-dot" style="background:${gc.colors[t.id]}"></i>${esc(t.label)}</button>`).join("")
+    + `<button class="chip ${focus ? "on" : ""}" id="graph-focus" title="Dim everything more than two hops from the selected node">◎ Focus</button>`;
 }
 
 function mount() {
@@ -38,26 +54,42 @@ function mount() {
 }
 
 export async function render(ctx) {
+  if (ctx.params[0] === "concept" || ctx.params[0] === "person") return browse.render(ctx);
+  try { TYPES = await api.get("/graph/types"); } catch { TYPES = [{ id: "dump", label: "Dumps", color: "accent", builtin: true }, { id: "concept", label: "Concepts", color: "amber", builtin: true }, { id: "person", label: "People", color: "blue", builtin: true }]; }
+  loadHidden();
   ctx.setTitle("Brain map", legendHtml());
   ctx.setLayout("full");
   $("#view").innerHTML = `<div class="wide">
     <p class="sub" style="margin-bottom:10px">Every dump, concept, and person you've mentioned. Drag nodes, scroll to zoom, click to explore.</p>
     <div class="graph-wrap" id="graph-wrap"></div></div>`;
-  $$(".topbar-slot .chip").forEach((b) => b.onclick = () => {
+  $$(".topbar-slot .chip[data-type]").forEach((b) => b.onclick = async () => {
     const t = b.dataset.type;
     hidden.has(t) ? hidden.delete(t) : hidden.add(t);
+    saveHidden();
     b.classList.toggle("off", hidden.has(t)); b.classList.toggle("on", !hidden.has(t));
+    if (needItems() && !lastData?.hasItems) await load();
     mount();
   });
-  try { lastData = await api.get("/graph"); } catch (e) {
-    $("#graph-wrap").innerHTML = `<div class="center">Couldn't load the graph: ${esc(e.message)}</div>`;
-    return;
-  }
+  $("#graph-focus").onclick = () => { focus = !focus; $("#graph-focus").classList.toggle("on", focus); mount(); };
+  await load();
+  if (!lastData) return;
   if (!lastData.nodes.length) {
     $("#graph-wrap").innerHTML = `<div class="center">Nothing to map yet — make a few dumps first.</div>`;
     return;
   }
   mount();
+}
+
+const needItems = () => TYPES.some((t) => !t.builtin && !hidden.has(t.id));
+
+async function load() {
+  try {
+    lastData = await api.get("/graph" + (needItems() ? "?items=1" : ""));
+    lastData.hasItems = needItems();
+  } catch (e) {
+    $("#graph-wrap").innerHTML = `<div class="center">Couldn't load the graph: ${esc(e.message)}</div>`;
+    lastData = null;
+  }
 }
 
 function mountForceGraph(canvas, data) {
@@ -77,7 +109,7 @@ function mountForceGraph(canvas, data) {
       ...n, vx: 0, vy: 0, fx: null, fy: null,
       x: W() / 2 + Math.cos(angle) * 120 + (Math.random() - 0.5) * 30,
       y: H() / 2 + Math.sin(angle) * 120 + (Math.random() - 0.5) * 30,
-      r: (GRAPH_R[n.type] || 5) + Math.min(9, (degree[n.id] || 0) * 1.1),
+      r: (GRAPH_R[n.type] || ITEM_R) + Math.min(9, (degree[n.id] || 0) * (n.type in GRAPH_R ? 1.1 : 0.3)),
     };
   });
   const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
@@ -102,9 +134,13 @@ function mountForceGraph(canvas, data) {
   resize();
   window.addEventListener("resize", resize, sig);
 
-  function neighborsOf(id) {
-    const s = new Set([id]);
-    edges.forEach((e) => { if (e.source === id) s.add(e.target); if (e.target === id) s.add(e.source); });
+  function neighborsOf(id, hops = 1) {
+    let s = new Set([id]);
+    for (let h = 0; h < hops; h++) {
+      const next = new Set(s);
+      edges.forEach((e) => { if (s.has(e.source)) next.add(e.target); if (s.has(e.target)) next.add(e.source); });
+      s = next;
+    }
     return s;
   }
 
@@ -156,12 +192,12 @@ function mountForceGraph(canvas, data) {
     ctx.translate(panX, panY);
     ctx.scale(scale, scale);
     const activeId = hoverId || selectedId;
-    const hood = activeId ? neighborsOf(activeId) : null;
+    const hood = activeId ? neighborsOf(activeId, focus && selectedId ? 2 : 1) : null;
     edges.forEach((e) => {
       const a = byId[e.source], b = byId[e.target];
       const dim = hood && !(hood.has(e.source) && hood.has(e.target));
       const similar = e.type === "similar";
-      ctx.strokeStyle = similar ? GC.dump : GC.edge;
+      ctx.strokeStyle = similar ? GC.dump : e.type === "in" ? (GC.colors[byId[e.source].type] || GC.edge) : GC.edge;
       ctx.globalAlpha = similar ? (dim ? 0.06 : 0.5) : (dim ? 0.05 : 0.25);
       ctx.lineWidth = similar ? Math.max(0.6, (e.score || 0.5) * 2) : 1;
       ctx.setLineDash(similar ? [4, 3] : []);
@@ -174,8 +210,8 @@ function mountForceGraph(canvas, data) {
       ctx.globalAlpha = dim ? 0.2 : 1;
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-      ctx.fillStyle = GC[n.type] || "#999";
-      if (n.id === hoverId) { ctx.shadowColor = GC[n.type] || GC.dump; ctx.shadowBlur = 14; }
+      ctx.fillStyle = GC.colors[n.type] || "#999";
+      if (n.id === hoverId) { ctx.shadowColor = GC.colors[n.type] || GC.dump; ctx.shadowBlur = 14; }
       ctx.fill();
       ctx.shadowBlur = 0;  // glow on the hovered node only — cheap for one arc
       if (n.id === selectedId) { ctx.lineWidth = 2; ctx.strokeStyle = GC.text; ctx.stroke(); }
@@ -204,9 +240,10 @@ function mountForceGraph(canvas, data) {
     const hood = neighborsOf(n.id);
     const dumpsHere = nodes.filter((x) => x.type === "dump" && hood.has(x.id));
     infoBox.style.display = "block";
-    infoBox.innerHTML = `<b>${n.type === "concept" ? "💡" : "🧑"} ${esc(n.label)}</b>
-      <div class="small muted" style="margin:6px 0">${dumpsHere.length} dump${dumpsHere.length === 1 ? "" : "s"}</div>
-      ${dumpsHere.map((d) => `<div style="margin-top:3px"><a href="#history/${d.id}">${esc(d.label)}</a></div>`).join("")}`;
+    const browsable = n.type === "concept" || n.type === "person";
+    infoBox.innerHTML = `<b>${n.type === "concept" ? "💡" : n.type === "person" ? "🧑" : "•"} ${esc(n.label)}</b>
+      <div class="small muted" style="margin:6px 0">${dumpsHere.length} dump${dumpsHere.length === 1 ? "" : "s"}${browsable ? ` · <a href="#graph/${n.type}/${encodeURIComponent(n.label)}">Open ${n.type} →</a>` : n.dump ? ` · <a href="#history/${n.dump}">Open dump →</a>` : ""}</div>
+      ${dumpsHere.slice(0, 8).map((d) => `<div style="margin-top:3px"><a href="#history/${d.id}">${esc(d.label)}</a></div>`).join("")}`;
   }
 
   let dragging = null, panning = false, lastPan = null, moved = false;
@@ -247,7 +284,8 @@ function mountForceGraph(canvas, data) {
     const p = toWorld(e.clientX, e.clientY);
     const n = nodeAt(p.x, p.y);
     if (!n) { selectedId = null; infoBox.style.display = "none"; needsDraw = true; return; }
-    if (n.type === "dump") { location.hash = "history/" + n.id; return; }
+    if (n.type === "dump") { go("history/" + n.id); return; }
+    if (n.dump) { go("history/" + n.dump); return; }
     selectedId = n.id;
     needsDraw = true;
     showInfo(n);

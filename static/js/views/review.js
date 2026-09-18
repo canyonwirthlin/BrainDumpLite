@@ -142,6 +142,10 @@ export function reviewHtml(d, { showBack = false, detail = false } = {}) {
       ${d.related.map((r) => `<div class="dump-row" style="padding:6px 0">
         <a href="#history/${r.id}" class="grow">🔗 ${esc(r.title || "Untitled")}</a>
         <span class="meta">${fmtDate(r.created_at)}</span></div>`).join("")}</div>` : ""}
+    ${(d.concepts || []).length || (d.people || []).length ? `<div class="card"><h2>Concepts &amp; people</h2><div class="wl">
+      ${(d.concepts || []).map((c) => `<a class="wl-chip" href="#graph/concept/${encodeURIComponent(c)}">${esc(c)}</a>`).join("")}
+      ${(d.people || []).map((p) => `<a class="wl-chip p" href="#graph/person/${encodeURIComponent(p)}">@${esc(p)}</a>`).join("")}</div></div>` : ""}
+    ${detail ? `<div class="card backlinks" id="backlinks"><span class="small muted">Looking for links…</span></div>` : ""}
     <details class="card"><summary class="muted">Raw text</summary>
       <p class="small" style="margin-top:10px;white-space:pre-wrap">${esc(d.raw_text)}</p></details>
     <div class="row">

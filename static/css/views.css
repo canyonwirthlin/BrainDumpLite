@@ -278,3 +278,19 @@ a.iconbtn.cal { text-decoration: none; }
 .noticed-list .mi { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
 .drow.sess { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); }
 .drow.sess .resume { color: var(--accent); font-weight: 600; }
+
+
+/* ── Phase 5: browser, backlinks, today, resurface ─────────────────────────── */
+.wl { display: flex; flex-wrap: wrap; gap: 6px; }
+.wl-chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--text); transition: border-color var(--ease); }
+.wl-chip:hover { border-color: var(--accent); color: var(--accent); }
+.wl-chip.p { color: #60a5fa; border-color: rgba(96,165,250,.4); }
+.backlinks .bl { display: block; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.backlinks .bl:last-child { border-bottom: 0; }
+.backlinks .sec a { color: var(--accent); text-transform: none; letter-spacing: 0; font-size: 12px; }
+.today-card .mono { font-family: var(--mono); font-size: 11.5px; }
+.today-items { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.today-items .mi { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.today-items .mi.done span { text-decoration: line-through; color: var(--dim); }
+.card.quick .editor { min-height: 56px; box-shadow: none; }
+.resurface { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }

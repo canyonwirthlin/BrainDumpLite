@@ -51,7 +51,7 @@ export async function render(ctx) {
   if (id) await paintDetail(id);
 }
 
-async function paintDetail(id) {
+export async function paintDetail(id, base = "#history") {
   const box = $("#hist-detail");
   if (!box) return;
   box.innerHTML = `<div class="center">Loading…</div>`;
@@ -59,8 +59,9 @@ async function paintDetail(id) {
   try { d = await api.get("/dumps/" + id); }
   catch { box.innerHTML = `<div class="center">Dump not found. <a href="#history">Back</a></div>`; return; }
   if (d.status === "processing" || d.status === "pending") { renderProcessing(id, box, () => paintDetail(id)); return; }
-  box.innerHTML = `<a class="btn ghost small back" href="#history">← All dumps</a>` + reviewHtml(d, { detail: true });
-  bindItemRows(box, d.items, () => paintDetail(id));
+  box.innerHTML = `<a class="btn ghost small back" href="${base}">← Back</a>` + reviewHtml(d, { detail: true });
+  paintBacklinks(id, $("#backlinks", box));
+  bindItemRows(box, d.items, () => paintDetail(id, base));
   if ($("#approve-all", box)) $("#approve-all", box).onclick = async () => {
     for (const it of d.items.filter((x) => x.status === "suggested")) { await api.patch("/items/" + it.id, { status: "approved" }); it.status = "approved"; }
     $$("#items .item:not(.rejected) .ok", box).forEach((b) => b.classList.add("active"));
@@ -70,4 +71,18 @@ async function paintDetail(id) {
     await api.del("/dumps/" + id);
     go("history");
   };
+}
+
+
+async function paintBacklinks(id, box) {
+  if (!box) return;
+  let b;
+  try { b = await api.get(`/dumps/${id}/backlinks`); } catch { box.remove(); return; }
+  const row = (d) => `<a class="bl" href="#history/${d.id}">${esc(d.title)} <span class="muted small">${relTime(d.created_at)}</span></a>`;
+  const groups = [];
+  if (b.similar.length) groups.push(`<div class="sec" style="margin-top:0">Similar dumps</div>${b.similar.map(row).join("")}`);
+  for (const g of b.via_concepts) groups.push(`<div class="sec">Also about <a href="#graph/concept/${encodeURIComponent(g.name)}">${esc(g.name)}</a></div>${g.dumps.map(row).join("")}`);
+  for (const g of b.via_people) groups.push(`<div class="sec">Also mentions <a href="#graph/person/${encodeURIComponent(g.name)}">${esc(g.name)}</a></div>${g.dumps.map(row).join("")}`);
+  if (!groups.length) { box.remove(); return; }
+  box.innerHTML = `<h2>Linked from</h2>${groups.join("")}`;
 }
