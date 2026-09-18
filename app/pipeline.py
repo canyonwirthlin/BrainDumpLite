@@ -11,7 +11,7 @@ import re
 import traceback
 from datetime import datetime, timedelta
 
-from . import ai, db, instrument, item_types
+from . import ai, db, instrument, item_types, wikilinks
 
 TONES = ["calm", "hopeful", "excited", "neutral", "reflective", "anxious", "frustrated", "overwhelmed", "low"]
 EST_BUCKETS = [5, 15, 30, 60, 120, 240]
@@ -344,7 +344,8 @@ def run_pipeline(dump_id: str) -> None:
         _set(dump_id, clean_text=clean, stage="classify")
 
         # 2 · classify --------------------------------------------------------
-        title = " ".join(clean.split()[:6])[:60] or "Untitled dump"
+        preset_title = row["title"]  # imported notes keep their heading
+        title = preset_title or " ".join(clean.split()[:6])[:60] or "Untitled dump"
         summary = "• " + clean[:220].replace("\n", " ")
         items = _fallback_items(clean)
         people, concepts, tone = [], [], None
@@ -354,7 +355,7 @@ def run_pipeline(dump_id: str) -> None:
                     data = ai.chat_json(_classify_system() + "\n\n" + _date_table(), clean,
                                         schema=_classify_schema())
                 tone = _parse_tone(data)
-                title = (str(data.get("title") or title)).strip()[:80]
+                title = preset_title or (str(data.get("title") or title)).strip()[:80]
                 summ = data.get("summary")
                 if isinstance(summ, list):  # some models return the bullets as an array
                     summ = "\n".join(str(x) for x in summ)
@@ -366,6 +367,10 @@ def run_pipeline(dump_id: str) -> None:
                 concepts = _parse_names(data, "concepts", 8)
             except ai.AIError as e:
                 print(f"[pipeline] classify fell back to heuristics: {e}", flush=True)
+        # Explicit [[wikilinks]] in the text always count (Phase 6).
+        known = {n.lower() for r in db.query("SELECT people FROM dumps WHERE people IS NOT NULL AND id != ?", (dump_id,))
+                 for n in (json.loads(r["people"] or "[]") if r["people"] else [])}
+        people, concepts = wikilinks.merge(raw, people, concepts, known)
         db.execute("DELETE FROM items WHERE dump_id=?", (dump_id,))
         db.execute("DELETE FROM items_fts WHERE dump_id=?", (dump_id,))
         for it in items:

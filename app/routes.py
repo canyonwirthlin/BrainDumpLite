@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, changelog, db, engine, graph, item_types, lock, pipeline, sessions, themes, transcribe, vault
+from . import ai, changelog, db, engine, export_md, gitsync, graph, import_md, item_types, lock, pipeline, profiles, sessions, themes, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -266,6 +266,130 @@ def unlock(body: PassIn):
     if not lock.unlock(body.passphrase):
         raise HTTPException(401, "Wrong passphrase")
     return {"locked": False}
+
+
+# ── Markdown export / import, wikilinks (Phase 6) ────────────────────────────
+
+@router.get("/dumps/{dump_id}/markdown")
+def dump_markdown(dump_id: str, wikilinks: int = 1):
+    try:
+        name, text = export_md.dump_markdown(dump_id, bool(wikilinks))
+    except ValueError:
+        raise HTTPException(404, "Dump not found")
+    return Response(text, media_type="text/markdown; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.get("/export/markdown.zip")
+def export_markdown_zip(wikilinks: int = 1):
+    data = export_md.vault_markdown_zip(bool(wikilinks))
+    return Response(data, media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="braindump-markdown.zip"'})
+
+
+@router.post("/import/markdown")
+async def import_markdown(files: list[UploadFile] = File(...), mode: str = "freeform"):
+    batch = []
+    for f in files:
+        raw = await f.read()
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            text = raw.decode("latin-1")
+        batch.append((f.filename or "note.md", text, None))
+    return import_md.import_files(batch, mode if mode in pipeline._EXPAND_SYSTEMS else "freeform")
+
+
+@router.get("/import/status")
+def import_status():
+    return import_md.status()
+
+
+@router.get("/wikilinks/suggest")
+def wikilink_suggest(q: str = ""):
+    q = q.strip().lower()
+    out = []
+    for c in graph.concepts():
+        if not q or q in c["name"].lower():
+            out.append({"name": c["name"], "kind": "concept", "count": c["count"]})
+    for p in graph.people():
+        if not q or q in p["name"].lower():
+            out.append({"name": p["name"], "kind": "person", "count": p["count"]})
+    for r in db.query("SELECT title FROM dumps WHERE status='ready' AND title IS NOT NULL ORDER BY created_at DESC LIMIT 200"):
+        if r["title"] and (not q or q in r["title"].lower()):
+            out.append({"name": r["title"], "kind": "dump", "count": 1})
+    return out[:20]
+
+
+# ── Vault profiles + git mirror (Phase 6) ────────────────────────────────────
+
+class ProfileIn(BaseModel):
+    name: str
+    dir: str | None = None
+
+
+@router.get("/profiles")
+def list_profiles():
+    return profiles.list_profiles()
+
+
+@router.post("/profiles/add")
+def profile_add(body: ProfileIn):
+    try:
+        return profiles.add(body.name, body.dir or "")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/profiles/create")
+def profile_create(body: ProfileIn):
+    try:
+        return profiles.create(body.name, body.dir or "")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/profiles/switch")
+def profile_switch(body: ProfileIn):
+    try:
+        return profiles.switch(body.name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/profiles/remove")
+def profile_remove(body: ProfileIn):
+    try:
+        profiles.remove(body.name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+class GitIn(BaseModel):
+    dir: str | None = None
+    message: str | None = None
+
+
+@router.get("/gitsync")
+def gitsync_status():
+    return gitsync.status()
+
+
+@router.post("/gitsync/configure")
+def gitsync_configure(body: GitIn):
+    try:
+        return gitsync.configure(body.dir)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/gitsync/now")
+def gitsync_now(body: GitIn):
+    try:
+        return gitsync.sync_now(body.message)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 # ── Themes ───────────────────────────────────────────────────────────────────
