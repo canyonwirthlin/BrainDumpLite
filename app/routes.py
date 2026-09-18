@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, changelog, db, engine, item_types, lock, pipeline, sessions, themes, transcribe, vault
+from . import ai, changelog, db, engine, graph, item_types, lock, pipeline, sessions, themes, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -324,6 +324,11 @@ def _dump_out(row, items=None, related=None):
         out["tone"] = json.loads(row["tone"]) if row["tone"] else None
     except (ValueError, TypeError):
         out["tone"] = None
+    for k in ("concepts", "people"):
+        try:
+            out[k] = json.loads(row[k]) if row[k] else []
+        except (ValueError, TypeError):
+            out[k] = []
     if items is not None:
         out["items"] = items
     if related is not None:
@@ -419,33 +424,48 @@ def list_tasks():
 # ── Graph ────────────────────────────────────────────────────────────────────
 
 @router.get("/graph")
-def graph():
-    """Nodes: dumps + concepts + people (merged case-insensitively across dumps).
-    Edges: dump→concept / dump→person (mentions) + dump→dump (similarity, from links)."""
-    rows = db.query("SELECT id, title, created_at, people, concepts FROM dumps WHERE status='ready'")
-    nodes: list[dict] = []
-    edges: list[dict] = []
-    slots: dict[str, str] = {}
+def graph_data(items: int = 0):
+    return graph.build(items=bool(items))
 
-    def slot(name: str, prefix: str, kind: str) -> str:
-        key = f"{prefix}:{name.strip().lower()}"
-        if key not in slots:
-            slots[key] = key
-            nodes.append({"id": key, "label": name.strip(), "type": kind})
-        return key
 
-    for r in rows:
-        nodes.append({"id": r["id"], "label": r["title"] or "Untitled",
-                      "type": "dump", "created_at": r["created_at"]})
-        for name in json.loads(r["concepts"] or "[]"):
-            edges.append({"source": r["id"], "target": slot(name, "concept", "concept"), "type": "mention"})
-        for name in json.loads(r["people"] or "[]"):
-            edges.append({"source": r["id"], "target": slot(name, "person", "person"), "type": "mention"})
+@router.get("/graph/types")
+def graph_types():
+    return graph.types()
 
-    for r in db.query("SELECT dump_id, related_id, score FROM links"):
-        edges.append({"source": r["dump_id"], "target": r["related_id"], "type": "similar", "score": r["score"]})
 
-    return {"nodes": nodes, "edges": edges}
+@router.get("/concepts")
+def list_concepts():
+    return graph.concepts()
+
+
+@router.get("/concepts/{name}")
+def concept_dumps(name: str):
+    return graph.for_concept(name)
+
+
+@router.get("/people")
+def list_people():
+    return graph.people()
+
+
+@router.get("/people/{name}")
+def person_dumps(name: str):
+    return graph.for_person(name)
+
+
+@router.get("/dumps/{dump_id}/backlinks")
+def dump_backlinks(dump_id: str):
+    return graph.backlinks(dump_id)
+
+
+@router.get("/today")
+def today(date: str | None = None):
+    return graph.today(date)
+
+
+@router.get("/resurface")
+def resurface():
+    return graph.resurface() or {}
 
 
 @router.get("/items/{item_id}/ics")
