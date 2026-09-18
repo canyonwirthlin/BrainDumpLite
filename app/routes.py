@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from . import ai, changelog, db, engine, pipeline, transcribe
+from . import ai, changelog, db, engine, pipeline, themes, transcribe
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -66,6 +66,52 @@ def status():
 @router.get("/changelog")
 def get_changelog():
     return {"version": VERSION, "entries": changelog.load()}
+
+
+# ── Themes ───────────────────────────────────────────────────────────────────
+
+class ThemeActiveIn(BaseModel):
+    id: str
+
+
+@router.get("/themes")
+def list_themes():
+    return {"active": themes.active_id(), "themes": themes.all_themes()}
+
+
+@router.put("/themes/active")
+def set_active_theme(body: ThemeActiveIn):
+    try:
+        themes.set_active(body.id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"active": themes.active_id()}
+
+
+@router.post("/themes/import")
+def import_theme(body: dict):
+    try:
+        return themes.import_theme(body)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/themes/{theme_id}")
+def delete_theme(theme_id: str):
+    try:
+        themes.delete(theme_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True, "active": themes.active_id()}
+
+
+@router.get("/themes/{theme_id}/export")
+def export_theme(theme_id: str):
+    t = themes.get(theme_id)
+    if not t:
+        raise HTTPException(404, "unknown theme")
+    return Response(json.dumps(t, indent=2), media_type="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="{theme_id}.theme.json"'})
 
 
 # ── Dumps ────────────────────────────────────────────────────────────────────
