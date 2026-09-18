@@ -18,6 +18,7 @@ function graphColors() {
 }
 
 export async function render(ctx) {
+  ctx.setTitle("Brain map");
   const gc = graphColors();
   $("#view").innerHTML = `
     <h1>Brain map</h1>

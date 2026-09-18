@@ -26,7 +26,8 @@ export function route() {
   emit("route", { name, params });
   const v = document.querySelector("#view");
   v.classList.remove("fade"); void v.offsetWidth; v.classList.add("fade");
-  render({ name, params, setTitle: (t, s) => setTitle(t, s) });
+  v.dataset.layout = "stage";  // views may switch to wide/split via ctx.setLayout
+  render({ name, params, setTitle: (t, s) => setTitle(t, s), setLayout: (l) => { v.dataset.layout = l; } });
 }
 
 export function start() {

@@ -6,6 +6,7 @@ import { reviewHtml, bindItemRows } from "./review.js";
 import { renderProcessing } from "./capture.js";
 
 export function render(ctx) {
+  ctx.setTitle("History");
   return ctx.params[0] ? renderDumpDetail(ctx.params[0]) : renderHistory();
 }
 

@@ -3,6 +3,7 @@ import { $, $$, md } from "../ui.js";
 import { api } from "../api.js";
 
 export function render(ctx) {
+  ctx.setTitle("Reflect");
   $("#view").innerHTML = `
     <h1>Reflect</h1>
     <p class="sub">Your second brain reads everything back to you.</p>

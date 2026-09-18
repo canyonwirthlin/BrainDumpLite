@@ -15,24 +15,23 @@ try {
   r.dataset.motion = localStorage.getItem("bdl-motion") || "auto";
 } catch (e) {}
 </script>
+<link rel="stylesheet" href="css/shell.css?v=0.5.0">
 <link rel="stylesheet" href="style.css?v=0.5.0">
 </head>
 <body>
-<header>
-  <a class="logo" href="#capture">🧠 <span>BrainDump&nbsp;<em>Lite</em></span></a>
-  <nav id="nav">
-    <a href="#capture" data-v="capture">Capture</a>
-    <a href="#history" data-v="history">History</a>
-    <a href="#tasks" data-v="tasks">Tasks</a>
-    <a href="#graph" data-v="graph">Graph</a>
-    <a href="#search" data-v="search">Search</a>
-    <a href="#reflect" data-v="reflect">Reflect</a>
-    <a href="#settings" data-v="settings">Settings</a>
-  </nav>
-  <span id="update-pill" class="pill update" style="display:none;cursor:pointer" title="Click to see what's new and install">⬆ update</span>
-  <a href="#settings" id="ai-pill" class="pill off">…</a>
-</header>
-<main id="view"></main>
+<aside id="rail" aria-label="Navigation"></aside>
+<div id="main">
+  <header id="topbar">
+    <h1 id="title">BrainDump Lite</h1>
+    <div id="topbar-slot" class="topbar-slot"></div>
+    <div class="grow"></div>
+    <span id="update-pill" class="pill update" style="display:none;cursor:pointer" title="Click to see what's new and install">⬆ update</span>
+    <a href="#settings/ai" id="ai-pill" class="pill off">…</a>
+    <span class="kbd-hint" title="Command palette"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+  </header>
+  <main id="view"></main>
+</div>
+<div id="palette-root"></div>
 <script type="module" src="js/main.js?v=0.5.0"></script>
 </body>
 </html>

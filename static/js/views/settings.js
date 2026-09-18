@@ -14,6 +14,7 @@ const PROVIDER_META = [
 ];
 
 export async function render(ctx) {
+  ctx.setTitle("Settings");
   $("#view").innerHTML = `<div class="center">Loading…</div>`;
   const s = await api.get("/settings");
   const cur = () => s.provider;

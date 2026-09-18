@@ -1,6 +1,6 @@
 // Boot: status → native bridge → routes → views.
-import { refreshStatus, state, on } from "./state.js";
-import { $, PROVIDER_NAMES } from "./ui.js";
+import { refreshStatus } from "./state.js";
+import { mountShell } from "./shell.js";
 import { register, start } from "./router.js";
 import { initNative, maybeShowWhatsNew, checkForUpdates } from "./native.js";
 import { loadThemes, restorePrefs } from "./theme.js";
@@ -20,16 +20,8 @@ register("search", search.render);
 register("reflect", reflect.render);
 register("settings", settings.render);
 
-// Header pill + nav highlight (the shell in Task 4 takes this over).
-on("status", (status) => {
-  const pill = $("#ai-pill");
-  if (!pill) return;
-  if (status.ai) { pill.className = "pill on"; pill.textContent = `● ${PROVIDER_NAMES[status.provider] || status.provider}`; pill.title = status.model; }
-  else { pill.className = "pill off"; pill.textContent = "○ AI off"; }
-});
-on("route", ({ name }) => document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.dataset.v === name)));
-
 restorePrefs();
+mountShell();
 (async () => {
   await refreshStatus();
   await loadThemes();

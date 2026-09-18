@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { dueWrap, bindDue, calBtns } from "./review.js";
 
 export async function render(ctx) {
+  ctx.setTitle("Tasks");
   const reload = () => render(ctx);
   $("#view").innerHTML = `<h1>Tasks</h1><p class="sub">Tasks and goals pulled from your dumps.</p><div id="list" class="center">Loading…</div>`;
   const tasks = await api.get("/tasks");

@@ -2,6 +2,7 @@
 import { $, esc, md, toast } from "./ui.js";
 import { api } from "./api.js";
 import { state } from "./state.js";
+import { setUpdate } from "./shell.js";
 
 // ── Native shell bridge (Tauri) ──────────────────────────────────────────────
 // Inside the native app Tauri injects window.__TAURI__ (withGlobalTauri in
@@ -22,9 +23,7 @@ export async function checkForUpdates({ silent = true } = {}) {
     const u = await native.updater.check();
     if (!u) { if (!silent) toast("You're on the latest version."); return; }
     pendingUpdate = u;
-    const pill = $("#update-pill");
-    pill.textContent = `⬆ v${u.version} available`;
-    pill.style.display = "";
+    setUpdate(u.version);
     if (!silent) showUpdateModal();
   } catch (e) {
     if (!silent) toast("Update check failed: " + (e.message || e), true);

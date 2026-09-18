@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { state } from "../state.js";
 
 export function render(ctx) {
+  ctx.setTitle("Search");
   $("#view").innerHTML = `
     <h1>Search your brain</h1>
     <p class="sub">${state.status.ai ? "Keyword + semantic search across every dump." : "Keyword search across every dump."}</p>

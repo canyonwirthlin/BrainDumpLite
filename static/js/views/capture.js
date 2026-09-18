@@ -5,6 +5,7 @@ import { state, clearPoll } from "../state.js";
 import { renderReview } from "./review.js";
 
 export function render(ctx) {
+  ctx.setTitle("Capture");
   $("#view").innerHTML = `
     <h1>What's on your mind?</h1>
     <p class="sub">Dump it all — tasks, worries, ideas. The AI sorts it out.</p>
