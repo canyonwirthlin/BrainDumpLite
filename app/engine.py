@@ -349,7 +349,7 @@ def _extract_engine() -> Path:
     if tmp.exists():
         shutil.rmtree(tmp)
     with zipfile.ZipFile(zpath) as z:
-        for name in z.namelist():  # zip-slip guard, same as updater.py
+        for name in z.namelist():  # zip-slip guard
             if name.startswith(("/", "..")) or ".." in Path(name).parts:
                 raise RuntimeError(f"unsafe path in engine zip: {name}")
         z.extractall(tmp)

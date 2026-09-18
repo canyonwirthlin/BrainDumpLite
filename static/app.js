@@ -218,7 +218,6 @@ async function refreshStatus() {
     pill.className = "pill off";
     pill.textContent = "○ AI off";
   }
-  $("#update-pill").style.display = status.update_ready ? "" : "none";
 }
 
 // ── Capture ──────────────────────────────────────────────────────────────────

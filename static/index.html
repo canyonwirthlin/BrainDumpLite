@@ -23,7 +23,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem("bdl-theme")
     <a href="#reflect" data-v="reflect">Reflect</a>
     <a href="#settings" data-v="settings">Settings</a>
   </nav>
-  <span id="update-pill" class="pill update" style="display:none" title="A new version downloaded itself. Close this window and reopen the app to finish.">⬆ restart to update</span>
+  <span id="update-pill" class="pill update" style="display:none;cursor:pointer" title="Click to see what's new and install">⬆ update</span>
   <a href="#settings" id="ai-pill" class="pill off">…</a>
 </header>
 <main id="view"></main>

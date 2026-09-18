@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from . import ai, db, engine, pipeline, transcribe, updater
+from . import ai, db, engine, pipeline, transcribe
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -60,7 +60,6 @@ def status():
         "model": c["model"],
         "whisper": transcribe.available(),
         "data_dir": str(db.data_dir()),
-        "update_ready": updater.ready_version(),  # null, or "0.3.1" → restart to apply
     }
 
 
