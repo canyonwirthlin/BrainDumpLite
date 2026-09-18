@@ -1,5 +1,5 @@
 // Tasks as master/detail: due-date groups on the left, the group's tasks on the right.
-import { $, $$, esc, todayIso } from "../ui.js";
+import { $, $$, esc, todayIso, timeChips } from "../ui.js";
 import { api } from "../api.js";
 import { dueWrap, bindDue, calBtns } from "./review.js";
 
@@ -38,6 +38,7 @@ export async function render(ctx) {
           <span class="content">${esc(t.content)}</span>
           ${dueWrap(t)}
           ${t.priority >= 4 ? `<span class="chip">P${t.priority}</span>` : ""}
+          ${timeChips(t)}
           ${t.status === "suggested" ? `<span class="chip">unreviewed</span>` : ""}
           <div class="detail small muted">from <a href="#history/${t.dump_id}">${esc(t.dump_title || "dump")}</a></div>
         </div>

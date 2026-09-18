@@ -1,5 +1,5 @@
 // Review pieces shared by the capture flow, History detail and Tasks.
-import { $, $$, esc, md, toast, fmtDate, fmtDay, fmtTime, todayIso, MODES } from "../ui.js";
+import { $, $$, esc, md, toast, fmtDate, fmtDay, fmtTime, todayIso, MODES, kindBadge, timeChips, toneChip, trustBadge } from "../ui.js";
 import { api } from "../api.js";
 import { state } from "../state.js";
 
@@ -87,11 +87,12 @@ export function bindDue(container, reload) {
 export function itemRow(it) {
   return `
     <div class="item ${it.status === "rejected" ? "rejected" : ""}" data-id="${it.id}">
-      <span class="kind ${it.kind}">${it.kind}</span>
+      ${kindBadge(it.kind)}
       <div class="body">
         <div class="content">${esc(it.content)}
           ${["task", "goal", "event"].includes(it.kind) ? dueWrap(it) : ""}
           ${it.priority >= 4 ? `<span class="chip">P${it.priority}</span>` : ""}
+          ${timeChips(it)}
         </div>
         ${it.detail ? `<div class="detail">↳ ${esc(it.detail)}</div>` : ""}
       </div>
@@ -130,7 +131,7 @@ export function reviewHtml(d, { showBack = false, detail = false } = {}) {
   const n = d.items.length;
   return `
     <h1 class="page">${esc(d.title || "Untitled dump")}</h1>
-    ${detail ? `<div class="meta"><span>${fmtDate(d.created_at)}</span><span>${mode.icon} ${mode.label}</span><span>${n} item${n === 1 ? "" : "s"}</span></div>`
+    ${detail ? `<div class="meta"><span>${fmtDate(d.created_at)}</span><span>${mode.icon} ${mode.label}</span><span>${n} item${n === 1 ? "" : "s"}</span>${toneChip(d.tone)}${trustBadge(d.provider)}</div>`
              : `<p class="sub">${mode.icon} ${mode.label} · ${fmtDate(d.created_at)}</p>`}
     ${d.summary ? `<div class="card">${md(d.summary)}</div>` : ""}
     ${d.reflection ? `<div class="reflection"><div class="tag">${mode.icon} ${mode.label} take</div>${md(d.reflection)}</div>` : ""}

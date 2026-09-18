@@ -1,4 +1,5 @@
 // Shared helpers + constants. Pure functions only; no app state here.
+import { state } from "./state.js";
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -89,3 +90,38 @@ export const ICONS = {
   reflect: `<svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>`,
   settings: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M5.6 18.4l2-2M16.4 7.6l2-2"/></svg>`,
 };
+
+// ── Phase 3: item types, tone, trust, time chips ─────────────────────────────
+const TOKEN_COLORS = { accent: "var(--accent)", green: "var(--green)", amber: "var(--amber)", red: "var(--red)", blue: "#60a5fa", dim: "var(--dim)" };
+export const colorCss = (c) => TOKEN_COLORS[c] || c || "var(--dim)";
+
+export function typeOf(kind) {
+  return state.types.find((t) => t.id === kind) || { id: kind, label: kind, icon: "", color: "dim" };
+}
+
+export function kindBadge(kind) {
+  const t = typeOf(kind);
+  return `<span class="kind" style="--kc:${colorCss(t.color)}" title="${esc(t.hint || t.label)}">${t.icon ? t.icon + " " : ""}${esc(t.label)}</span>`;
+}
+
+export const TONE_ICONS = { calm: "🌿", hopeful: "🌤️", excited: "⚡", neutral: "•", reflective: "🪞", anxious: "😬", frustrated: "😤", overwhelmed: "🌊", low: "🌧️" };
+export function toneChip(tone) {
+  if (!tone || !tone.label) return "";
+  return `<span class="tone" data-valence="${tone.valence ?? 0}" title="valence ${tone.valence ?? 0}, energy ${tone.energy ?? 1}">${TONE_ICONS[tone.label] || ""} ${esc(tone.label)}</span>`;
+}
+
+export function trustBadge(provider) {
+  if (!provider) return "";
+  const local = provider === "builtin" || provider === "local";
+  const cls = provider === "off" ? "raw" : local ? "local" : "cloud";
+  const label = provider === "off" ? "raw" : local ? "on-device" : "cloud";
+  const title = provider === "off" ? "Saved without AI processing" : local ? `Processed on this PC (${provider})` : `Text was sent to ${provider}`;
+  return `<span class="trust ${cls}" title="${title}">${label}</span>`;
+}
+
+export function timeChips(it) {
+  let out = "";
+  if (it.est_minutes) out += `<span class="chip est" title="Estimated effort">~${it.est_minutes >= 60 ? (it.est_minutes / 60) + "h" : it.est_minutes + "m"}</span>`;
+  if (it.urgency >= 2) out += `<span class="urg u${it.urgency}" title="${it.urgency === 3 ? "Needs attention today" : "This week"}${it.time_hint ? " · " + esc(it.time_hint) : ""}"></span>`;
+  return out;
+}

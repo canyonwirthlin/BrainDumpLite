@@ -1,5 +1,5 @@
 // History as master/detail: filterable list on the left, the selected dump on the right.
-import { $, $$, esc, relTime, MODES } from "../ui.js";
+import { $, $$, esc, relTime, MODES, toneChip, trustBadge } from "../ui.js";
 import { api } from "../api.js";
 import { reviewHtml, bindItemRows } from "./review.js";
 import { renderProcessing } from "./capture.js";
@@ -29,7 +29,7 @@ export async function render(ctx) {
       const mode = MODES.find((m) => m.id === d.mode) || MODES[0];
       return `<a class="drow ${d.id === id ? "sel" : ""}" href="#history/${d.id}">
         <b>${esc(d.title || (d.raw_text || "").slice(0, 60) || "Untitled")}</b>
-        <div class="m"><span>${relTime(d.created_at)}</span><span class="tag">${mode.label}</span><span>${d.item_count} item${d.item_count === 1 ? "" : "s"}</span>
+        <div class="m"><span>${relTime(d.created_at)}</span><span class="tag">${mode.label}</span><span>${d.item_count} item${d.item_count === 1 ? "" : "s"}</span>${toneChip(d.tone)}${trustBadge(d.provider)}
           ${d.status === "processing" || d.status === "pending" ? "<span>processing…</span>" : d.status === "failed" ? "<span>failed</span>" : ""}</div>
         <p>${esc((d.clean_text || d.raw_text || "").slice(0, 160))}</p></a>`;
     }).join("") : `<div class="center"><div class="big">🌱</div>${dumps.length ? "No dumps match." : `Nothing here yet.<br><br><a class="btn" href="#capture">Make your first dump</a>`}</div>`;

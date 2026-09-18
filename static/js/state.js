@@ -8,6 +8,7 @@ export const state = {
   pollTimer: null,
   themes: [],
   activeTheme: "midnight",
+  types: [],        // item types from /api/item-types (Phase 3)
 };
 
 const subs = {};
@@ -21,4 +22,9 @@ export function clearPoll() {
 export async function refreshStatus() {
   try { state.status = await api.get("/status"); } catch {}
   emit("status", state.status);
+}
+
+export async function loadTypes() {
+  try { state.types = await api.get("/item-types"); } catch {}
+  emit("types", state.types);
 }

@@ -62,13 +62,7 @@ kbd {
   padding: 3px 8px; border-radius: 6px; flex-shrink: 0; margin-top: 2px;
   border: 1px solid transparent;
 }
-.kind.task    { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 25%, transparent); }
-.kind.goal    { background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--green); border-color: color-mix(in srgb, var(--green) 25%, transparent); }
-.kind.idea    { background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--amber); border-color: color-mix(in srgb, var(--amber) 25%, transparent); }
-.kind.concern { background: color-mix(in srgb, var(--red) 12%, transparent);   color: var(--red); border-color: color-mix(in srgb, var(--red) 25%, transparent); }
-.kind.event   { background: rgba(96, 165, 250, .14); color: #60a5fa; border-color: rgba(96, 165, 250, .3); }
-.kind.note    { background: var(--panel-2); color: var(--dim); border-color: var(--line); }
-:root[data-theme="paper"] .kind.event, :root[data-theme="sakura"] .kind.event { color: #1d4ed8; background: rgba(29, 78, 216, .08); border-color: rgba(29, 78, 216, .25); }
+.kind { color: var(--kc, var(--dim)); background: color-mix(in srgb, var(--kc, var(--dim)) 12%, transparent); border-color: color-mix(in srgb, var(--kc, var(--dim)) 25%, transparent); }
 .chip.due { color: var(--amber); }
 .chip.overdue { color: var(--red); }
 
@@ -239,3 +233,28 @@ a.iconbtn.cal { text-decoration: none; }
 #view[data-layout="stage"] > .glow { width: 700px; max-width: 100%; }
 .hero { font-size: 26px; font-weight: 650; letter-spacing: -.01em; margin-bottom: 4px; }
 .editor { min-height: 200px; font-size: 15px; line-height: 1.55; padding: 16px; border-radius: var(--radius-lg); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+
+
+/* ── Phase 3: tone, trust, time chips, types editor ───────────────────────── */
+.tone { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
+.tone[data-valence="2"], .tone[data-valence="1"] { color: var(--green); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
+.tone[data-valence="-1"] { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 35%, transparent); }
+.tone[data-valence="-2"] { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, transparent); }
+.trust { font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 5px; white-space: nowrap; }
+.trust.local { color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); }
+.trust.cloud { color: var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+.trust.raw { color: var(--dim); background: var(--panel-2); }
+.chip.est { font-family: var(--mono); }
+.urg { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; margin-left: 4px; }
+.urg.u3 { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.urg.u2 { background: var(--amber); }
+.type-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+.type-row:first-child { border-top: 0; }
+.type-row.off { opacity: .55; }
+.type-row input { padding: 5px 8px; font-size: 12.5px; }
+.type-row .t-icon { width: 52px; text-align: center; }
+.type-row .t-label { width: 140px; }
+.type-row .t-color { padding: 5px 6px; font-size: 12px; width: 88px; }
+.type-row.add { margin-top: 4px; }
+.type-row.add .t-new-label { width: 200px; }
+.small.bad { color: var(--red); }

@@ -246,16 +246,17 @@ def _parse_items(data: dict) -> list[dict]:
         due = it.get("due_date_iso")
         due = due if isinstance(due, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", due) else None
         detail = (it.get("first_tiny_step") or None)
-        # Guardrail: drop dates the model invented for tasks with no time word.
-        # Events are inherently scheduled, so trust those.
-        if due and kind != "event" and not _has_time_ref(f"{content} {detail or ''}"):
-            due = None
         est = it.get("estimated_minutes")
         est = int(est) if isinstance(est, (int, float)) and int(est) in EST_BUCKETS else None
         urg = it.get("urgency")
         urg = max(0, min(3, int(urg))) if isinstance(urg, (int, float)) else None
         hint = it.get("time_hint")
         hint = str(hint).strip()[:60] or None if isinstance(hint, str) else None
+        # Guardrail: drop dates the model invented for tasks with no time word
+        # anywhere in its text or its quoted time_hint. Events are inherently
+        # scheduled, so trust those.
+        if due and kind != "event" and not _has_time_ref(f"{content} {detail or ''} {hint or ''}"):
+            due = None
         out.append({"kind": kind, "content": content[:500], "detail": detail, "priority": prio,
                     "due_date": due, "est_minutes": est, "urgency": urg, "time_hint": hint})
     return out

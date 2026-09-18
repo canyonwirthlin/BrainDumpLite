@@ -1,8 +1,8 @@
 // Settings: sectioned (Appearance, AI, Voice, Data, About) with a per-section
 // "Advanced" switch — the standing progressive-disclosure rule for every settings screen.
-import { $, $$, esc, toast } from "../ui.js";
+import { $, $$, esc, toast, colorCss } from "../ui.js";
 import { api } from "../api.js";
-import { state, clearPoll, refreshStatus } from "../state.js";
+import { state, clearPoll, refreshStatus, loadTypes } from "../state.js";
 import { native, showWhatsNew, checkForUpdates } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
 
@@ -116,7 +116,11 @@ function sectionAI(box, s) {
         ${cur !== "off" ? `<button class="btn ghost" id="test">Test connection</button>` : ""}
       </div>
       <div id="test-out"></div>` : ""}
-    </div>`;
+    </div>
+    ${on ? `<div class="sec">Extraction types</div>
+    <p class="small muted" style="margin-bottom:10px">What the AI looks for in every dump. Add your own, rename, recolor; built-ins can't be removed.</p>
+    <div class="card" id="types-editor"></div>` : ""}`;
+  if (on) paintTypesEditor($("#types-editor", body));
   $$(".provider", body).forEach((b) => b.onclick = async () => {
     clearPoll();
     s.provider = b.dataset.p;
@@ -296,4 +300,56 @@ async function paintEnginePanel() {
       await refreshStatus();
     }
   }
+}
+
+
+// ── Extraction types editor (Settings → AI → Advanced) ───────────────────────
+
+const TYPE_COLORS = ["accent", "green", "amber", "red", "blue", "dim"];
+
+async function paintTypesEditor(box) {
+  if (!box) return;
+  await loadTypes();
+  const rows = state.types.map((t) => `
+    <div class="type-row ${t.enabled ? "" : "off"}" data-id="${t.id}">
+      <select class="t-color" title="Color">${TYPE_COLORS.map((c) => `<option value="${c}" ${t.color === c ? "selected" : ""}>${c}</option>`).join("")}${TYPE_COLORS.includes(t.color) ? "" : `<option value="${esc(t.color)}" selected>${esc(t.color)}</option>`}</select>
+      <span class="kind" style="--kc:${colorCss(t.color)}">${t.icon ? t.icon + " " : ""}${esc(t.label)}</span>
+      <input class="t-icon" value="${esc(t.icon)}" placeholder="icon" title="Emoji" maxlength="4">
+      <input class="t-label" value="${esc(t.label)}" placeholder="Label" maxlength="30">
+      <input class="t-hint grow" value="${esc(t.hint)}" placeholder="Rule shown to the model, e.g. 'a question the user wants answered'" maxlength="200">
+      <label class="sw" title="${t.builtin ? "Built-in types are always on" : "Enabled"}"><input type="checkbox" class="t-on" ${t.enabled ? "checked" : ""} ${t.builtin ? "disabled" : ""}><i></i></label>
+      ${t.builtin ? `<span class="small muted" style="width:52px;text-align:center">built-in</span>` : `<button class="iconbtn no t-del" title="Delete (its items become notes)">✕</button>`}
+    </div>`).join("");
+  box.innerHTML = `${rows}
+    <div class="type-row add">
+      <input class="t-new-label" placeholder="New type, e.g. Question" maxlength="30">
+      <input class="t-new-hint grow" placeholder="How to recognise it (optional)" maxlength="200">
+      <button class="btn small" id="t-add">Add type</button>
+    </div>
+    <div class="small muted" id="t-msg"></div>`;
+  const msg = (m, bad) => { $("#t-msg", box).textContent = m; $("#t-msg", box).className = "small " + (bad ? "bad" : "muted"); };
+  const save = async (row, fields) => {
+    try { await api.put("/item-types/" + row.dataset.id, fields); await paintTypesEditor(box); }
+    catch (e) { msg(e.message, true); }
+  };
+  $$(".type-row[data-id]", box).forEach((row) => {
+    $(".t-color", row).onchange = (e) => save(row, { color: e.target.value });
+    $(".t-on", row).onchange = (e) => save(row, { enabled: e.target.checked });
+    for (const [cls, key] of [[".t-icon", "icon"], [".t-label", "label"], [".t-hint", "hint"]]) {
+      const inp = $(cls, row);
+      inp.onchange = () => save(row, { [key]: inp.value });
+      inp.onkeydown = (e) => { if (e.key === "Enter") inp.blur(); };
+    }
+    const del = $(".t-del", row);
+    if (del) del.onclick = async () => {
+      if (!confirm(`Delete this type? Existing items of this type become notes.`)) return;
+      try { await api.del("/item-types/" + row.dataset.id); await paintTypesEditor(box); } catch (e) { msg(e.message, true); }
+    };
+  });
+  $("#t-add", box).onclick = async () => {
+    const label = $(".t-new-label", box).value.trim();
+    if (!label) { msg("Give the type a name first.", true); return; }
+    try { await api.post("/item-types", { label, hint: $(".t-new-hint", box).value.trim() }); await paintTypesEditor(box); toast(`Added "${label}" — the AI will look for it from the next dump on.`); }
+    catch (e) { msg(e.message, true); }
+  };
 }

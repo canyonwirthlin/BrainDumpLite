@@ -1,5 +1,5 @@
 // Boot: status → native bridge → routes → views.
-import { refreshStatus } from "./state.js";
+import { refreshStatus, loadTypes } from "./state.js";
 import { mountShell } from "./shell.js";
 import { initPalette } from "./palette.js";
 import { register, start } from "./router.js";
@@ -27,6 +27,7 @@ initPalette();
 (async () => {
   await refreshStatus();
   await loadThemes();
+  await loadTypes();
   initNative();
   start();
   maybeShowWhatsNew();
