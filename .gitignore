@@ -13,3 +13,4 @@ src-tauri/target/
 src-tauri/backend/
 src-tauri/gen/schemas/
 *.log
+.playwright-mcp/

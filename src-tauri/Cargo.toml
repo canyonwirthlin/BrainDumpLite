@@ -1,0 +1,21 @@
+[package]
+name = "braindump-lite"
+version = "0.4.3"
+description = "BrainDump Lite native shell"
+edition = "2021"
+
+# Tauri's template splits the crate into a lib (all the code) and a tiny main.
+# That's what lets the same code build for mobile later; harmless on desktop.
+[lib]
+name = "braindump_lite_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde_json = "1"

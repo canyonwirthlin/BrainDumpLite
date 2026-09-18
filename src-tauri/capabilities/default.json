@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "The UI is served by the local Python backend on 127.0.0.1, so IPC must be allowed for that origin (the port is dynamic).",
+  "windows": [
+    "main"
+  ],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "updater:default",
+    "process:default"
+  ]
+}

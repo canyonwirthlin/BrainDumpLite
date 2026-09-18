@@ -220,6 +220,78 @@ async function refreshStatus() {
   }
 }
 
+// ── Native shell bridge (Tauri) ──────────────────────────────────────────────
+// Inside the native app Tauri injects window.__TAURI__ (withGlobalTauri in
+// src-tauri/tauri.conf.json). In a plain browser it's undefined and everything
+// here degrades gracefully.
+const native = window.__TAURI__ || null;
+
+function openExternal(url) {
+  if (native) native.opener.openUrl(url).catch((e) => toast("Couldn't open link: " + (e.message || e), true));
+  else window.open(url, "_blank", "noopener");
+}
+
+// WebView2 would otherwise open http(s) links inside the app window.
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("a[href]");
+  if (!a) return;
+  if (!/^(https?:|mailto:)/i.test(a.getAttribute("href") || "")) return;  // #hash routes stay in-app
+  e.preventDefault();
+  openExternal(a.href);
+});
+
+let pendingUpdate = null;
+
+async function checkForUpdates({ silent = true } = {}) {
+  if (!native) { if (!silent) toast("Updates are only available in the installed app."); return; }
+  try {
+    const u = await native.updater.check();
+    if (!u) { if (!silent) toast("You're on the latest version."); return; }
+    pendingUpdate = u;
+    const pill = $("#update-pill");
+    pill.textContent = `⬆ v${u.version} available`;
+    pill.style.display = "";
+    if (!silent) showUpdateModal();
+  } catch (e) {
+    if (!silent) toast("Update check failed: " + (e.message || e), true);
+  }
+}
+
+function showUpdateModal() {
+  const u = pendingUpdate;
+  if (!u) return;
+  const bg = document.createElement("div");
+  bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal">
+    <h2>What's new in v${esc(u.version)}</h2>
+    ${md(u.body || "No notes for this release.")}
+    <div class="progress" style="display:none"><i></i></div>
+    <div class="row">
+      <button class="btn" id="upd-go">Install and restart</button>
+      <button class="btn ghost" id="upd-later">Later</button>
+    </div></div>`;
+  document.body.appendChild(bg);
+  $("#upd-later", bg).onclick = () => bg.remove();
+  $("#upd-go", bg).onclick = async () => {
+    const go = $("#upd-go", bg), bar = $(".progress", bg), fill = $(".progress i", bg);
+    go.disabled = true; go.textContent = "Downloading…"; bar.style.display = "";
+    let total = 0, got = 0;
+    try {
+      await u.downloadAndInstall((ev) => {
+        if (ev.event === "Started") total = ev.data.contentLength || 0;
+        else if (ev.event === "Progress") { got += ev.data.chunkLength; if (total) fill.style.width = Math.round(100 * got / total) + "%"; }
+        else if (ev.event === "Finished") { fill.style.width = "100%"; go.textContent = "Installing…"; }
+      });
+      await native.process.relaunch();
+    } catch (e) {
+      toast("Update failed: " + (e.message || e), true);
+      go.disabled = false; go.textContent = "Install and restart";
+    }
+  };
+}
+
+$("#update-pill").onclick = showUpdateModal;
+
 // ── What's New (hand-written CHANGELOG.md, served by /api/changelog) ────────
 
 function maybeShowWhatsNew() {
@@ -871,9 +943,10 @@ async function renderSettings() {
       </div>
       <h2>About</h2>
       <div class="card">
-        <p class="small" style="margin-bottom:12px">BrainDump Lite <b>v${esc(status.version || "?")}</b></p>
+        <p class="small" style="margin-bottom:12px">BrainDump Lite <b>v${esc(status.version || "?")}</b> · ${native ? "native app" : "browser mode"}</p>
         <div class="row" style="margin:0">
           <button class="btn ghost" id="about-whatsnew">What's new</button>
+          ${native ? `<button class="btn ghost" id="about-update">Check for updates</button>` : ""}
         </div>
       </div>
       <p class="small muted">Data lives in <code>${esc(status.data_dir || "")}</code> — delete that folder to wipe everything.</p>`;
@@ -897,6 +970,7 @@ async function renderSettings() {
       whisper_model: $("#f-whisper").value,
     });
     $("#about-whatsnew").onclick = () => showWhatsNew(status.version);
+    if ($("#about-update")) $("#about-update").onclick = () => checkForUpdates({ silent: false });
     $("#save").onclick = async () => {
       const saved = await api.put("/settings", gather());
       Object.assign(s, saved);
@@ -1074,4 +1148,5 @@ document.addEventListener("click", (e) => {
   await refreshStatus();
   route();
   maybeShowWhatsNew();
+  checkForUpdates();
 })();

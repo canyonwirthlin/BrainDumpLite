@@ -1,0 +1,11 @@
+{
+  "name": "braindump-lite-shell",
+  "private": true,
+  "description": "npm is only here to run the Tauri CLI. The frontend has no build step.",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

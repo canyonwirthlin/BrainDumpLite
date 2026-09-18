@@ -89,7 +89,7 @@ Expected: both print a version (1.8x+).
 
 - [ ] **Step 2: Add an Avast exclusion** (user does this in Avast UI: Menu → Settings → General → Exceptions → Add): the repo folder `C:\Users\canyo\Desktop\Home\Coding\BrainDumpLite` and `%LOCALAPPDATA%\BrainDump Lite`. Without this, Avast will quarantine `target\debug\braindump-lite.exe` and the PyInstaller exe on first run.
 
-- [ ] **Step 3: Stop tracking build artifacts and ignore new build dirs.** The 244 MB `BrainDumpLite-win64/` folder and `update/update.bin` are committed. Untrack them (files stay on disk):
+- [x] **Step 3: Stop tracking build artifacts and ignore new build dirs.** The 244 MB `BrainDumpLite-win64/` folder and `update/update.bin` are committed. Untrack them (files stay on disk):
 
 ```bash
 git rm -r --cached BrainDumpLite-win64 update
@@ -115,7 +115,7 @@ src-tauri/gen/schemas/
 *.log
 ```
 
-- [ ] **Step 4: Add pytest.** Create `requirements-dev.txt`:
+- [x] **Step 4: Add pytest.** Create `requirements-dev.txt`:
 
 ```
 pytest>=8
@@ -146,14 +146,14 @@ def test_version_is_semver():
     assert len(parts) == 3 and all(p.isdigit() for p in parts)
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 ```bash
 .venv/Scripts/python -m pip install -q -r requirements-dev.txt && .venv/Scripts/python -m pytest -q
 ```
 Expected: `1 passed`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .gitignore requirements-dev.txt tests/
@@ -202,14 +202,14 @@ def test_remove_legacy_bundles_is_noop_when_nothing_there(tmp_path: Path):
     launch.remove_legacy_bundles(tmp_path)  # must not raise
 ```
 
-- [ ] **Step 3: Run it to verify it fails**
+- [x] **Step 3: Run it to verify it fails**
 
 ```bash
 .venv/Scripts/python -m pytest tests/test_launch.py -q
 ```
 Expected: FAIL with `ModuleNotFoundError: No module named 'app.launch'`.
 
-- [ ] **Step 4: Create `app/launch.py`** (first piece; Task 3 extends it):
+- [x] **Step 4: Create `app/launch.py`** (first piece; Task 3 extends it):
 
 ```python
 """Process-level helpers for run.py, kept importable so they can be tested.
@@ -235,32 +235,32 @@ def remove_legacy_bundles(data_dir: Path) -> None:
         pass
 ```
 
-- [ ] **Step 5: Delete the OTA files**
+- [x] **Step 5: Delete the OTA files**
 
 ```bash
 git rm app/updater.py update_url.txt push-update.bat push-update.ps1 SHARING.md
 ```
 
-- [ ] **Step 6: Remove OTA references from the backend.** In `app/routes.py`:
+- [x] **Step 6: Remove OTA references from the backend.** In `app/routes.py`:
   - line 15: `from . import ai, db, engine, pipeline, transcribe, updater` → `from . import ai, db, engine, pipeline, transcribe`
   - in `status()`: delete the line `"update_ready": updater.ready_version(),  # null, or "0.3.1" → restart to apply`
 
-- [ ] **Step 7: Remove OTA references from the frontend.** In `static/app.js` `refreshStatus()` delete the line `$("#update-pill").style.display = status.update_ready ? "" : "none";`. In `static/index.html` replace the `#update-pill` span with (Task 9 wires it up):
+- [x] **Step 7: Remove OTA references from the frontend.** In `static/app.js` `refreshStatus()` delete the line `$("#update-pill").style.display = status.update_ready ? "" : "none";`. In `static/index.html` replace the `#update-pill` span with (Task 9 wires it up):
 
 ```html
   <span id="update-pill" class="pill update" style="display:none;cursor:pointer" title="Click to see what's new and install">⬆ update</span>
 ```
 
-- [ ] **Step 8: Trim `build.ps1`.** Delete the `-Bundle` branch (from `if ($Bundle) {` through its `exit 0 }`), the `param` `-Bundle` switch, the `update_url.txt` creation block, the `'--add-data', 'update_url.txt;.'` line, and the "Live-update flow" comment paragraph. (Task 5 replaces this script entirely; this step just keeps the tree consistent.) In `README.md` delete the sentence(s) about `push-update` / live updates under "Build & ship" and the `updater.py` line in the repo layout.
+- [x] **Step 8: Trim `build.ps1`.** Delete the `-Bundle` branch (from `if ($Bundle) {` through its `exit 0 }`), the `param` `-Bundle` switch, the `update_url.txt` creation block, the `'--add-data', 'update_url.txt;.'` line, and the "Live-update flow" comment paragraph. (Task 5 replaces this script entirely; this step just keeps the tree consistent.) In `README.md` delete the sentence(s) about `push-update` / live updates under "Build & ship" and the `updater.py` line in the repo layout.
 
-- [ ] **Step 9: Run tests + a boot check**
+- [x] **Step 9: Run tests + a boot check**
 
 ```bash
 .venv/Scripts/python -m pytest -q && grep -rn "updater\|update_url\|update_ready" app static run.py build.ps1 README.md ; echo "grep exit $? (1 = clean)"
 ```
 Expected: `3 passed`; grep prints only `run.py` hits (run.py still has the old loader — Task 3 rewrites it) and nothing else.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add -A
@@ -346,7 +346,7 @@ def test_watch_parent_fires_when_process_exits():
 ```
 Expected: 5 new FAIL with `AttributeError: module 'app.launch' has no attribute ...`.
 
-- [ ] **Step 3: Extend `app/launch.py`** — add these imports at the top and the functions below `remove_legacy_bundles`:
+- [x] **Step 3: Extend `app/launch.py`** — add these imports at the top and the functions below `remove_legacy_bundles`:
 
 ```python
 import ctypes
@@ -415,14 +415,14 @@ def watch_parent(pid: int, on_exit: Callable[[], None]) -> threading.Thread | No
     return t
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 .venv/Scripts/python -m pytest tests/test_launch.py -q
 ```
 Expected: `7 passed`.
 
-- [ ] **Step 5: Rewrite `run.py`** (whole file):
+- [x] **Step 5: Rewrite `run.py`** (whole file):
 
 ```python
 """BrainDump Lite backend entry point — the PyInstaller target.
@@ -510,7 +510,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 6: Verify both modes by hand.** Standalone (Ctrl+C to stop after the browser opens):
+- [x] **Step 6: Verify both modes by hand.** Standalone (Ctrl+C to stop after the browser opens):
 
 ```bash
 .venv/Scripts/python run.py
@@ -529,7 +529,7 @@ Remove-Item Env:BRAINDUMP_LITE_SIDECAR, Env:BRAINDUMP_LITE_PORT, Env:BRAINDUMP_L
 ```
 Expected: JSON with `"version":"0.4.3"` and no `update_ready`; the log tail shows the `serving at ... (sidecar)` line; no browser tab opened.
 
-- [ ] **Step 7: Run the whole suite, then commit**
+- [x] **Step 7: Run the whole suite, then commit**
 
 ```bash
 .venv/Scripts/python -m pytest -q
@@ -621,7 +621,7 @@ def test_status_has_no_legacy_update_key():
 ```
 Expected: FAIL with `ModuleNotFoundError: No module named 'app.changelog'` and 404 on `/api/changelog`.
 
-- [ ] **Step 3: Create `CHANGELOG.md`** (the current version needs an entry so the test above passes; the 0.5.0 entry is written for real in Task 11):
+- [x] **Step 3: Create `CHANGELOG.md`** (the current version needs an entry so the test above passes; the 0.5.0 entry is written for real in Task 11):
 
 ```markdown
 # Changelog
@@ -635,7 +635,7 @@ app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 - Semantic search via a bundled embedding model.
 ```
 
-- [ ] **Step 4: Create `app/changelog.py`**
+- [x] **Step 4: Create `app/changelog.py`**
 
 ```python
 """CHANGELOG.md → structured entries for the in-app "What's New" panel.
@@ -698,7 +698,7 @@ if __name__ == "__main__":
     print(body)
 ```
 
-- [ ] **Step 5: Add the route** in `app/routes.py`. Change the import line to `from . import ai, changelog, db, engine, pipeline, transcribe` and add directly under the `status()` function:
+- [x] **Step 5: Add the route** in `app/routes.py`. Change the import line to `from . import ai, changelog, db, engine, pipeline, transcribe` and add directly under the `status()` function:
 
 ```python
 @router.get("/changelog")
@@ -706,14 +706,14 @@ def get_changelog():
     return {"version": VERSION, "entries": changelog.load()}
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 ```bash
 .venv/Scripts/python -m pytest -q && .venv/Scripts/python -m app.changelog 0.4.3
 ```
 Expected: all pass; CLI prints the two 0.4.3 bullets.
 
-- [ ] **Step 7: Frontend — modal styles.** Append to `static/style.css` (check `grep -n "modal" static/style.css` first; if a `.modal` class already exists, reuse its name instead of adding a second one):
+- [x] **Step 7: Frontend — modal styles.** Append to `static/style.css` (check `grep -n "modal" static/style.css` first; if a `.modal` class already exists, reuse its name instead of adding a second one):
 
 ```css
 /* ── Modal (What's New / update) ─────────────────────────────────────────── */
@@ -728,7 +728,7 @@ Expected: all pass; CLI prints the two 0.4.3 bullets.
   background: var(--accent, var(--amber)); }
 ```
 
-- [ ] **Step 8: Frontend — What's New.** In `static/app.js`, add a new section just above `// ── Capture ──`:
+- [x] **Step 8: Frontend — What's New.** In `static/app.js`, add a new section just above `// ── Capture ──`:
 
 ```js
 // ── What's New (hand-written CHANGELOG.md, served by /api/changelog) ────────
@@ -759,7 +759,7 @@ async function showWhatsNew(version) {
 
 Then find the app's startup code at the bottom of `app.js` (the first call to `refreshStatus()`) and make the What's New check run after it, e.g. change `refreshStatus();` to `refreshStatus().then(maybeShowWhatsNew);`. (Verify `md()` at `static/app.js:172` returns an HTML string; it is used with `innerHTML` elsewhere.)
 
-- [ ] **Step 9: Frontend — About section in Settings.** In `renderSettings()`'s template, insert immediately before the line starting `<p class="small muted">Data lives in`:
+- [x] **Step 9: Frontend — About section in Settings.** In `renderSettings()`'s template, insert immediately before the line starting `<p class="small muted">Data lives in`:
 
 ```js
       <h2>About</h2>
@@ -777,9 +777,9 @@ and after the `$("#save").onclick = ...` block add:
     $("#about-whatsnew").onclick = () => showWhatsNew(status.version);
 ```
 
-- [ ] **Step 10: Verify in the browser.** Run `.venv/Scripts/python run.py`, open Settings → "What's new" shows the 0.4.3 notes in a modal; "Nice" closes it. In devtools run `localStorage.setItem("bdl-seen-version","0.0.1")` and reload → modal appears automatically once; reload again → it doesn't.
+- [x] **Step 10: Verify in the browser.** Run `.venv/Scripts/python run.py`, open Settings → "What's new" shows the 0.4.3 notes in a modal; "Nice" closes it. In devtools run `localStorage.setItem("bdl-seen-version","0.0.1")` and reload → modal appears automatically once; reload again → it doesn't.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add CHANGELOG.md app/changelog.py app/routes.py static/ tests/
@@ -866,7 +866,7 @@ git rm build.ps1
 ```
 In `README.md` "Build & ship", replace the `build.ps1` lines with `.\build-backend.ps1   # freezes the backend into src-tauri\backend\` (Task 11 rewrites the section fully).
 
-- [ ] **Step 3: Build and smoke-test the frozen backend** (PowerShell):
+- [x] **Step 3: Build and smoke-test the frozen backend** (PowerShell):
 
 ```powershell
 .\build-backend.ps1
@@ -878,7 +878,7 @@ Remove-Item Env:BRAINDUMP_LITE_SIDECAR, Env:BRAINDUMP_LITE_PORT, Env:BRAINDUMP_L
 ```
 Expected: JSON with the 0.4.3 entry (proves `CHANGELOG.md` shipped inside `_internal/`), `src-tauri\backend\_internal\static\index.html` exists. If Avast quarantines the exe, restore it and add the exclusion from Task 1 Step 2.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add build-backend.ps1 README.md
