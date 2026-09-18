@@ -175,13 +175,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Produces: `app.launch.remove_legacy_bundles(data_dir: Path) -> None`.
 - Removes: `updater.ready_version()`, the `update_ready` key in `GET /api/status`.
 
-- [ ] **Step 1: Tag the last OTA-capable commit** so Task 12 can build one final legacy bundle from it:
+- [x] **Step 1: Tag the last OTA-capable commit** so Task 12 can build one final legacy bundle from it:
 
 ```bash
 git tag legacy-ota
 ```
 
-- [ ] **Step 2: Write the failing test** — `tests/test_launch.py`:
+- [x] **Step 2: Write the failing test** — `tests/test_launch.py`:
 
 ```python
 from pathlib import Path
@@ -282,7 +282,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Produces in `app.launch`: `sidecar_mode(env=os.environ) -> bool`, `pick_port(env=os.environ, start=8756, span=25) -> int`, `redirect_output(log_dir: Path) -> Path`, `watch_parent(pid: int, on_exit: Callable[[], None]) -> threading.Thread | None`.
 - Log file location the splash page names: `<data>/logs/backend.log`.
 
-- [ ] **Step 1: Write the failing tests** — append to `tests/test_launch.py`:
+- [x] **Step 1: Write the failing tests** — append to `tests/test_launch.py`:
 
 ```python
 import os
@@ -339,7 +339,7 @@ def test_watch_parent_fires_when_process_exits():
         child.kill()
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 ```bash
 .venv/Scripts/python -m pytest tests/test_launch.py -q
@@ -552,7 +552,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Produces: `GET /api/changelog` → `{"version": "<running>", "entries": [...]}`.
 - Produces in JS: `showWhatsNew(version)`, `maybeShowWhatsNew()`, CSS classes `.modal-bg`, `.modal`, `.progress`.
 
-- [ ] **Step 1: Write the failing tests.** `tests/test_changelog.py`:
+- [x] **Step 1: Write the failing tests.** `tests/test_changelog.py`:
 
 ```python
 from app import changelog
@@ -614,7 +614,7 @@ def test_status_has_no_legacy_update_key():
     assert "update_ready" not in client.get("/api/status").json()
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 ```bash
 .venv/Scripts/python -m pytest tests/test_changelog.py tests/test_api.py -q
@@ -800,7 +800,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `src-tauri/backend/braindump-backend.exe` + `src-tauri/backend/_internal/` (contains `app/`, `static/`, `CHANGELOG.md`). Task 7's Rust code spawns exactly `backend/braindump-backend.exe`.
 
-- [ ] **Step 1: Create `build-backend.ps1`**
+- [x] **Step 1: Create `build-backend.ps1`**
 
 ```powershell
 # build-backend.ps1 - freeze the Python backend into src-tauri\backend\.
@@ -859,7 +859,7 @@ $size = [math]::Round((Get-ChildItem "src-tauri\backend" -Recurse | Measure-Obje
 Write-Host "Done -> src-tauri\backend\braindump-backend.exe ($size MB, voice=$voiceOk)" -ForegroundColor Green
 ```
 
-- [ ] **Step 2: Delete the old script and update README**
+- [x] **Step 2: Delete the old script and update README**
 
 ```bash
 git rm build.ps1
