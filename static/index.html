@@ -9,7 +9,7 @@
 /* Apply saved theme before first paint — no flash of wrong colors. */
 try { document.documentElement.dataset.theme = localStorage.getItem("bdl-theme") || "midnight"; } catch (e) {}
 </script>
-<link rel="stylesheet" href="style.css?v=0.4.3">
+<link rel="stylesheet" href="style.css?v=0.5.0">
 </head>
 <body>
 <header>
@@ -27,6 +27,6 @@ try { document.documentElement.dataset.theme = localStorage.getItem("bdl-theme")
   <a href="#settings" id="ai-pill" class="pill off">…</a>
 </header>
 <main id="view"></main>
-<script src="app.js?v=0.4.3"></script>
+<script src="app.js?v=0.5.0"></script>
 </body>
 </html>
