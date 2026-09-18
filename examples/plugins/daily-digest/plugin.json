@@ -1,0 +1,9 @@
+{
+  "id": "daily-digest",
+  "name": "Daily digest",
+  "version": "1.0.0",
+  "description": "Once a day, after a dump is processed, proposes a digest of everything you captured today.",
+  "author": "BrainDump Lite",
+  "permissions": ["read-vault", "propose-suggestions"],
+  "entry": "main.py"
+}

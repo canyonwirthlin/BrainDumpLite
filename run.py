@@ -30,7 +30,7 @@ try:
 except Exception:
     pass
 
-from app import db, engine, launch  # noqa: E402
+from app import db, engine, launch, mcp_client  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.version import __version__  # noqa: E402
 
@@ -42,7 +42,7 @@ def main() -> None:
         launch.redirect_output(data / "logs")
         ppid = os.environ.get("BRAINDUMP_LITE_PARENT_PID")
         if ppid:
-            launch.watch_parent(int(ppid), on_exit=lambda: (engine.stop_all(), os._exit(0)))
+            launch.watch_parent(int(ppid), on_exit=lambda: (engine.stop_all(), mcp_client.stop_all(), os._exit(0)))
     launch.remove_legacy_bundles(data)
     try:
         _serve(sidecar)
