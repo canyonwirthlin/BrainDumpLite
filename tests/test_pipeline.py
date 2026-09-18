@@ -67,6 +67,7 @@ def test_classify_failure_falls_back_and_records_error(fake_ai, monkeypatch):
     def boom(*a, **k):
         raise ai.AIError("model exploded")
     monkeypatch.setattr(ai, "chat_json", boom)
+    monkeypatch.setattr(ai, "chat", lambda system, user, **kw: user)  # cleanup keeps the two lines
     did = _new_dump("need to call mom\nbuy soap")
     pipeline.run_pipeline(did)
     d = db.query_one("SELECT * FROM dumps WHERE id=?", (did,))
