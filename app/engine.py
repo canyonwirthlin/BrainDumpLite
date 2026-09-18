@@ -36,7 +36,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from . import db
+from . import catalog, db
 
 # run.py injects truststore for the frozen app; repeat it here so engine
 # downloads also survive AV/corporate TLS interception when running from
@@ -64,50 +64,11 @@ ENGINE_ZIP = {
     "sha256": "4c70fc1048cb6d4b243ff06632d43b8fc2a303488ab8b6ab7cc3d088844db1b4",
 }
 
-# Q4_K_M GGUFs. sha256/size come from each file's Hugging Face LFS pointer.
-# vram_gb = card size the model comfortably fits on WITH its 8k KV cache.
-CHAT_MODELS = [
-    {
-        "id": "llama-3.2-3b",
-        "label": "Llama 3.2 3B",
-        "blurb": "Light and quick — for 4 GB cards or CPU-only machines",
-        "repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
-        "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-        "sha256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff",
-        "size": 2019377696,
-        "vram_gb": 4,
-    },
-    {
-        "id": "qwen3-4b",
-        "label": "Qwen3 4B Instruct",
-        "blurb": "Best quality for its size — the sweet spot for 6 GB cards",
-        "repo": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
-        "file": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-        "sha256": "2fde00ce69dd4899c70d020845e2638353015bba0fdf161b3eb965f2bca4464e",
-        "size": 2497280736,
-        "vram_gb": 6,
-    },
-    {
-        "id": "gemma-3-4b",
-        "label": "Gemma 3 4B",
-        "blurb": "Google's small model — warmer writing voice",
-        "repo": "bartowski/google_gemma-3-4b-it-GGUF",
-        "file": "google_gemma-3-4b-it-Q4_K_M.gguf",
-        "sha256": "4996030242583a40aa151ff93f49ed787ac8c25e4120c3ae4588b2e2a7d1ae94",
-        "size": 2489758112,
-        "vram_gb": 6,
-    },
-    {
-        "id": "llama-3.1-8b",
-        "label": "Llama 3.1 8B",
-        "blurb": "The biggest here — needs a full 8 GB card",
-        "repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
-        "file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        "sha256": "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c",
-        "size": 4920739232,
-        "vram_gb": 8,
-    },
-]
+# Chat models come from the curated catalog (catalog/models.json, refreshed
+# from the repo at most daily). Nothing downloads until the user presses Get.
+def CHAT_MODELS() -> list[dict]:
+    return catalog.chat_models()
+
 
 EMBED_MODEL = {
     "id": "nomic-embed",
@@ -166,7 +127,7 @@ def model_path(meta: dict) -> Path:
 
 
 def _model_by_id(mid: str) -> dict | None:
-    return next((m for m in CHAT_MODELS if m["id"] == mid), None)
+    return next((m for m in CHAT_MODELS() if m["id"] == mid), None)
 
 
 def _file_ok(meta: dict) -> bool:
@@ -263,12 +224,14 @@ def detect_gpu() -> dict:
 
 
 def recommended_id(vram_mb: int) -> str:
-    # Thresholds sit below nominal card sizes: Windows itself holds VRAM.
-    if vram_mb >= 7400:
-        return "llama-3.1-8b"
-    if vram_mb >= 5400:
-        return "qwen3-4b"
-    return "llama-3.2-3b"
+    # Biggest model whose VRAM tier fits, with ~600 MB headroom because Windows
+    # itself holds VRAM. Ties go to the catalog's first entry in that tier.
+    models = CHAT_MODELS()
+    fits = [m for m in models if vram_mb >= m["vram_gb"] * 1024 - 600]
+    if not fits:
+        return min(models, key=lambda m: m["vram_gb"])["id"] if models else ""
+    best = max(m["vram_gb"] for m in fits)
+    return next(m["id"] for m in fits if m["vram_gb"] == best)
 
 
 # ── Progress reporting ───────────────────────────────────────────────────────
@@ -690,7 +653,8 @@ def status() -> dict:
             "downloaded": _file_ok(m),
             "recommended": m["id"] == rec,
             "active": m["id"] == active,
-        } for m in CHAT_MODELS],
+            "tags": m.get("tags", []),
+        } for m in CHAT_MODELS()],
         "embed_downloaded": _file_ok(EMBED_MODEL),
         "setup": setup_progress(),
         "server": {"running": running, "model": loaded},

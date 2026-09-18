@@ -36,7 +36,8 @@ $args = @(
     '--distpath', 'src-tauri', '--workpath', 'build',
     '--add-data', 'app;app',
     '--add-data', 'static;static',
-    '--add-data', 'CHANGELOG.md;.'
+    '--add-data', 'CHANGELOG.md;.',
+    '--add-data', 'catalog;catalog'
 )
 if ($voiceOk) {
     $args += @('--collect-all', 'faster_whisper', '--collect-all', 'ctranslate2', '--collect-all', 'av')

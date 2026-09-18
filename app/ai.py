@@ -65,6 +65,12 @@ DEFAULTS = {
         "model": "gpt-5-mini",
         "embed_model": "text-embedding-3-small",
     },
+    "gemini": {
+        # Google's OpenAI-compatible endpoint; key from aistudio.google.com (free tier).
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-2.5-flash",
+        "embed_model": "text-embedding-004",
+    },
     "local": {
         "base_url": "http://localhost:1234/v1",
         "model": "",
@@ -105,9 +111,9 @@ def available() -> bool:
     if c["provider"] == "builtin":
         from . import engine
         return engine.is_configured()
-    if c["provider"] not in ("anthropic", "openai", "local"):
+    if c["provider"] not in ("anthropic", "openai", "gemini", "local"):
         return False
-    if c["provider"] in ("anthropic", "openai") and not c["api_key"]:
+    if c["provider"] in ("anthropic", "openai", "gemini") and not c["api_key"]:
         return False
     return bool(c["model"])
 
@@ -321,6 +327,8 @@ def embed(text: str) -> list[float] | None:
     c = config()
     if c["provider"] == "openai":
         model = c["embed_model"] or "text-embedding-3-small"
+    elif c["provider"] == "gemini":
+        model = c["embed_model"] or "text-embedding-004"
     elif c["provider"] == "local" and c["embed_model"]:
         model = c["embed_model"]
     elif c["provider"] == "builtin":

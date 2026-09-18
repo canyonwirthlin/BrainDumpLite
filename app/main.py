@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, engine, item_types, lock
+from . import db, engine, item_types, lock, stats
 from .routes import router
 
 
@@ -30,6 +30,7 @@ def static_dir() -> Path:
 def create_app() -> FastAPI:
     db.init_db()
     item_types.seed()
+    stats.sample_daily()
     engine.autostart()  # warm the built-in AI servers (no-op unless configured)
     lock.boot()  # a set passphrase means the app starts locked
     app = FastAPI(title="BrainDump Lite", docs_url=None, redoc_url=None)

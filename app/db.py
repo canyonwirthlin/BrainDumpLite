@@ -101,6 +101,9 @@ CREATE TABLE IF NOT EXISTS sessions (          -- Phase 4 conversational capture
   dump_id    TEXT,
   status     TEXT NOT NULL DEFAULT 'active'    -- active|ended
 );
+CREATE TABLE IF NOT EXISTS stats_daily (            -- Phase 7: one sample per local day
+  date TEXT PRIMARY KEY, dumps INTEGER NOT NULL, db_bytes INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS session_items (     -- live preview items, dropped when the session ends
   id         TEXT PRIMARY KEY,
   session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,

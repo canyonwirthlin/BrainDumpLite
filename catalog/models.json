@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "updated": "2026-09-18",
+  "notes": "Curated for BrainDump Lite: non-thinking instruct models that fit 4-8 GB cards and follow JSON schemas. Nothing here downloads until the user picks it.",
+  "chat_models": [
+    {
+      "id": "llama-3.2-3b",
+      "label": "Llama 3.2 3B",
+      "blurb": "Light and quick — for 4 GB cards or CPU-only machines",
+      "repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+      "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+      "sha256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff",
+      "size": 2019377696,
+      "vram_gb": 4,
+      "tags": ["fast", "cpu-ok"]
+    },
+    {
+      "id": "qwen3-4b",
+      "label": "Qwen3 4B Instruct",
+      "blurb": "Best quality for its size — the sweet spot for 6 GB cards",
+      "repo": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
+      "file": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+      "sha256": "2fde00ce69dd4899c70d020845e2638353015bba0fdf161b3eb965f2bca4464e",
+      "size": 2497280736,
+      "vram_gb": 6,
+      "tags": ["quality", "balanced"]
+    },
+    {
+      "id": "gemma-3-4b",
+      "label": "Gemma 3 4B",
+      "blurb": "Google's small model — warmer writing voice",
+      "repo": "bartowski/google_gemma-3-4b-it-GGUF",
+      "file": "google_gemma-3-4b-it-Q4_K_M.gguf",
+      "sha256": "4996030242583a40aa151ff93f49ed787ac8c25e4120c3ae4588b2e2a7d1ae94",
+      "size": 2489758112,
+      "vram_gb": 6,
+      "tags": ["writing", "balanced"]
+    },
+    {
+      "id": "llama-3.1-8b",
+      "label": "Llama 3.1 8B",
+      "blurb": "The biggest here — needs a full 8 GB card",
+      "repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+      "file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+      "sha256": "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c",
+      "size": 4920739232,
+      "vram_gb": 8,
+      "tags": ["quality"]
+    }
+  ],
+  "prices_per_million_tokens": {
+    "openai/gpt-5-mini": {"input": 0.25, "output": 2.0},
+    "openai/gpt-5": {"input": 1.25, "output": 10.0},
+    "anthropic/claude-sonnet-5": {"input": 3.0, "output": 15.0},
+    "anthropic/claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
+    "gemini/gemini-2.5-flash": {"input": 0.3, "output": 2.5},
+    "gemini/gemini-2.5-pro": {"input": 1.25, "output": 10.0}
+  }
+}

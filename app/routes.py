@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, changelog, db, engine, export_md, gitsync, graph, import_md, item_types, lock, pipeline, profiles, sessions, themes, transcribe, vault
+from . import ai, catalog, changelog, db, engine, export_md, gitsync, graph, import_md, item_types, lock, pipeline, profiles, sessions, stats, themes, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -390,6 +390,18 @@ def gitsync_now(body: GitIn):
         return gitsync.sync_now(body.message)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+# ── Model catalog + stats (Phase 7) ──────────────────────────────────────────
+
+@router.get("/catalog")
+def get_catalog(refresh: int = 0):
+    return catalog.load(refresh=bool(refresh))
+
+
+@router.get("/stats")
+def get_stats(days: int = 30):
+    return stats.summary(days)
 
 
 # ── Themes ───────────────────────────────────────────────────────────────────
@@ -785,7 +797,7 @@ def get_settings():
 @router.put("/settings")
 def put_settings(body: SettingsIn):
     if body.provider is not None:
-        if body.provider not in ("builtin", "anthropic", "openai", "local", "off"):
+        if body.provider not in ("builtin", "anthropic", "openai", "gemini", "local", "off"):
             raise HTTPException(400, "Bad provider")
         db.set_setting("provider", body.provider)
         if body.provider != "builtin":
