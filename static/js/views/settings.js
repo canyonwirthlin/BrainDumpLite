@@ -1,9 +1,74 @@
-// Settings (sections + Advanced arrive in Task 6).
+// Settings: sectioned (Appearance, AI, Voice, Data, About) with a per-section
+// "Advanced" switch — the standing progressive-disclosure rule for every settings screen.
 import { $, $$, esc, toast } from "../ui.js";
 import { api } from "../api.js";
 import { state, clearPoll, refreshStatus } from "../state.js";
 import { native, showWhatsNew, checkForUpdates } from "../native.js";
-import { setActive, importTheme, deleteTheme, exportUrl, BUILTIN_IDS } from "../theme.js";
+import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
+
+const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["about", "About"]];
+const advOn = (s) => { try { return localStorage.getItem("bdl-adv-" + s) === "1"; } catch { return false; } };
+const setAdv = (s, v) => { try { localStorage.setItem("bdl-adv-" + s, v ? "1" : "0"); } catch {} };
+
+export async function render(ctx) {
+  const section = SECTIONS.some(([id]) => id === ctx.params[0]) ? ctx.params[0] : "appearance";
+  ctx.setTitle("Settings");
+  ctx.setLayout("full");
+  $("#view").innerHTML = `<div class="split settings has-detail">
+    <nav class="master subnav">${SECTIONS.map(([id, label]) => `<a href="#settings/${id}" class="${id === section ? "on" : ""}">${label}</a>`).join("")}</nav>
+    <div class="detail body" id="sec"><div class="center">Loading…</div></div></div>`;
+  let s;
+  try { s = await api.get("/settings"); } catch (e) { $("#sec").innerHTML = `<div class="center">Couldn't load settings: ${esc(e.message)}</div>`; return; }
+  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, about: sectionAbout }[section];
+  paint($("#sec"), s);
+}
+
+// Section header with the Advanced switch; hasAdv=false hides the switch.
+function head(box, section, title, hasAdv, repaint) {
+  const on = advOn(section);
+  box.innerHTML = `<div class="h"><h2>${title}</h2><div class="grow"></div>
+    ${hasAdv ? `<label class="sw">Advanced <input type="checkbox" id="adv" ${on ? "checked" : ""}><i></i></label>` : ""}</div><div id="body"></div>`;
+  if (hasAdv) $("#adv", box).onchange = (e) => { setAdv(section, e.target.checked); repaint(); };
+  return { on, body: $("#body", box) };
+}
+
+// ── Appearance ───────────────────────────────────────────────────────────────
+
+function sectionAppearance(box, s) {
+  const { on, body } = head(box, "appearance", "Appearance", true, () => sectionAppearance(box, s));
+  const root = document.documentElement;
+  body.innerHTML = `
+    <p class="small muted" style="margin-bottom:12px">Pick a theme, or import a theme JSON file.</p>
+    <div class="themes">${state.themes.map((t) => `
+      <button class="theme-swatch ${t.id === state.activeTheme ? "active" : ""}" data-theme="${t.id}" title="${esc(t.name)}">
+        <div class="sw-colors"><i style="background:${t.colors.bg}"></i><i style="background:${t.colors.panel}"></i><i style="background:${t.colors.accent}"></i></div>
+        <span>${esc(t.name)}</span></button>`).join("")}
+    </div>
+    <div class="row" style="margin:12px 0 0">
+      <label class="btn ghost small">Import theme… <input type="file" id="theme-file" accept=".json,application/json" hidden></label>
+      <a class="btn ghost small" href="${exportUrl(state.activeTheme)}" download>Export current</a>
+      ${BUILTIN_IDS.includes(state.activeTheme) ? "" : `<button class="btn danger small" id="theme-del">Delete current</button>`}
+      <span class="small muted" id="theme-msg"></span>
+    </div>
+    ${on ? `<div class="adv">
+      <div class="sec" style="margin-top:0">Advanced</div>
+      <div class="field"><label>Density</label>
+        <select id="f-density"><option value="comfortable" ${root.dataset.density !== "compact" ? "selected" : ""}>Comfortable</option><option value="compact" ${root.dataset.density === "compact" ? "selected" : ""}>Compact</option></select></div>
+      <div class="field"><label>Motion</label>
+        <select id="f-motion"><option value="auto" ${root.dataset.motion !== "reduce" ? "selected" : ""}>Follow system</option><option value="reduce" ${root.dataset.motion === "reduce" ? "selected" : ""}>Reduce animations</option></select></div>
+    </div>` : ""}`;
+  $$(".theme-swatch", body).forEach((b) => b.onclick = async () => { await setActive(b.dataset.theme); sectionAppearance(box, s); });
+  $("#theme-file", body).onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { const t = await importTheme(f); await setActive(t.id); sectionAppearance(box, s); toast(`Imported "${t.name}"`); }
+    catch (err) { $("#theme-msg", body).textContent = err.message; }
+  };
+  if ($("#theme-del", body)) $("#theme-del", body).onclick = async () => { await deleteTheme(state.activeTheme); await setActive("midnight"); sectionAppearance(box, s); };
+  if ($("#f-density", body)) $("#f-density", body).onchange = (e) => setDensity(e.target.value);
+  if ($("#f-motion", body)) $("#f-motion", body).onchange = (e) => setMotion(e.target.value);
+}
+
+// ── AI ───────────────────────────────────────────────────────────────────────
 
 const PROVIDER_META = [
   { id: "builtin", name: "Built-in", desc: "Free · runs on this PC", help: "Runs a small AI model directly on this computer — GPU-accelerated, no account, no cost, and nothing you write ever leaves your machine. One-time model download (2–5 GB), then it works offline." },
@@ -13,119 +78,135 @@ const PROVIDER_META = [
   { id: "off", name: "Off", desc: "No AI", help: "Dumps are stored raw. You can turn AI on any time — old dumps stay as they are." },
 ];
 
-export async function render(ctx) {
-  ctx.setTitle("Settings");
-  $("#view").innerHTML = `<div class="center">Loading…</div>`;
-  const s = await api.get("/settings");
-  const cur = () => s.provider;
-  const paint = () => {
-    const meta = PROVIDER_META.find((p) => p.id === cur());
-    $("#view").innerHTML = `
-      <h1>Settings</h1>
-      <p class="sub">Make it yours — theme, AI provider, voice.</p>
-      <h2>Appearance</h2>
-      <div class="themes" style="margin-bottom:12px">${state.themes.map((t) => `
-        <button class="theme-swatch ${t.id === state.activeTheme ? "active" : ""}" data-theme="${t.id}" title="${esc(t.name)}">
-          <div class="sw"><i style="background:${t.colors.bg}"></i><i style="background:${t.colors.panel}"></i><i style="background:${t.colors.accent}"></i></div>
-          <span>${esc(t.name)}</span></button>`).join("")}
-      </div>
-      <div class="row" style="margin:0 0 24px">
-        <label class="btn ghost small">Import theme… <input type="file" id="theme-file" accept=".json,application/json" hidden></label>
-        <a class="btn ghost small" href="${exportUrl(state.activeTheme)}" download>Export current</a>
-        ${BUILTIN_IDS.includes(state.activeTheme) ? "" : `<button class="btn danger small" id="theme-del">Delete current</button>`}
-        <span class="small muted" id="theme-msg"></span>
-      </div>
-      <h2>AI provider</h2>
-      <p class="small muted" style="margin-bottom:12px">Your dumps only ever go to the provider you choose.</p>
-      <div class="providers">${PROVIDER_META.map((p) => `
-        <button class="provider ${p.id === cur() ? "active" : ""}" data-p="${p.id}">
-          <b>${p.name}</b><span>${p.desc}</span></button>`).join("")}
-      </div>
-      <div class="card">
-        <p class="small muted" style="margin-bottom:14px">${meta.help}</p>
-        ${cur() === "builtin" ? `<div id="engine-panel"><div class="center"><span class="spin"></span></div></div>` : ""}
-        ${cur() === "anthropic" || cur() === "openai" ? `
-          <div class="field"><label>API key</label>
-            <input type="password" id="f-key" value="${esc(s.api_key)}" placeholder="${cur() === "anthropic" ? "sk-ant-…" : "sk-…"}"></div>` : ""}
-        ${cur() === "local" ? `
-          <div class="field"><label>Server URL</label>
+function sectionAI(box, s) {
+  const { on, body } = head(box, "ai", "AI provider", true, () => sectionAI(box, s));
+  const cur = s.provider;
+  const meta = PROVIDER_META.find((p) => p.id === cur) || PROVIDER_META[4];
+  const cloud = cur === "anthropic" || cur === "openai";
+  const engineDir = (state.status.data_dir || "%LOCALAPPDATA%\\BrainDumpLite") + "\\engine";
+  body.innerHTML = `
+    <p class="small muted" style="margin-bottom:12px">Your dumps only ever go to the provider you choose.</p>
+    <div class="providers">${PROVIDER_META.map((p) => `
+      <button class="provider ${p.id === cur ? "active" : ""}" data-p="${p.id}"><b>${p.name}</b><span>${p.desc}</span></button>`).join("")}
+    </div>
+    <div class="card">
+      <p class="small muted" style="margin-bottom:14px">${meta.help}</p>
+      ${cur === "builtin" ? `<div id="engine-panel"><div class="center"><span class="spin"></span></div></div>` : ""}
+      ${cloud ? `<div class="field"><label>API key</label>
+        <input type="password" id="f-key" value="${esc(s.api_key)}" placeholder="${cur === "anthropic" ? "sk-ant-…" : "sk-…"}"></div>` : ""}
+      ${cur === "local" && !on ? `<p class="small muted">Server URL and model live under <b>Advanced</b>.</p>` : ""}
+      ${on && cur !== "off" ? `<div class="adv">
+        <div class="sec" style="margin-top:0">Advanced</div>
+        ${cur === "builtin" ? `
+          <div class="field"><label>Engine folder</label><div class="ro">${esc(engineDir)}</div></div>
+          <div class="field"><label>Ports</label><div class="ro">chat 8790 · embed 8820 · app ${esc(location.port || "80")}</div></div>
+          <div class="field"><label>Context window</label><div class="ro">4096 tokens</div></div>` : `
+          ${cur === "local" ? `<div class="field"><label>Server URL</label>
             <input type="text" id="f-url" value="${esc(s.base_url)}" placeholder="http://localhost:1234/v1"></div>` : ""}
-        ${cur() !== "off" && cur() !== "builtin" ? `
           <div class="field"><label>Chat model</label>
             <div class="row" style="margin:0">
-              <input type="text" id="f-model" class="grow" value="${esc(s.model)}" placeholder="${esc(s.defaults[cur()]?.model || "model id")}">
-              <button class="btn ghost" id="f-list">List</button>
+              <input type="text" id="f-model" class="grow" value="${esc(s.model)}" placeholder="${esc(s.defaults[cur]?.model || "model id")}">
+              <button class="btn ghost small" id="f-list">List</button>
             </div></div>
-          ${cur() !== "anthropic" ? `
-          <div class="field"><label>Embedding model <span class="muted">(optional — enables semantic search)</span></label>
-            <input type="text" id="f-embed" value="${esc(s.embed_model)}" placeholder="${cur() === "openai" ? "text-embedding-3-small" : "e.g. text-embedding-nomic-embed-text-v1.5"}"></div>` : ""}` : ""}
-        <div class="field"><label>Voice model (local Whisper — audio never leaves this machine)</label>
-          <select id="f-whisper">${["tiny", "base", "small"].map((w) =>
-            `<option ${w === s.whisper_model ? "selected" : ""}>${w}</option>`).join("")}</select></div>
-        <div class="row">
-          <button class="btn" id="save">Save</button>
-          <button class="btn ghost" id="test">Test connection</button>
-          <div class="grow"></div>
-        </div>
-        <div id="test-out"></div>
+          ${cur !== "anthropic" ? `<div class="field"><label>Embedding model <span class="muted">(optional — enables semantic search)</span></label>
+            <input type="text" id="f-embed" value="${esc(s.embed_model)}" placeholder="${cur === "openai" ? "text-embedding-3-small" : "e.g. text-embedding-nomic-embed-text-v1.5"}"></div>` : ""}`}
+      </div>` : ""}
+      ${cur !== "builtin" ? `<div class="row">
+        <button class="btn" id="save">Save</button>
+        ${cur !== "off" ? `<button class="btn ghost" id="test">Test connection</button>` : ""}
       </div>
-      <h2>About</h2>
-      <div class="card">
-        <p class="small" style="margin-bottom:12px">BrainDump Lite <b>v${esc(state.status.version || "?")}</b> · ${native ? "native app" : "browser mode"}</p>
-        <div class="row" style="margin:0">
-          <button class="btn ghost" id="about-whatsnew">What's new</button>
-          ${native ? `<button class="btn ghost" id="about-update">Check for updates</button>` : ""}
-        </div>
-      </div>
-      <p class="small muted">Data lives in <code>${esc(state.status.data_dir || "")}</code> — delete that folder to wipe everything.</p>`;
-    $$(".theme-swatch").forEach((b) => b.onclick = async () => { await setActive(b.dataset.theme); paint(); });
-    $("#theme-file").onchange = async (e) => {
-      const f = e.target.files[0]; if (!f) return;
-      try { const t = await importTheme(f); await setActive(t.id); paint(); toast(`Imported "${t.name}"`); }
-      catch (err) { $("#theme-msg").textContent = err.message; }
-    };
-    if ($("#theme-del")) $("#theme-del").onclick = async () => { await deleteTheme(state.activeTheme); await setActive("midnight"); paint(); };
-    $$(".provider").forEach((b) => b.onclick = async () => {
-      clearPoll();  // engine-panel poll
-      s.provider = b.dataset.p;
-      const d = s.defaults[s.provider] || {};
-      s.base_url = d.base_url || ""; s.model = d.model || ""; s.embed_model = d.embed_model || "";
-      paint();
-    });
-    const gather = () => ({
-      provider: s.provider,
-      api_key: $("#f-key")?.value ?? s.api_key,
-      base_url: $("#f-url")?.value ?? s.base_url,
-      model: $("#f-model")?.value ?? s.model,
-      embed_model: $("#f-embed")?.value ?? s.embed_model,
-      whisper_model: $("#f-whisper").value,
-    });
-    $("#about-whatsnew").onclick = () => showWhatsNew(state.status.version);
-    if ($("#about-update")) $("#about-update").onclick = () => checkForUpdates({ silent: false });
-    $("#save").onclick = async () => {
-      const saved = await api.put("/settings", gather());
-      Object.assign(s, saved);
-      await refreshStatus();
-      $("#test-out").innerHTML = `<div class="test-result ok">Saved.</div>`;
-    };
-    $("#test").onclick = async () => {
-      $("#test-out").innerHTML = `<div class="test-result"><span class="spin"></span> Testing…</div>`;
-      await api.put("/settings", gather());
+      <div id="test-out"></div>` : ""}
+    </div>`;
+  $$(".provider", body).forEach((b) => b.onclick = async () => {
+    clearPoll();
+    s.provider = b.dataset.p;
+    const d = s.defaults[s.provider] || {};
+    s.base_url = d.base_url || ""; s.model = d.model || ""; s.embed_model = d.embed_model || "";
+    try { Object.assign(s, await api.put("/settings", { provider: s.provider })); await refreshStatus(); }
+    catch (e) { toast("Couldn't switch provider: " + e.message, true); }
+    sectionAI(box, s);
+  });
+  const gather = () => ({
+    provider: s.provider,
+    api_key: $("#f-key", body)?.value ?? s.api_key,
+    base_url: $("#f-url", body)?.value ?? s.base_url,
+    model: $("#f-model", body)?.value ?? s.model,
+    embed_model: $("#f-embed", body)?.value ?? s.embed_model,
+  });
+  if ($("#save", body)) $("#save", body).onclick = async () => {
+    try { Object.assign(s, await api.put("/settings", gather())); await refreshStatus(); $("#test-out", body).innerHTML = `<div class="test-result ok">Saved.</div>`; }
+    catch (e) { $("#test-out", body).innerHTML = `<div class="test-result bad">${esc(e.message)}</div>`; }
+  };
+  if ($("#test", body)) $("#test", body).onclick = async () => {
+    $("#test-out", body).innerHTML = `<div class="test-result"><span class="spin"></span> Testing…</div>`;
+    try {
+      Object.assign(s, await api.put("/settings", gather()));
       await refreshStatus();
       const r = await api.post("/settings/test");
-      $("#test-out").innerHTML = `<div class="test-result ${r.ok ? "ok" : "bad"}">${esc(r.message)}</div>`;
-    };
-    if ($("#f-list")) $("#f-list").onclick = async () => {
-      await api.put("/settings", gather());
-      try {
-        const { models } = await api.get("/models");
-        const pick = prompt("Available models:\n\n" + models.join("\n") + "\n\nCopy one into the model field.", $("#f-model").value);
-        if (pick) $("#f-model").value = pick.trim();
-      } catch (e) { toast("Could not list models: " + e.message, true); }
-    };
-    if (cur() === "builtin") paintEnginePanel();
+      $("#test-out", body).innerHTML = `<div class="test-result ${r.ok ? "ok" : "bad"}">${esc(r.message)}</div>`;
+    } catch (e) { $("#test-out", body).innerHTML = `<div class="test-result bad">${esc(e.message)}</div>`; }
   };
-  paint();
+  if ($("#f-list", body)) $("#f-list", body).onclick = async () => {
+    await api.put("/settings", gather());
+    try {
+      const { models } = await api.get("/models");
+      const pick = prompt("Available models:\n\n" + models.join("\n") + "\n\nCopy one into the model field.", $("#f-model", body).value);
+      if (pick) $("#f-model", body).value = pick.trim();
+    } catch (e) { toast("Could not list models: " + e.message, true); }
+  };
+  if (cur === "builtin") paintEnginePanel();
+}
+
+// ── Voice ────────────────────────────────────────────────────────────────────
+
+function sectionVoice(box, s) {
+  const { body } = head(box, "voice", "Voice", false, () => sectionVoice(box, s));
+  body.innerHTML = `
+    <div class="card">
+      <div class="field"><label>Voice model (local Whisper — audio never leaves this machine)</label>
+        <select id="f-whisper">${["tiny", "base", "small"].map((w) => `<option ${w === s.whisper_model ? "selected" : ""}>${w}</option>`).join("")}</select></div>
+      <p class="small muted">tiny is fastest, small is most accurate. The model downloads once on first use.</p>
+      <div class="row"><button class="btn" id="save">Save</button><span class="small muted" id="voice-msg"></span></div>
+    </div>`;
+  $("#save", body).onclick = async () => {
+    try { Object.assign(s, await api.put("/settings", { whisper_model: $("#f-whisper", body).value })); $("#voice-msg", body).textContent = "Saved."; }
+    catch (e) { toast(e.message, true); }
+  };
+}
+
+// ── Data ─────────────────────────────────────────────────────────────────────
+
+function sectionData(box, s) {
+  const { body } = head(box, "data", "Data", false, () => sectionData(box, s));
+  const path = state.status.data_dir || "";
+  body.innerHTML = `
+    <div class="card">
+      <div class="field"><label>Your vault lives in</label><div class="ro">${esc(path)}</div></div>
+      <div class="row" style="margin:0">
+        <button class="btn ghost small" id="reveal">${native ? "Reveal in Explorer" : "Copy path"}</button>
+      </div>
+      <p class="small muted" style="margin-top:12px">Everything — dumps, settings, downloaded AI models — is inside that folder. Delete it to wipe the app.</p>
+    </div>`;
+  $("#reveal", body).onclick = async () => {
+    if (native) { try { await native.opener.revealItemInDir(path); } catch (e) { toast("Couldn't open Explorer: " + (e.message || e), true); } }
+    else { try { await navigator.clipboard.writeText(path); toast("Path copied"); } catch { toast(path); } }
+  };
+}
+
+// ── About ────────────────────────────────────────────────────────────────────
+
+function sectionAbout(box, s) {
+  const { body } = head(box, "about", "About", false, () => sectionAbout(box, s));
+  body.innerHTML = `
+    <div class="card">
+      <p class="small" style="margin-bottom:12px">BrainDump Lite <b>v${esc(state.status.version || "?")}</b> · ${native ? "native app" : "browser mode"}</p>
+      <div class="row" style="margin:0">
+        <button class="btn ghost" id="about-whatsnew">What's new</button>
+        ${native ? `<button class="btn ghost" id="about-update">Check for updates</button>` : ""}
+      </div>
+    </div>`;
+  $("#about-whatsnew", body).onclick = () => showWhatsNew(state.status.version);
+  if ($("#about-update", body)) $("#about-update", body).onclick = () => checkForUpdates({ silent: false });
 }
 
 // ── Built-in AI engine panel (inside Settings) ───────────────────────────────
