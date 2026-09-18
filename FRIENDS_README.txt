@@ -7,18 +7,25 @@ A "second brain" app. You dump whatever's in your head (typing or
 talking), and an AI sorts it into tasks, ideas, and worries, then
 helps you reflect on it. Everything is stored on YOUR computer only.
 
-HOW TO RUN IT
-1. IMPORTANT: Extract the zip first. Right-click the zip file ->
-   "Extract All..." -> open the extracted folder.
-   (Double-clicking the exe while still INSIDE the zip will NOT work.)
-2. Double-click  BrainDumpLite.exe  in the extracted folder.
-   - Windows may say "Windows protected your PC". That's because the
-     app isn't signed (signing costs money). Click "More info" then
-     "Run anyway". It's safe — you got it from me.
-   - If NOTHING happens at all, your antivirus may have quarantined
-     the app. Check the antivirus history and choose restore/allow.
-3. A black window opens, then your browser opens the app.
-   KEEP THE BLACK WINDOW OPEN. Closing it quits the app.
+HOW TO INSTALL IT
+1. Download "BrainDump Lite_x.y.z_x64-setup.exe" from
+   https://github.com/canyonwirthlin/BrainDumpLite/releases/latest
+2. Run it. Windows may say "Windows protected your PC" because the app
+   isn't signed (signing costs money). Click "More info" -> "Run anyway".
+   If your antivirus quarantines it, restore it and allow it - it's from me.
+3. It installs in a few seconds and opens. There's a Start Menu entry and
+   a tray icon (bottom-right, near the clock). Closing the window keeps it
+   running in the tray; right-click the tray icon -> Quit to fully exit.
+
+UPDATES
+The app checks for updates when it starts. When one exists a small
+"update available" pill appears at the top - click it, read what's new,
+press "Install and restart". That's it.
+
+COMING FROM THE OLD ZIP VERSION?
+Just install this one. Your dumps, settings and downloaded AI models are
+picked up automatically (same data folder). Delete the old unzipped folder
+whenever you like.
 
 TURNING ON THE AI (one-time, ~5 minutes + a download)
 The app works without AI but it's 10x better with it. Three options:
@@ -59,6 +66,6 @@ PRIVACY
 - Voice audio never leaves your machine.
 
 PROBLEMS?
-Close the black window, start it again. If it crashes, it saves the
+Quit from the tray icon, start it again. If it crashes, it saves the
 error to a file and tells you where — send me that file. Still
 broken? Tell me (that's the point — I want your feedback!).

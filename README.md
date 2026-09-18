@@ -33,32 +33,52 @@ Voice is always local (faster-whisper, CPU) — audio never leaves the machine.
 ## Dev
 
 ```powershell
-.\dev.ps1        # venv + deps + run from source (http://127.0.0.1:8756)
+.\dev.ps1                 # backend + UI in your browser (fastest loop, no Rust needed)
+.\build-backend.ps1       # freeze the backend into src-tauri\backend\ (needed by the two below)
+npm run tauri dev         # the real native window + tray, debug build
+npm run tauri build       # local installer: src-tauri\target\release\bundle\nsis\
+.\.venv\Scripts\python -m pytest -q        # Python tests
+cd src-tauri; cargo test                   # Rust tests
 ```
 
+One-time: Rust (`rustup`, MSVC Build Tools with the C++ workload) and `npm install`.
+After rebuilding the backend with changed `static/` files, WebView2 may keep serving its
+cached `app.js` (same `?v=` cache-buster) — clear `%LOCALAPPDATA%\com.canyonwirthlin.braindumplite`
+or bump the `?v=` in `static/index.html` while iterating.
 Data dir override for testing: set `BRAINDUMP_LITE_DATA=<path>`.
 
-## Build & ship
+## Release
 
-```powershell
-.\build-backend.ps1      # freezes the backend into src-tauri\backend\ (used by the Tauri shell)
-```
+1. Write a `## X.Y.Z — date` section at the top of `CHANGELOG.md`. This is the
+   release notes on GitHub and the "What's New" panel in the app.
+2. `.\release.ps1 [patch|minor|major|X.Y.Z]` — bumps every version file,
+   commits, tags, pushes.
+3. GitHub Actions builds the installer and publishes the release. Installed
+   apps see it on next launch and offer "Install and restart".
 
-Send the zip. Friend unzips, double-clicks `BrainDumpLite.exe`, follows
-`READ ME FIRST.txt`. SmartScreen will warn once (unsigned exe) — the readme
-tells them about "More info → Run anyway".
+The updater only needs a static `latest.json` URL (`src-tauri/tauri.conf.json`
+→ `plugins.updater.endpoints`); GitHub Releases hosts it today. Update
+artifacts are signed with a minisign key (`TAURI_SIGNING_PRIVATE_KEY` +
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` as GitHub Actions secrets); the public
+half lives in `tauri.conf.json`.
 
 ## Repo layout
 
 ```
-run.py              # entry point: free port, open browser, uvicorn
-app/
-  main.py           # app factory, static mount
-  db.py             # SQLite schema + helpers (settings/dumps/items/links/FTS)
-  ai.py             # provider abstraction — ALL LLM/embedding calls go through here
-  engine.py         # built-in AI: downloads + manages llama.cpp servers (stdlib only!)
-  pipeline.py       # cleanup→classify→expand→embed→link (graceful no-AI fallback)
-  transcribe.py     # faster-whisper, lazy, optional
-  routes.py         # every API route
-static/             # index.html + app.js + style.css (no build step)
+run.py                # backend entry (sidecar of the native shell, or standalone)
+app/                  # FastAPI backend
+  main.py             # app factory, static mount
+  db.py               # SQLite schema + helpers (settings/dumps/items/links/FTS)
+  ai.py               # provider abstraction — ALL LLM/embedding calls go through here
+  engine.py           # built-in AI: downloads + manages llama.cpp servers
+  pipeline.py         # cleanup→classify→expand→embed→link (graceful no-AI fallback)
+  transcribe.py       # faster-whisper, lazy, optional
+  routes.py           # every API route
+  launch.py           # sidecar helpers: port, log file, parent watchdog
+  changelog.py        # CHANGELOG.md parser -> /api/changelog
+static/               # vanilla-JS SPA, served by the backend (no build step)
+shell-ui/             # splash page + icon source for the native window
+src-tauri/            # Tauri 2 shell (Rust): window, tray, sidecar spawn, updater
+build-backend.ps1     # PyInstaller -> src-tauri/backend/
+release.ps1           # version bump + tag; CI (.github/workflows/release.yml) does the rest
 ```

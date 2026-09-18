@@ -1574,7 +1574,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `python -m app.changelog X.Y.Z` (Task 4), `build-backend.ps1` (Task 5).
 - Produces: on `git push origin vX.Y.Z` → GitHub Release `vX.Y.Z` with `BrainDump Lite_X.Y.Z_x64-setup.exe`, its `.sig`, and `latest.json` whose `notes` = the changelog section.
 
-- [ ] **Step 1: `release.ps1`**
+- [x] **Step 1: `release.ps1`**
 
 ```powershell
 # release.ps1 - cut a release. (ASCII only for PowerShell 5.1.)
@@ -1644,7 +1644,7 @@ Write-Host "  PUSHED v$new - GitHub Actions is building the installer." -Foregro
 Write-Host "  Watch: https://github.com/canyonwirthlin/BrainDumpLite/actions" -ForegroundColor DarkGray
 ```
 
-- [ ] **Step 2: Workflow** `.github/workflows/release.yml`
+- [x] **Step 2: Workflow** `.github/workflows/release.yml`
 
 ```yaml
 # Tag push (vX.Y.Z, made by release.ps1) -> tests -> frozen Python backend ->
@@ -1715,7 +1715,7 @@ jobs:
   - `TAURI_SIGNING_PRIVATE_KEY` = the full contents of `~/.tauri/braindumplite.key`
   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = the password chosen in Task 9 Step 1
 
-- [ ] **Step 4: Dry-run the script locally**
+- [x] **Step 4: Dry-run the script locally**
 
 ```powershell
 .\release.ps1 0.4.4 -NoPush
@@ -1735,7 +1735,7 @@ npm run tauri build
 ```
 Expected: `src-tauri\target\release\bundle\nsis\BrainDump Lite_0.4.3_x64-setup.exe` plus a `.sig` next to it. Run the installer: it installs to `%LOCALAPPDATA%\BrainDump Lite`, adds a Start Menu entry, launches, and the app works with the existing data. Keep it installed — Task 11 upgrades it.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add release.ps1 .github/
@@ -1751,7 +1751,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Modify: `README.md`, `FRIENDS_README.txt`, `CHANGELOG.md`, memory file `braindumplite-shipping-and-constraints.md`
 
-- [ ] **Step 1: README.** Rewrite the "Dev", "Build & ship" and "Repo layout" sections of `README.md` to:
+- [x] **Step 1: README.** Rewrite the "Dev", "Build & ship" and "Repo layout" sections of `README.md` to:
 
 ````markdown
 ## Dev
@@ -1797,7 +1797,7 @@ release.ps1           # version bump + tag; CI does the rest
 
 Keep the provider table and architecture paragraphs; delete the SmartScreen/zip sentences.
 
-- [ ] **Step 2: Friends' README.** Rewrite `FRIENDS_README.txt`'s "HOW TO RUN IT" section (keep the AI/voice/privacy sections):
+- [x] **Step 2: Friends' README.** Rewrite `FRIENDS_README.txt`'s "HOW TO RUN IT" section (keep the AI/voice/privacy sections):
 
 ```
 HOW TO INSTALL IT
@@ -1823,7 +1823,7 @@ whenever you like.
 
 `FRIENDS_README.txt` is no longer shipped inside the app; it lives in the repo and is linked from the release page.
 
-- [ ] **Step 3: Write the real 0.5.0 changelog entry** at the top of `CHANGELOG.md` (below the header paragraph, above 0.4.3):
+- [x] **Step 3: Write the real 0.5.0 changelog entry** at the top of `CHANGELOG.md` (below the header paragraph, above 0.4.3):
 
 ```markdown
 ## 0.5.0 — <today's date>
