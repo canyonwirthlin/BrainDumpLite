@@ -14,6 +14,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Signing secrets must exist
+        shell: bash
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          # tauri.conf.json carries an updater public key, so the bundler REFUSES to
+          # build without the matching private key. Fail here, in 2 seconds, with a
+          # readable message, instead of 20 minutes later inside tauri-action.
+          if [ -z "$KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add it (and TAURI_SIGNING_PRIVATE_KEY_PASSWORD) under Settings > Secrets and variables > Actions. The value is the whole contents of ~/.tauri/braindumplite.key."
+            exit 1
+          fi
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
@@ -28,8 +41,8 @@ jobs:
 
       - name: Python tests
         run: |
-          pip install -r requirements.txt -r requirements-dev.txt
-          pytest -q
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+          python -m pytest -q          # -m matters: it puts the repo root on sys.path
 
       - name: Tag must match app/version.py
         shell: bash

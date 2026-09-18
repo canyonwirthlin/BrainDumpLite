@@ -19,14 +19,30 @@ if (-not (Test-Path .venv)) {
 }
 $py = ".\.venv\Scripts\python.exe"
 
+# pip writes notices and warnings to stderr. Under $ErrorActionPreference = 'Stop'
+# PowerShell 5.1 turns ANY native stderr line into a terminating error, which kills
+# this script on a clean machine (CI) while passing locally where nothing needs
+# installing. Run native commands with that off and judge them by exit code alone.
+function Invoke-Native {
+    param([string]$Exe, [string[]]$Arguments)
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Exe @Arguments 2>&1 | ForEach-Object { Write-Host "$_" } }
+    finally { $ErrorActionPreference = $old }
+    return $LASTEXITCODE
+}
+
 Write-Host "Installing dependencies..." -ForegroundColor Cyan
-& $py -m pip install --quiet --disable-pip-version-check -r requirements.txt pyinstaller
+$code = Invoke-Native $py @('-m', 'pip', 'install', '--disable-pip-version-check',
+                            '-r', 'requirements.txt', 'pyinstaller')
+if ($code -ne 0) { throw "pip install failed (exit $code) - see the log above" }
 
 $voiceOk = $false
 if (-not $NoVoice) {
-    & $py -m pip install --quiet --disable-pip-version-check -r requirements-voice.txt
-    & $py -c "import faster_whisper" 2>$null
-    if ($LASTEXITCODE -eq 0) { $voiceOk = $true }
+    $code = Invoke-Native $py @('-m', 'pip', 'install', '--disable-pip-version-check',
+                                '-r', 'requirements-voice.txt')
+    if ($code -ne 0) { Write-Warning "voice dependencies did not install (exit $code)." }
+    if ((Invoke-Native $py @('-c', 'import faster_whisper')) -eq 0) { $voiceOk = $true }
     else { Write-Warning "faster-whisper unavailable - building WITHOUT voice." }
 }
 
@@ -48,8 +64,8 @@ $args += 'run.py'
 $version = (Select-String -Path "app\version.py" -Pattern '"([^"]+)"').Matches[0].Groups[1].Value
 Write-Host "Running PyInstaller v$version (a few minutes)..." -ForegroundColor Cyan
 Remove-Item -Recurse -Force "src-tauri\backend" -ErrorAction SilentlyContinue
-& ".\.venv\Scripts\pyinstaller.exe" @args
-if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
+$code = Invoke-Native ".\.venv\Scripts\pyinstaller.exe" $args
+if ($code -ne 0) { throw "PyInstaller failed (exit $code)" }
 Rename-Item "src-tauri\braindump-backend" "backend"
 
 $size = [math]::Round((Get-ChildItem "src-tauri\backend" -Recurse | Measure-Object Length -Sum).Sum / 1MB)
