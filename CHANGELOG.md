@@ -4,6 +4,13 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.10.0 — 2026-09-18
+- Export any dump, or the whole vault, as Obsidian-compatible markdown with [[wikilinks]] (toggleable).
+- Type [[ in the editor to link concepts, people or dumps with autocomplete; explicit links always count.
+- Import a folder of markdown notes: each file becomes a dump and runs through the pipeline in the background.
+- Multiple vaults: create or add vault folders and switch between them in Settings → Data.
+- Git mirror: point at a repo you own and "Sync now" commits a markdown copy of everything plus a backup zip.
+
 ## 0.9.0 — 2026-09-18
 - The graph knows your item types: every type is a colored node kind you can toggle from the legend (off by default), and Focus dims everything more than two hops from what you select.
 - Click a concept or person to browse every dump that mentions it; every dump shows what it's linked from.

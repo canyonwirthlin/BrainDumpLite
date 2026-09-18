@@ -13,20 +13,20 @@
 - Each task: pytest, lint, browser check, commit.
 
 ### Task 1: Export + wikilinks
-- [ ] `wikilinks.extract`, pipeline merge (explicit `[[x]]` → concepts, or people if known), `export_md.dump_markdown`/`vault_markdown_zip`, routes, tests.
-- [ ] Commit `feat(export): Obsidian-compatible markdown export with wikilinks`.
+- [x] `wikilinks.extract`, pipeline merge (explicit `[[x]]` → concepts, or people if known), `export_md.dump_markdown`/`vault_markdown_zip`, routes, tests.
+- [x] Commit `feat(export): Obsidian-compatible markdown export with wikilinks`.
 
 ### Task 2: Importer + queue
-- [ ] `import_md.parse_file/import_files`, queue thread, `POST /import/markdown`, `GET /import/status`, tests.
-- [ ] Commit `feat(import): markdown folder importer`.
+- [x] `import_md.parse_file/import_files`, queue thread, `POST /import/markdown`, `GET /import/status`, tests.
+- [x] Commit `feat(import): markdown folder importer`.
 
 ### Task 3: Profiles + git mirror
-- [ ] `profiles.py` (profiles.json + pointer), `gitsync.py` (subprocess git), routes, tests (git test skipped without git).
-- [ ] Commit `feat(vault): multiple vaults and git mirror sync`.
+- [x] `profiles.py` (profiles.json + pointer), `gitsync.py` (subprocess git), routes, tests (git test skipped without git).
+- [x] Commit `feat(vault): multiple vaults and git mirror sync`.
 
 ### Task 4: Frontend
-- [ ] `[[` autocomplete (`static/js/wikilinks.js`) on Capture + Today editors; dump detail Export .md; Settings → Data: Export, Import, Vaults, Git mirror panels.
-- [ ] Browser verification; commit `feat(ui): markdown export/import, wikilink autocomplete, vaults, git mirror`.
+- [x] `[[` autocomplete (`static/js/wikilinks.js`) on Capture + Today editors; dump detail Export .md; Settings → Data: Export, Import, Vaults, Git mirror panels.
+- [x] Browser verification; commit `feat(ui): markdown export/import, wikilink autocomplete, vaults, git mirror`.
 
 ### Task 5: Release 0.10.0
 - [ ] Changelog, tick plan, merge, `.\release.ps1 0.10.0`.
