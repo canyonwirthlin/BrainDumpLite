@@ -8,11 +8,11 @@ import re
 import threading
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
-from fastapi.responses import Response, StreamingResponse
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, catalog, changelog, db, engine, export_md, gitsync, graph, import_md, item_types, lock, pipeline, profiles, sessions, stats, themes, transcribe, vault
+from . import ai, catalog, changelog, db, engine, export_md, gitsync, google_cal, graph, import_md, item_types, lock, pipeline, planner, profiles, secrets, sessions, stats, suggestions, themes, todoist, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -64,6 +64,7 @@ def status():
         "locked": lock.locked(),
         "lock_set": lock.is_set(),
         "last_dump_at": (db.query_one("SELECT MAX(created_at) AS m FROM dumps") or {"m": None})["m"],
+        "inbox_pending": suggestions.count_pending(),
     }
 
 
@@ -402,6 +403,158 @@ def get_catalog(refresh: int = 0):
 @router.get("/stats")
 def get_stats(days: int = 30):
     return stats.summary(days)
+
+
+# ── Integrations + Suggestions inbox (Phase 8) ───────────────────────────────
+oauth_router = APIRouter()   # mounted without the /api prefix (OAuth redirect target)
+
+_OAUTH_PAGE = """<!doctype html><meta charset=utf-8><title>BrainDump Lite</title>
+<body style="font:15px system-ui;background:#111;color:#eee;display:grid;place-items:center;height:100vh;margin:0">
+<div style="text-align:center;max-width:32rem"><h2 style="margin:0 0 .5rem">{h}</h2><p style="opacity:.7">{p}</p></div>
+<script>setTimeout(()=>window.close(),1500)</script></body>"""
+
+
+@oauth_router.get("/oauth/google/callback", response_class=HTMLResponse)
+def google_callback(code: str | None = None, state: str | None = None, error: str | None = None):
+    if error or not code or not state:
+        return _OAUTH_PAGE.format(h="Sign-in cancelled", p=f"Google said: {error or 'no code'}. You can close this tab.")
+    try:
+        google_cal.handle_callback(code, state)
+    except Exception as e:
+        return _OAUTH_PAGE.format(h="Sign-in failed", p=str(e))
+    return _OAUTH_PAGE.format(h="Google Calendar connected", p="Back to BrainDump Lite — this tab closes itself.")
+
+
+@router.get("/integrations")
+def integrations_status():
+    gc = google_cal.client()
+    return {
+        "secrets": secrets.storage_kind(),
+        "google": {"connected": google_cal.connected(), "account": db.get_setting("google_account") if google_cal.connected() else None,
+                   "client_id": gc["id"], "has_secret": bool(gc["secret"])},
+        "todoist": {"connected": todoist.connected()},
+    }
+
+
+class GoogleClientIn(BaseModel):
+    client_id: str = ""
+    client_secret: str = ""
+
+
+@router.put("/integrations/google/client")
+def integrations_google_client(body: GoogleClientIn):
+    google_cal.set_client(body.client_id, body.client_secret)
+    return {"ok": True}
+
+
+@router.post("/integrations/google/connect")
+def integrations_google_connect(request: Request):
+    port = request.url.port or 8756
+    try:
+        return {"url": google_cal.auth_url(port)}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/integrations/google/disconnect")
+def integrations_google_disconnect():
+    google_cal.disconnect()
+    return {"ok": True}
+
+
+class TodoistIn(BaseModel):
+    token: str = ""
+
+
+@router.put("/integrations/todoist")
+def integrations_todoist(body: TodoistIn):
+    try:
+        return {"connected": todoist.set_token(body.token)}
+    except Exception as e:
+        raise HTTPException(400, f"Todoist rejected the token: {e}")
+
+
+@router.get("/suggestions")
+def suggestions_list():
+    return {"pending": suggestions.pending(), "recent": suggestions.recent()}
+
+
+class SuggestionAccept(BaseModel):
+    title: str | None = None
+    due: str | None = None
+    description: str | None = None
+
+
+@router.post("/suggestions/{sid}/accept")
+def suggestions_accept(sid: str, body: SuggestionAccept | None = None):
+    edits = {k: v for k, v in (body.model_dump() if body else {}).items() if v is not None}
+    try:
+        return suggestions.accept(sid, edits)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/suggestions/{sid}/dismiss")
+def suggestions_dismiss(sid: str):
+    s = suggestions.dismiss(sid)
+    if not s:
+        raise HTTPException(404, "no such suggestion")
+    return s
+
+
+@router.post("/suggestions/dismiss-all")
+def suggestions_dismiss_all(kind: str | None = None):
+    n = 0
+    for k in ([kind] if kind else ["calendar_push", "todoist_push"]):
+        n += suggestions.dismiss_kind(k)
+    return {"dismissed": n}
+
+
+class SendIn(BaseModel):
+    target: str    # calendar|todoist
+    due: str | None = None
+
+
+@router.post("/items/{item_id}/send")
+def item_send(item_id: str, body: SendIn):
+    it = db.query_one("SELECT * FROM items WHERE id=?", (item_id,))
+    if not it:
+        raise HTTPException(404, "no such item")
+    kind = {"calendar": "calendar_push", "todoist": "todoist_push"}.get(body.target)
+    if not kind:
+        raise HTTPException(400, "target must be calendar or todoist")
+    if kind == "calendar_push" and not google_cal.connected():
+        raise HTTPException(400, "Google Calendar is not connected")
+    if kind == "todoist_push" and not todoist.connected():
+        raise HTTPException(400, "Todoist is not connected")
+    payload = {"title": it["content"], "due": body.due or it["due_date"], "description": it["detail"] or ""}
+    s = suggestions.create(kind, f"{'Add to Google Calendar' if kind == 'calendar_push' else 'Send to Todoist'}: {it['content'][:80]}",
+                           payload, "manual", item_id, it["dump_id"])
+    return suggestions.accept(s["id"])   # manual sends are already user-approved
+
+
+@router.get("/plan")
+def plan_get(day: str | None = None):
+    return planner.plan(day)
+
+
+class PlanPushIn(BaseModel):
+    day: str
+    slots: list[dict]
+
+
+@router.post("/plan/push")
+def plan_push(body: PlanPushIn):
+    """Turn chosen plan slots into calendar_push suggestions (pending, so the user still confirms)."""
+    made = []
+    for s in body.slots:
+        it = db.query_one("SELECT * FROM items WHERE id=?", (s.get("task_id"),))
+        if not it or not s.get("start"):
+            continue
+        made.append(suggestions.create("calendar_push", f"Block time: {it['content'][:80]}",
+                                       {"title": it["content"], "due": f"{body.day}T{s['start']}", "description": s.get("reason") or ""},
+                                       "planner", it["id"], it["dump_id"]))
+    return {"created": len(made), "suggestions": made}
 
 
 # ── Themes ───────────────────────────────────────────────────────────────────

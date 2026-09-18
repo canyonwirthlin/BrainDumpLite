@@ -411,6 +411,13 @@ def run_pipeline(dump_id: str) -> None:
         _link(dump_id, emb, title, clean)
 
         _set(dump_id, status="ready", stage=None)
+
+        # 6 · propose pushes to connected integrations (never auto-executes) ----
+        try:
+            from . import suggestions
+            suggestions.from_dump(dump_id)
+        except Exception:
+            traceback.print_exc()
     except Exception as e:
         traceback.print_exc()
         _set(dump_id, status="failed", error=str(e)[:500])

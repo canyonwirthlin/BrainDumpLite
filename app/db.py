@@ -104,6 +104,20 @@ CREATE TABLE IF NOT EXISTS sessions (          -- Phase 4 conversational capture
 CREATE TABLE IF NOT EXISTS stats_daily (            -- Phase 7: one sample per local day
   date TEXT PRIMARY KEY, dumps INTEGER NOT NULL, db_bytes INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS suggestions (           -- Phase 8: the AI Suggestions inbox
+  id          TEXT PRIMARY KEY,
+  kind        TEXT NOT NULL,                        -- calendar_push|todoist_push|...
+  title       TEXT NOT NULL,
+  payload     TEXT NOT NULL DEFAULT '{}',           -- JSON, editable before accept
+  source      TEXT NOT NULL DEFAULT 'pipeline',     -- pipeline|manual|plugin:<name>
+  item_id     TEXT,
+  dump_id     TEXT,
+  status      TEXT NOT NULL DEFAULT 'pending',      -- pending|accepted|dismissed|failed
+  result      TEXT,                                 -- JSON from the executor
+  created_at  TEXT NOT NULL,
+  resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_suggestions_status ON suggestions(status);
 CREATE TABLE IF NOT EXISTS session_items (     -- live preview items, dropped when the session ends
   id         TEXT PRIMARY KEY,
   session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
