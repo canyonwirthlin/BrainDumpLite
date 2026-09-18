@@ -414,8 +414,9 @@ def run_pipeline(dump_id: str) -> None:
 
         # 6 · propose pushes to connected integrations (never auto-executes) ----
         try:
-            from . import suggestions
+            from . import plugins, suggestions
             suggestions.from_dump(dump_id)
+            plugins.on_dump(dump_id)
         except Exception:
             traceback.print_exc()
     except Exception as e:

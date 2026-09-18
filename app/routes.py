@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, catalog, changelog, db, engine, export_md, gitsync, google_cal, graph, import_md, item_types, lock, pipeline, planner, profiles, secrets, sessions, stats, suggestions, themes, todoist, transcribe, vault
+from . import ai, catalog, changelog, db, engine, export_md, gitsync, google_cal, graph, import_md, item_types, lock, mcp_client, pipeline, planner, plugins, profiles, secrets, sessions, stats, suggestions, themes, todoist, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -41,6 +41,7 @@ class SettingsIn(BaseModel):
     model: str | None = None
     embed_model: str | None = None
     whisper_model: str | None = None
+    tools_in_chat: bool | None = None
 
 
 class ReflectIn(BaseModel):
@@ -204,12 +205,31 @@ def session_message(sid: str, body: MessageIn):
         try:
             for delta in sessions.reply_stream(sid):
                 yield f"data: {json.dumps(delta)}\n\n"
+            proposal = sessions.tool_proposal(sid)
+            if proposal:
+                yield f"event: tool\ndata: {json.dumps(proposal)}\n\n"
             yield "event: done\ndata: {}\n\n"
         except ai.AIError as e:
             yield f"event: error\ndata: {json.dumps(str(e))}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+class SessionToolIn(BaseModel):
+    server: str
+    tool: str
+    args: dict = {}
+
+
+@router.post("/sessions/{sid}/tool")
+def session_tool(sid: str, body: SessionToolIn):
+    try:
+        return sessions.run_tool(sid, body.server, body.tool, body.args)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except (RuntimeError, TimeoutError) as e:
+        raise HTTPException(400, str(e))
 
 
 @router.post("/sessions/{sid}/end")
@@ -555,6 +575,148 @@ def plan_push(body: PlanPushIn):
                                        {"title": it["content"], "due": f"{body.day}T{s['start']}", "description": s.get("reason") or ""},
                                        "planner", it["id"], it["dump_id"]))
     return {"created": len(made), "suggestions": made}
+
+
+# ── MCP servers + plugins (Phase 9) ──────────────────────────────────────────
+
+@router.get("/mcp/servers")
+def mcp_servers():
+    return mcp_client.status()
+
+
+class McpConfigIn(BaseModel):
+    config: str
+
+
+@router.post("/mcp/servers")
+def mcp_add(body: McpConfigIn):
+    try:
+        return {"added": mcp_client.add_servers(body.config)}
+    except (ValueError, json.JSONDecodeError) as e:
+        raise HTTPException(400, f"Couldn't read that config: {e}")
+
+
+@router.delete("/mcp/servers/{name}")
+def mcp_remove(name: str):
+    mcp_client.remove_server(name)
+    return {"ok": True}
+
+
+@router.post("/mcp/servers/{name}/start")
+def mcp_start(name: str):
+    try:
+        return mcp_client.start(name)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except (RuntimeError, TimeoutError) as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/mcp/servers/{name}/stop")
+def mcp_stop(name: str):
+    mcp_client.stop(name)
+    return {"ok": True}
+
+
+class EnabledIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/mcp/servers/{name}/enabled")
+def mcp_enabled(name: str, body: EnabledIn):
+    mcp_client.set_enabled(name, body.enabled)
+    return mcp_client.status(name)
+
+
+@router.get("/mcp/tools")
+def mcp_tools(ai_only: bool = False):
+    return mcp_client.tools(ai_only=ai_only)
+
+
+class ModeIn(BaseModel):
+    mode: str
+
+
+@router.put("/mcp/tools/{server}/{tool}/mode")
+def mcp_tool_mode(server: str, tool: str, body: ModeIn):
+    try:
+        mcp_client.set_tool_mode(server, tool, body.mode)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+class McpCallIn(BaseModel):
+    server: str
+    tool: str
+    args: dict = {}
+
+
+@router.post("/mcp/call")
+def mcp_call(body: McpCallIn):
+    try:
+        return mcp_client.call(body.server, body.tool, body.args)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except (RuntimeError, TimeoutError) as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/plugins")
+def plugins_list():
+    return plugins.listing()
+
+
+class PathIn(BaseModel):
+    path: str
+
+
+@router.post("/plugins/install")
+def plugins_install(body: PathIn):
+    try:
+        return plugins.install(body.path)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@router.put("/plugins/{pid}/enabled")
+def plugins_enabled(pid: str, body: EnabledIn):
+    return plugins.set_enabled(pid, body.enabled)
+
+
+@router.post("/plugins/reload")
+def plugins_reload():
+    return plugins.load_all()
+
+
+@router.delete("/plugins/{pid}")
+def plugins_uninstall(pid: str):
+    plugins.uninstall(pid)
+    return {"ok": True}
+
+
+class ActionIn(BaseModel):
+    args: dict = {}
+
+
+@router.post("/plugins/{pid}/actions/{action_id}")
+def plugins_run(pid: str, action_id: str, body: ActionIn):
+    try:
+        return plugins.run_action(pid, action_id, body.args)
+    except (ValueError, PermissionError) as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"the action failed: {e}")
+
+
+@router.get("/plugins/examples")
+def plugins_examples():
+    return plugins.examples()
+
+
+@router.get("/plugins/folder")
+def plugins_folder():
+    return {"path": str(plugins.plugins_dir())}
 
 
 # ── Themes ───────────────────────────────────────────────────────────────────
@@ -944,11 +1106,14 @@ def transcribe_audio(file: UploadFile = File(...)):
 def get_settings():
     c = ai.config()
     return {**c, "whisper_model": db.get_setting("whisper_model", "base"),
+            "tools_in_chat": bool(db.get_setting("tools_in_chat", False)),
             "defaults": ai.DEFAULTS}
 
 
 @router.put("/settings")
 def put_settings(body: SettingsIn):
+    if body.tools_in_chat is not None:
+        db.set_setting("tools_in_chat", bool(body.tools_in_chat))
     if body.provider is not None:
         if body.provider not in ("builtin", "anthropic", "openai", "gemini", "local", "off"):
             raise HTTPException(400, "Bad provider")

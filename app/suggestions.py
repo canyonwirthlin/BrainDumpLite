@@ -47,15 +47,16 @@ def recent(limit: int = 50) -> list[dict]:
 
 
 def _executor(kind: str):
-    from . import google_cal, todoist   # lazy: avoids import cycles
-    return {"calendar_push": google_cal.execute_push, "todoist_push": todoist.execute_push}.get(kind)
+    from . import google_cal, mcp_client, plugins, todoist   # lazy: avoids import cycles
+    return {"calendar_push": google_cal.execute_push, "todoist_push": todoist.execute_push,
+            "mcp_tool": mcp_client.execute_suggestion, "plugin_action": plugins.execute_suggestion}.get(kind)
 
 
 def accept(sid: str, edits: dict | None = None) -> dict:
     s = get(sid)
     if not s or s["status"] != "pending":
         raise ValueError("suggestion is not pending")
-    payload = {**(s["payload"] or {}), **{k: v for k, v in (edits or {}).items() if k in ("title", "due", "start", "end", "description")}}
+    payload = {**(s["payload"] or {}), **{k: v for k, v in (edits or {}).items() if k in ("title", "due", "start", "end", "description", "args")}}
     fn = _executor(s["kind"])
     if not fn:
         raise ValueError(f"no executor for '{s['kind']}'")

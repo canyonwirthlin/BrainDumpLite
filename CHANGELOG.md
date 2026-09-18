@@ -4,6 +4,12 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.13.0 — 2026-09-18
+- Connect MCP servers: paste the same config block you'd give any other desktop client and their tools appear in the app. Run one from Settings or from Ctrl+K.
+- Every tool has its own switch: hidden from the AI, propose-and-confirm, or run freely.
+- In a conversation, the AI can now suggest a tool call and show you exactly what it would send before you press Run. Off by default, in Settings → Plugins & MCP → Advanced.
+- Plugins: drop a folder of Python in your plugins directory to react to dumps, add actions and propose things. An example plugin ships with the app; anything a plugin proposes waits in the Inbox.
+
 ## 0.12.0 — 2026-09-18
 - New Inbox: when a dump produces a dated task or event, the app proposes sending it to your connected services and waits. Nothing leaves your machine until you press the button, and you can edit the title and date first.
 - Google Calendar connects with one click (Settings → Integrations). Tokens are encrypted with Windows DPAPI, and the app only ever pushes what you approve.

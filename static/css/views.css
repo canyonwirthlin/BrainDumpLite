@@ -338,3 +338,25 @@ a.iconbtn.cal { text-decoration: none; }
 .plan-row.ev { color: var(--dim); cursor: default; }
 .plan-row .mono { font-family: var(--mono); font-size: 12px; min-width: 96px; }
 .plan-row input[type=checkbox] { accent-color: var(--accent); }
+
+/* ── Plugins & MCP (Phase 9) ───────────────────────────────────────────── */
+.srv { padding: 10px 0; border-top: 1px solid var(--line); }
+.srv:first-child { border-top: none; padding-top: 0; }
+.srv .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+.srv .dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.srv .dot.bad { background: var(--red); }
+.srv .tools { margin-top: 8px; border-top: 1px dashed var(--line); }
+.trow { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.trow:last-child { border-bottom: none; }
+.trow select { font-size: 12px; padding: 3px 6px; }
+.toolout { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0;
+  font: 12px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow: auto; }
+.toolout.bad { border-color: color-mix(in srgb, var(--red) 50%, var(--line)); color: var(--red); }
+.argform { display: grid; gap: 10px; margin: 12px 0; }
+.arg { display: grid; gap: 4px; }
+.arg .k { font: 12px var(--mono); color: var(--dim); }
+.arg .req { color: var(--amber); font-style: normal; font-size: 11px; }
+.arg input[type=text], .arg input[type=number], .arg select, .arg textarea { width: 100%; }
+.bubble.tool, .bubble.propose { background: var(--panel); border: 1px dashed var(--line); align-self: stretch; max-width: 100%; }
+.bubble.tool.bad { border-color: color-mix(in srgb, var(--red) 50%, var(--line)); }
+.bubble.propose { border-style: solid; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
