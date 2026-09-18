@@ -1,0 +1,7 @@
+.venv/
+dist/
+build/
+*.spec
+__pycache__/
+*.pyc
+BrainDumpLite-win64.zip

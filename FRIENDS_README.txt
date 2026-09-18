@@ -1,0 +1,64 @@
+====================================
+  BrainDump Lite — how to start
+====================================
+
+WHAT IS THIS?
+A "second brain" app. You dump whatever's in your head (typing or
+talking), and an AI sorts it into tasks, ideas, and worries, then
+helps you reflect on it. Everything is stored on YOUR computer only.
+
+HOW TO RUN IT
+1. IMPORTANT: Extract the zip first. Right-click the zip file ->
+   "Extract All..." -> open the extracted folder.
+   (Double-clicking the exe while still INSIDE the zip will NOT work.)
+2. Double-click  BrainDumpLite.exe  in the extracted folder.
+   - Windows may say "Windows protected your PC". That's because the
+     app isn't signed (signing costs money). Click "More info" then
+     "Run anyway". It's safe — you got it from me.
+   - If NOTHING happens at all, your antivirus may have quarantined
+     the app. Check the antivirus history and choose restore/allow.
+3. A black window opens, then your browser opens the app.
+   KEEP THE BLACK WINDOW OPEN. Closing it quits the app.
+
+TURNING ON THE AI (one-time, ~5 minutes + a download)
+The app works without AI but it's 10x better with it. Three options:
+
+OPTION 1: BUILT-IN, FREE (recommended — no account, no other apps)
+  1. In the app, click Settings → pick "Built-in".
+  2. The app looks at your graphics card and puts a star next to the
+     model that fits it best. Click that model's button.
+  3. Wait for the download (2-5 GB, one time only). When it says
+     "Built-in AI is ready", you're done — forever, even offline.
+  Nothing you write ever leaves your computer. Zero cost.
+  NOTE: some antivirus apps (Avast/AVG especially) may quarantine the
+  AI engine the first time it runs, because it's a new unsigned
+  program. If the app tells you this happened: open your antivirus,
+  restore/allow "llama-server.exe", add the folder the app shows you
+  to the antivirus exclusions, and press the model button again.
+
+OPTION 2: PAID CLOUD (~1-5 cents per day)
+  1. In the app, click "Settings".
+  2. Pick "Claude" or "OpenAI".
+  3. Get an API key:
+     - Claude: console.anthropic.com → API Keys → Create Key
+     - OpenAI: platform.openai.com → API Keys → Create Key
+  4. Add a few dollars of credit to their site (you'll use only cents/day)
+  5. Paste the key in Settings, click "Test", then "Save".
+
+OPTION 3: NONE (app works fine, just won't auto-organize your dumps)
+
+VOICE
+Click the mic, talk, click it again. The first time takes a minute
+(it downloads a small speech model). Your voice is transcribed ON
+your computer — audio is never uploaded anywhere.
+
+PRIVACY
+- Your dumps are stored only on your computer.
+- With Claude/OpenAI selected, the TEXT of your dumps is sent to that
+  provider to be processed (same as using their chat apps).
+- Voice audio never leaves your machine.
+
+PROBLEMS?
+Close the black window, start it again. If it crashes, it saves the
+error to a file and tells you where — send me that file. Still
+broken? Tell me (that's the point — I want your feedback!).
