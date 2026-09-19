@@ -1,6 +1,6 @@
 [package]
 name = "braindump-lite"
-version = "0.13.2"
+version = "0.14.0"
 description = "BrainDump Lite native shell"
 edition = "2021"
 
