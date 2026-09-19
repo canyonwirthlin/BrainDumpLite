@@ -138,6 +138,10 @@ a.iconbtn.cal { text-decoration: none; }
 .engine-model { display: flex; gap: 10px; align-items: center; padding: 11px 0; border-top: 1px solid var(--line); }
 .engine-model:first-of-type { border-top: none; }
 .engine-model.active b { color: var(--accent); }
+.engine-model .model-specs { margin-top: 2px; }
+.engine-model .model-warn { margin-top: 4px; color: var(--amber); }
+.engine-model .model-caveats { margin: 4px 0 0; padding-left: 16px; }
+.engine-model .model-caveats li { margin: 1px 0; }
 .engine-progress { margin-top: 12px; }
 @keyframes slide { from { margin-left: -10%; } to { margin-left: 70%; } }
 

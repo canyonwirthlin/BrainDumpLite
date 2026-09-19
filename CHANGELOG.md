@@ -4,6 +4,13 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.13.2 — 2026-09-18
+- The built-in model catalog grows from 4 to 22 models, from 3B up to 32B: Qwen, Gemma 4, Mistral, IBM Granite, Microsoft Phi, Ai2 Olmo and more, including mixture-of-experts models for bigger GPUs.
+- Every model now shows its size, parameter count, quantization, license, the GPU memory it needs, the RAM a CPU-only run needs, and plain-language caveats. Models bigger than your GPU are flagged before you download them.
+- New 12, 16 and 24 GB filters, and search now matches model family and license.
+- The list is sorted smallest to largest. The recommended model for your GPU can now be a bigger one if your card has the room.
+- Only models that answer directly are listed, because ones that think out loud first can run out of response budget.
+
 ## 0.13.1 — 2026-09-18
 - Fixes the release build. Every release since 0.5.0 failed before producing an installer because the automated tests could not find the app; this is the first one that should reach you. No changes inside the app.
 

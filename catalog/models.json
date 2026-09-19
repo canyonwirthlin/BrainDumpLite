@@ -1,51 +1,482 @@
 {
-  "version": 1,
+  "version": 2,
   "updated": "2026-09-18",
-  "notes": "Curated for BrainDump Lite: non-thinking instruct models that fit 4-8 GB cards and follow JSON schemas. Nothing here downloads until the user picks it.",
+  "notes": "Curated for BrainDump Lite: instruct models that answer directly (no thinking phase) and follow JSON schemas. Every architecture is supported by the app's pinned llama.cpp build; file hashes and sizes are checked against Hugging Face. vram_gb is the smallest GPU that runs the model fully on-GPU at the app's 8K context; ram_gb is what a CPU-only run needs; both come from one size-based formula and are estimates. Nothing here downloads until the user picks it.",
   "chat_models": [
     {
       "id": "llama-3.2-3b",
       "label": "Llama 3.2 3B",
       "blurb": "Light and quick — for 4 GB cards or CPU-only machines",
+      "family": "Meta Llama",
+      "params": "3.2B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 128,
+      "license": "Llama 3.2 Community License",
       "repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
       "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
       "sha256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff",
       "size": 2019377696,
       "vram_gb": 4,
-      "tags": ["fast", "cpu-ok"]
+      "ram_gb": 8,
+      "tags": ["fast", "cpu-ok"],
+      "caveats": [
+        "Smallest model here: best for quick, simple dumps. Long dumps get less nuanced extraction.",
+        "Llama community license (attribution required; not an OSI open-source license)."
+      ]
     },
     {
       "id": "qwen3-4b",
       "label": "Qwen3 4B Instruct",
       "blurb": "Best quality for its size — the sweet spot for 6 GB cards",
+      "family": "Qwen",
+      "params": "4.0B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 256,
+      "license": "Apache-2.0",
       "repo": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
       "file": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
       "sha256": "2fde00ce69dd4899c70d020845e2638353015bba0fdf161b3eb965f2bca4464e",
       "size": 2497280736,
       "vram_gb": 6,
-      "tags": ["quality", "balanced"]
+      "ram_gb": 8,
+      "tags": ["quality", "balanced", "multilingual", "long-context"],
+      "caveats": [
+        "The Instruct-2507 edition answers directly, with no thinking phase."
+      ]
     },
     {
       "id": "gemma-3-4b",
       "label": "Gemma 3 4B",
       "blurb": "Google's small model — warmer writing voice",
+      "family": "Google Gemma",
+      "params": "3.9B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 128,
+      "license": "Gemma Terms of Use",
       "repo": "bartowski/google_gemma-3-4b-it-GGUF",
       "file": "google_gemma-3-4b-it-Q4_K_M.gguf",
       "sha256": "4996030242583a40aa151ff93f49ed787ac8c25e4120c3ae4588b2e2a7d1ae94",
       "size": 2489758112,
       "vram_gb": 6,
-      "tags": ["writing", "balanced"]
+      "ram_gb": 8,
+      "tags": ["writing", "balanced"],
+      "caveats": [
+        "Multimodal model; only text is used here.",
+        "Gemma's terms of use apply (not a standard open-source license)."
+      ]
     },
     {
       "id": "llama-3.1-8b",
       "label": "Llama 3.1 8B",
       "blurb": "The biggest here — needs a full 8 GB card",
+      "family": "Meta Llama",
+      "params": "8.0B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 128,
+      "license": "Llama 3.1 Community License",
       "repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
       "file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
       "sha256": "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c",
       "size": 4920739232,
       "vram_gb": 8,
-      "tags": ["quality"]
+      "ram_gb": 16,
+      "tags": ["quality"],
+      "caveats": [
+        "Llama community license (attribution required; not an OSI open-source license)."
+      ]
+    },
+    {
+      "id": "ministral-3-3b",
+      "label": "Ministral 3 3B Instruct",
+      "blurb": "Mistral's smallest current model — light, with a long context window",
+      "family": "Mistral",
+      "params": "3.4B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 256,
+      "license": "Apache-2.0",
+      "repo": "bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF",
+      "file": "mistralai_Ministral-3-3B-Instruct-2512-Q4_K_M.gguf",
+      "sha256": "fec9d28c7f8dab7c6857d54b56c8264cce57d6f6d9003bd4110f6457f071c65a",
+      "size": 2146498528,
+      "vram_gb": 4,
+      "ram_gb": 8,
+      "tags": ["fast", "cpu-ok", "long-context"],
+      "caveats": [
+        "Vision-capable model, but BrainDump Lite only uses its text side."
+      ]
+    },
+    {
+      "id": "granite-4.1-3b",
+      "label": "Granite 4.1 3B",
+      "blurb": "IBM's small business-tuned model — steady, plain-spoken output",
+      "family": "IBM Granite",
+      "params": "3.4B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 128,
+      "license": "Apache-2.0",
+      "repo": "bartowski/ibm-granite_granite-4.1-3b-GGUF",
+      "file": "ibm-granite_granite-4.1-3b-Q4_K_M.gguf",
+      "sha256": "d5c3d3d2442cd398331548df3e2f7059225bf097dfe03d9135586e31e43f9465",
+      "size": 2172615648,
+      "vram_gb": 4,
+      "ram_gb": 8,
+      "tags": ["fast", "cpu-ok", "long-context"],
+      "caveats": [
+        "Tuned for enterprise tasks such as extraction and tool use, so reflections may read more clinical than chatty."
+      ]
+    },
+    {
+      "id": "phi-4-mini",
+      "label": "Phi-4 mini",
+      "blurb": "Microsoft's compact reasoner — strong on logic, less on warmth",
+      "family": "Microsoft Phi",
+      "params": "3.8B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 128,
+      "license": "MIT",
+      "repo": "bartowski/microsoft_Phi-4-mini-instruct-GGUF",
+      "file": "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",
+      "sha256": "01999f17c39cc3074afae5e9c539bc82d45f2dd7faa3917c66cbef76fce8c0c2",
+      "size": 2491874688,
+      "vram_gb": 6,
+      "ram_gb": 8,
+      "tags": ["balanced", "long-context"],
+      "caveats": [
+        "Primarily trained on English; weaker in other languages.",
+        "Leans toward logic and math over warm, conversational replies."
+      ]
+    },
+    {
+      "id": "gemma-4-e2b",
+      "label": "Gemma 4 E2B",
+      "blurb": "Google's newest small model — light to run",
+      "family": "Google Gemma",
+      "params": "4.6B stored, about 2B effective",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 128,
+      "license": "Apache-2.0",
+      "repo": "bartowski/google_gemma-4-E2B-it-GGUF",
+      "file": "google_gemma-4-E2B-it-Q4_K_M.gguf",
+      "sha256": "923c4c86177d2ee173a7f5b4fa3d0ac65f5962ab15e6d6a5bc250aec4fd7bf7e",
+      "size": 3462680032,
+      "vram_gb": 6,
+      "ram_gb": 8,
+      "tags": ["fast", "writing", "multilingual"],
+      "caveats": [
+        "The \"E\" means effective: the file holds more parameters than the 2B in the name, so it is bigger than a true 2B model.",
+        "Multimodal model; only text is used here."
+      ]
+    },
+    {
+      "id": "gemma-4-e4b",
+      "label": "Gemma 4 E4B",
+      "blurb": "Google's newer small model — a step up from Gemma 3 4B",
+      "family": "Google Gemma",
+      "params": "7.5B stored, about 4B effective",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 128,
+      "license": "Apache-2.0",
+      "repo": "bartowski/google_gemma-4-E4B-it-GGUF",
+      "file": "google_gemma-4-E4B-it-Q4_K_M.gguf",
+      "sha256": "d35a3aa7a6d47de237fd488bb6f7f3efd62908d828f85a63da0ee93acdbefe9f",
+      "size": 5405170144,
+      "vram_gb": 8,
+      "ram_gb": 16,
+      "tags": ["writing", "balanced", "multilingual"],
+      "caveats": [
+        "The \"E\" means effective: the file holds more parameters than the 4B in the name, so it is bigger than a true 4B model.",
+        "Multimodal model; only text is used here."
+      ]
+    },
+    {
+      "id": "ministral-3-8b",
+      "label": "Ministral 3 8B Instruct",
+      "blurb": "Mistral's mid-size model — a capable all-rounder with a very long context window",
+      "family": "Mistral",
+      "params": "8.5B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 256,
+      "license": "Apache-2.0",
+      "repo": "bartowski/mistralai_Ministral-3-8B-Instruct-2512-GGUF",
+      "file": "mistralai_Ministral-3-8B-Instruct-2512-Q4_K_M.gguf",
+      "sha256": "7deb50ecb3afca928f0aa6dccdb87ed4ce4ab3991797e5fc0e0dedb92754802a",
+      "size": 5198387456,
+      "vram_gb": 8,
+      "ram_gb": 16,
+      "tags": ["quality", "long-context", "multilingual"],
+      "caveats": [
+        "Vision-capable model, but BrainDump Lite only uses its text side."
+      ]
+    },
+    {
+      "id": "granite-4.1-8b",
+      "label": "Granite 4.1 8B",
+      "blurb": "IBM's 8B — built for structured, business-style output",
+      "family": "IBM Granite",
+      "params": "8.8B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 128,
+      "license": "Apache-2.0",
+      "repo": "bartowski/ibm-granite_granite-4.1-8b-GGUF",
+      "file": "ibm-granite_granite-4.1-8b-Q4_K_M.gguf",
+      "sha256": "5f42811b446eeddf8ca50a287e0c49abafb11f0ca8ed23606fd758720d2a351f",
+      "size": 5539279904,
+      "vram_gb": 8,
+      "ram_gb": 16,
+      "tags": ["quality", "long-context"],
+      "caveats": [
+        "Tuned for enterprise tasks such as extraction and tool use, so reflections may read more clinical than chatty."
+      ]
+    },
+    {
+      "id": "olmo-3-7b",
+      "label": "Olmo 3 7B Instruct",
+      "blurb": "Fully open model from Ai2 — training data and code are public too",
+      "family": "Ai2 Olmo",
+      "params": "7.3B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 64,
+      "license": "Apache-2.0",
+      "repo": "bartowski/allenai_Olmo-3-7B-Instruct-GGUF",
+      "file": "allenai_Olmo-3-7B-Instruct-Q4_K_M.gguf",
+      "sha256": "f20a42d5d72d467c11aebd2de940389c4ad9511febf14957dbcfd3789bedf3bf",
+      "size": 4471601792,
+      "vram_gb": 8,
+      "ram_gb": 16,
+      "tags": ["quality", "open-source"],
+      "caveats": [
+        "English-focused."
+      ]
+    },
+    {
+      "id": "qwen2.5-7b",
+      "label": "Qwen2.5 7B Instruct",
+      "blurb": "Previous-generation Qwen — proven, predictable, strong multilingual",
+      "family": "Qwen",
+      "params": "7.6B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 32,
+      "license": "Apache-2.0",
+      "repo": "bartowski/Qwen2.5-7B-Instruct-GGUF",
+      "file": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+      "sha256": "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423",
+      "size": 4683074240,
+      "vram_gb": 8,
+      "ram_gb": 16,
+      "tags": ["balanced", "multilingual"],
+      "caveats": [
+        "2024 release; newer models here usually beat it, but it never spends tokens thinking out loud."
+      ]
+    },
+    {
+      "id": "gemma-4-12b",
+      "label": "Gemma 4 12B",
+      "blurb": "Google's 12B — a step up from the 4B class, with Gemma's warmer voice",
+      "family": "Google Gemma",
+      "params": "11.9B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 256,
+      "license": "Apache-2.0",
+      "repo": "lmstudio-community/gemma-4-12B-it-GGUF",
+      "file": "gemma-4-12B-it-Q4_K_M.gguf",
+      "sha256": "95d83ba36642b1f385fb906b5962a71763361be3bac930a709945f72d97473f8",
+      "size": 7381382944,
+      "vram_gb": 10,
+      "ram_gb": 16,
+      "tags": ["writing", "quality", "multilingual"],
+      "caveats": [
+        "Multimodal model; only text is used here."
+      ]
+    },
+    {
+      "id": "ministral-3-14b",
+      "label": "Ministral 3 14B Instruct",
+      "blurb": "The largest Ministral — long context, multilingual",
+      "family": "Mistral",
+      "params": "13.5B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 256,
+      "license": "Apache-2.0",
+      "repo": "bartowski/mistralai_Ministral-3-14B-Instruct-2512-GGUF",
+      "file": "mistralai_Ministral-3-14B-Instruct-2512-Q4_K_M.gguf",
+      "sha256": "a95aea79c3043039306f9c3957aa091baf24d428507eb7596c59ddc54ff75b80",
+      "size": 8239068576,
+      "vram_gb": 10,
+      "ram_gb": 16,
+      "tags": ["quality", "long-context", "multilingual"],
+      "caveats": [
+        "Vision-capable model, but BrainDump Lite only uses its text side."
+      ]
+    },
+    {
+      "id": "qwen2.5-14b",
+      "label": "Qwen2.5 14B Instruct",
+      "blurb": "Previous-generation Qwen at 14B — proven, predictable, strong multilingual",
+      "family": "Qwen",
+      "params": "14.8B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 32,
+      "license": "Apache-2.0",
+      "repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+      "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+      "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
+      "size": 8988110976,
+      "vram_gb": 12,
+      "ram_gb": 16,
+      "tags": ["quality", "multilingual"],
+      "caveats": [
+        "2024 release; newer models here usually beat it, but it never spends tokens thinking out loud.",
+        "Slow if it has to run on the CPU."
+      ]
+    },
+    {
+      "id": "phi-4",
+      "label": "Phi-4 14B",
+      "blurb": "Microsoft's 14B — reasoning-focused, English-first",
+      "family": "Microsoft Phi",
+      "params": "14.7B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 16,
+      "license": "MIT",
+      "repo": "bartowski/phi-4-GGUF",
+      "file": "phi-4-Q4_K_M.gguf",
+      "sha256": "009aba717c09d4a35890c7d35eb59d54e1dba884c7c526e7197d9c13ab5911d9",
+      "size": 9053114816,
+      "vram_gb": 12,
+      "ram_gb": 16,
+      "tags": ["quality"],
+      "caveats": [
+        "Primarily trained on English; weaker in other languages.",
+        "Slow if it has to run on the CPU."
+      ]
+    },
+    {
+      "id": "mistral-small-3.2-24b",
+      "label": "Mistral Small 3.2 24B",
+      "blurb": "Mistral's 24B in a smaller quant so it fits 16 GB cards",
+      "family": "Mistral",
+      "params": "23.6B",
+      "arch": "dense",
+      "quant": "IQ4_XS",
+      "context_k": 128,
+      "license": "Apache-2.0",
+      "repo": "bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+      "file": "mistralai_Mistral-Small-3.2-24B-Instruct-2506-IQ4_XS.gguf",
+      "sha256": "4d1764c495f176c5beb37272efa2e402f3c1d84b406726f79cd7a3a5f970b703",
+      "size": 12758921344,
+      "vram_gb": 16,
+      "ram_gb": 32,
+      "tags": ["quality", "big", "multilingual"],
+      "caveats": [
+        "IQ4_XS is a smaller quantization chosen to fit 16 GB; expect slightly lower fidelity than Q4_K_M.",
+        "Dense 24B: slow if it has to run on the CPU.",
+        "Vision-capable model, but BrainDump Lite only uses its text side."
+      ]
+    },
+    {
+      "id": "gemma-4-26b-a4b",
+      "label": "Gemma 4 26B-A4B",
+      "blurb": "Google's mixture-of-experts — a big model's knowledge at small-model speed",
+      "family": "Google Gemma",
+      "params": "25.2B total, about 4B active",
+      "arch": "moe",
+      "quant": "Q4_K_M",
+      "context_k": 256,
+      "license": "Apache-2.0",
+      "repo": "bartowski/google_gemma-4-26B-A4B-it-GGUF",
+      "file": "google_gemma-4-26B-A4B-it-Q4_K_M.gguf",
+      "sha256": "a07f72221e8e3f77455ab0d7f7652d01a9f63c262b954aa6932a53275a0e895a",
+      "size": 17035039872,
+      "vram_gb": 20,
+      "ram_gb": 32,
+      "tags": ["quality", "big", "moe", "writing", "multilingual"],
+      "caveats": [
+        "Mixture-of-experts: only about 4B parameters run per token so it is fast, but every weight must still fit in memory.",
+        "Multimodal model; only text is used here."
+      ]
+    },
+    {
+      "id": "qwen3-30b-a3b",
+      "label": "Qwen3 30B-A3B Instruct",
+      "blurb": "Big Qwen mixture-of-experts — a big model's knowledge at small-model speed",
+      "family": "Qwen",
+      "params": "30.5B total, about 3B active",
+      "arch": "moe",
+      "quant": "Q4_K_M",
+      "context_k": 256,
+      "license": "Apache-2.0",
+      "repo": "bartowski/Qwen_Qwen3-30B-A3B-Instruct-2507-GGUF",
+      "file": "Qwen_Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf",
+      "sha256": "382b4f5a164d200f93790ee0e339fae12852896d23485cfb203ce868fea33a95",
+      "size": 18632183808,
+      "vram_gb": 24,
+      "ram_gb": 32,
+      "tags": ["quality", "big", "moe", "multilingual", "long-context"],
+      "caveats": [
+        "Mixture-of-experts: only about 3B parameters run per token so it is fast, but every weight must still fit in memory.",
+        "The 2507 Instruct edition answers directly, with no thinking phase."
+      ]
+    },
+    {
+      "id": "gemma-4-31b",
+      "label": "Gemma 4 31B",
+      "blurb": "Google's largest Gemma — big-model quality with Gemma's warmer voice",
+      "family": "Google Gemma",
+      "params": "30.7B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 256,
+      "license": "Apache-2.0",
+      "repo": "bartowski/google_gemma-4-31B-it-GGUF",
+      "file": "google_gemma-4-31B-it-Q4_K_M.gguf",
+      "sha256": "2959c1b0a4f792493bb0092846ea06aec54547e47be979c282634d938d501b75",
+      "size": 19598489952,
+      "vram_gb": 24,
+      "ram_gb": 32,
+      "tags": ["quality", "big", "writing", "multilingual"],
+      "caveats": [
+        "Dense 31B: noticeably slower than the mixture-of-experts models of similar size.",
+        "Multimodal model; only text is used here."
+      ]
+    },
+    {
+      "id": "olmo-3.1-32b",
+      "label": "Olmo 3.1 32B Instruct",
+      "blurb": "Largest fully open model here — training data and code are public",
+      "family": "Ai2 Olmo",
+      "params": "32.2B",
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context_k": 64,
+      "license": "Apache-2.0",
+      "repo": "bartowski/allenai_Olmo-3.1-32B-Instruct-GGUF",
+      "file": "allenai_Olmo-3.1-32B-Instruct-Q4_K_M.gguf",
+      "sha256": "437635de32ed770b1ac5d175f5245bbddcba6860ca70b16dea5fd8ca11c6bb3c",
+      "size": 19482035872,
+      "vram_gb": 24,
+      "ram_gb": 32,
+      "tags": ["quality", "big", "open-source"],
+      "caveats": [
+        "Dense 32B: slow unless it fits fully in VRAM.",
+        "English-focused."
+      ]
     }
   ],
   "prices_per_million_tokens": {

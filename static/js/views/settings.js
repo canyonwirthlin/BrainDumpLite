@@ -376,10 +376,23 @@ async function paintEnginePanel() {
     : `🎮 No GPU detected — models will run on the CPU. Slower, but it works.`;
 
   const q = (browseState.q || "").toLowerCase();
+  // Same headroom rule the backend uses for its recommendation (Windows itself holds some VRAM).
+  const fitsGpu = (m) => es.gpu.vram_mb >= m.vram_gb * 1024 - 600;
   const shown = es.models.filter((m) => (!browseState.vram || m.vram_gb <= browseState.vram) &&
-    (!q || m.label.toLowerCase().includes(q) || (m.blurb || "").toLowerCase().includes(q) || (m.tags || []).some((t) => t.includes(q))));
+    (!q || [m.label, m.blurb, m.family, m.license].some((s) => (s || "").toLowerCase().includes(q)) || (m.tags || []).some((t) => t.includes(q))))
+    .sort((a, b) => a.vram_gb - b.vram_gb);  // stable: catalog order breaks ties within a tier
   const rows = shown.map((m) => {
     const gb = (m.size_mb / 1024).toFixed(1);
+    const specs = [
+      m.params && `${m.params}${m.arch === "moe" ? " · mixture-of-experts" : ""}`,
+      m.quant, `${gb} GB download`, `needs ~${m.vram_gb} GB VRAM`,
+      m.ram_gb && `${m.ram_gb} GB RAM if run on the CPU`,
+      m.context_k && `${m.context_k}K native context`, m.license,
+    ].filter(Boolean).map(esc).join(" · ");
+    const spill = es.gpu.vram_mb && !fitsGpu(m)
+      ? `<div class="small model-warn">Bigger than your GPU's memory — it will split between GPU and RAM and run slower.</div>` : "";
+    const caveats = (m.caveats || []).length
+      ? `<ul class="small muted model-caveats">${m.caveats.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : "";
     let btn;
     if (m.active && es.server.running && !busy) btn = `<button class="btn ghost small" disabled>Running ✓</button>`;
     else if (m.downloaded) btn = `<button class="btn ghost small" data-em="${m.id}" ${busy ? "disabled" : ""}>${m.active ? "Start" : "Use this"}</button>`;
@@ -391,7 +404,9 @@ async function paintEnginePanel() {
           ${m.recommended ? `<span class="chip due">⭐ recommended for this PC</span>` : ""}
           ${m.downloaded ? `<span class="chip">downloaded</span>` : ""}
           ${(m.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("")}
-          <div class="small muted">${esc(m.blurb)} · needs ~${m.vram_gb} GB VRAM</div>
+          <div class="small muted">${esc(m.blurb)}</div>
+          <div class="small muted model-specs">${specs}</div>
+          ${spill}${caveats}
         </div>
         ${btn}
         ${m.downloaded && !m.active ? `<button class="iconbtn no" title="Delete downloaded file" data-del="${m.id}">🗑</button>` : ""}
@@ -415,12 +430,13 @@ async function paintEnginePanel() {
     <div class="small muted" style="margin-bottom:8px">${gpuLine}</div>
     <div class="row browse" style="margin:0 0 8px">
       <input type="text" id="mb-q" class="grow" placeholder="Search models…" value="${esc(browseState.q || "")}" style="padding:6px 10px;font-size:12.5px">
-      ${[0, 4, 6, 8].map((v) => `<button class="chip ${browseState.vram === v ? "on" : ""}" data-vram="${v}">${v ? "≤ " + v + " GB" : "Any VRAM"}</button>`).join("")}
+      ${[0, 4, 6, 8, 12, 16, 24].map((v) => `<button class="chip ${browseState.vram === v ? "on" : ""}" data-vram="${v}">${v ? "≤ " + v + " GB" : "Any VRAM"}</button>`).join("")}
       <button class="btn ghost small" id="mb-refresh" title="Fetch the latest curated list">↻ Check for new models</button>
     </div>
     ${rows || `<div class="small muted" style="padding:8px 0">No models match.</div>`}
     ${foot}
-    <p class="small muted" style="margin:12px 0 0">One-time download per model; it's saved for next time. A tiny semantic-search model (~0.15 GB) is included automatically.</p>`;
+    <p class="small muted" style="margin:12px 0 0">One-time download per model; it's saved for next time. A tiny semantic-search model (~0.15 GB) is included automatically.</p>
+    <p class="small muted" style="margin:6px 0 0">VRAM and RAM figures are estimates for full GPU offload or a CPU-only run. Every model runs with an 8K context here, whatever its native window. Only models that answer directly are listed; ones that think out loud first would burn the response budget.</p>`;
 
   const qEl = $("#mb-q", box);
   qEl.oninput = () => { browseState.q = qEl.value; const pos = qEl.selectionStart; paintEnginePanel(); setTimeout(() => { const el = $("#mb-q"); if (el) { el.focus(); el.setSelectionRange(pos, pos); } }, 0); };
