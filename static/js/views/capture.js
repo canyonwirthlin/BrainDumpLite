@@ -1,5 +1,5 @@
 // Capture stage, processing progress and voice recording.
-import { $, $$, esc, toast, MODES, STAGES } from "../ui.js";
+import { $, $$, esc, toast, md, MODES, STAGES, kindBadge, toneChip } from "../ui.js";
 import { go } from "../router.js";
 import { attach as attachWikilinks } from "../wikilinks.js";
 import { api } from "../api.js";
@@ -64,11 +64,38 @@ async function submitDump() {
   }
 }
 
+const AI_OUTPUT_KEY = "bdl-show-ai-output";
+const showAiOutput = () => { try { return localStorage.getItem(AI_OUTPUT_KEY) === "1"; } catch { return false; } };
+const setShowAiOutput = (v) => { try { localStorage.setItem(AI_OUTPUT_KEY, v ? "1" : "0"); } catch {} };
+
+// What the pipeline has produced so far, as each field lands (see app/pipeline.py's
+// per-stage _set calls) — off by default, since most people just want the result.
+function drawAiOutput(d) {
+  const box = $("#ai-output");
+  if (!box) return;
+  const parts = [];
+  if (d.clean_text) parts.push(`<div class="ao-field"><h3>Cleaned text</h3><p>${esc(d.clean_text)}</p></div>`);
+  if (d.title || d.summary) parts.push(`<div class="ao-field"><h3>Title &amp; summary</h3>
+    ${d.title ? `<p><b>${esc(d.title)}</b></p>` : ""}${d.summary ? md(d.summary) : ""}${toneChip(d.tone)}</div>`);
+  if ((d.people || []).length || (d.concepts || []).length) parts.push(`<div class="ao-field"><h3>People &amp; concepts</h3>
+    <div class="wl">${(d.concepts || []).map((c) => `<span class="wl-chip">${esc(c)}</span>`).join("")}
+    ${(d.people || []).map((p) => `<span class="wl-chip p">@${esc(p)}</span>`).join("")}</div></div>`);
+  if ((d.items || []).length) parts.push(`<div class="ao-field"><h3>Extracted items</h3>
+    ${d.items.map((it) => `<div class="ao-item">${kindBadge(it.kind)} ${esc(it.content)}</div>`).join("")}</div>`);
+  if (d.reflection) parts.push(`<div class="ao-field"><h3>Reflection</h3>${md(d.reflection)}</div>`);
+  box.innerHTML = parts.length ? parts.join("") : `<p class="small muted">Nothing from the AI yet…</p>`;
+}
+
 export function renderProcessing(id, container = $("#view"), onReady = null) {
   container.innerHTML = `
     <h1>Processing…</h1>
     <p class="sub">${state.status.ai ? "The pipeline is chewing on your dump." : "Saving (AI off — raw mode)."}</p>
-    <div class="card"><div class="stages" id="stages"></div></div>`;
+    <div class="card"><div class="stages" id="stages"></div></div>
+    ${state.status.ai ? `<details class="card ao-wrap" id="ao-details" ${showAiOutput() ? "open" : ""}>
+      <summary>Show AI output as it arrives</summary>
+      <div id="ai-output" class="ao-body"><p class="small muted">Nothing from the AI yet…</p></div>
+    </details>` : ""}`;
+  if ($("#ao-details")) $("#ao-details").ontoggle = (e) => setShowAiOutput(e.target.open);
   const draw = (stage, statusVal) => {
     const idx = STAGES.findIndex(([k]) => k === stage);
     $("#stages").innerHTML = STAGES.map(([k, label], i) => {
@@ -83,6 +110,7 @@ export function renderProcessing(id, container = $("#view"), onReady = null) {
     try {
       const d = await api.get("/dumps/" + id);
       draw(d.stage, d.status);
+      drawAiOutput(d);
       if (d.status === "ready") {
         clearInterval(state.pollTimer); state.pollTimer = null;
         if (onReady) onReady(d); else renderReview(d);

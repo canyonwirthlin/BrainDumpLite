@@ -51,7 +51,7 @@ def test_bundled_catalog_is_well_formed():
     assert catalog._valid(data)
     assert len({m["id"] for m in models}) == len(models)
     assert len({m["file"] for m in models}) == len(models)
-    assert len(models) >= 20
+    assert len(models) >= 15
     for m in models:
         who = m["id"]
         assert re.fullmatch(r"[0-9a-f]{64}", m["sha256"]), who

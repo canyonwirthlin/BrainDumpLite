@@ -5,6 +5,8 @@ import { api } from "../api.js";
 import { state, clearPoll, refreshStatus, loadTypes } from "../state.js";
 import { native, openExternal, showWhatsNew, checkForUpdates } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
+import { openThemeEditor } from "../themeeditor.js";
+import { resolveHex, isHex6 } from "../color.js";
 import { lockNow } from "../shell.js";
 import { runTool, MODE_LABEL } from "../tools.js";
 
@@ -39,19 +41,25 @@ function head(box, section, title, hasAdv, repaint) {
 function sectionAppearance(box, s) {
   const { on, body } = head(box, "appearance", "Appearance", true, () => sectionAppearance(box, s));
   const root = document.documentElement;
+  const repaint = () => sectionAppearance(box, s);
   body.innerHTML = `
-    <p class="small muted" style="margin-bottom:12px">Pick a theme, or import a theme JSON file.</p>
+    <p class="small muted" style="margin-bottom:12px">Pick a theme, edit one of your own, or import a theme JSON file.</p>
     <div class="themes">${state.themes.map((t) => `
-      <button class="theme-swatch ${t.id === state.activeTheme ? "active" : ""}" data-theme="${t.id}" title="${esc(t.name)}">
-        <div class="sw-colors"><i style="background:${t.colors.bg}"></i><i style="background:${t.colors.panel}"></i><i style="background:${t.colors.accent}"></i></div>
-        <span>${esc(t.name)}</span></button>`).join("")}
+      <div class="theme-swatch ${t.id === state.activeTheme ? "active" : ""}" data-theme="${t.id}" title="${esc(t.name)}">
+        <button class="sw-pick" data-pick="${t.id}">
+          <div class="sw-colors"><i style="background:${t.colors.bg}"></i><i style="background:${t.colors.panel}"></i><i style="background:${t.colors.accent}"></i></div>
+          <span>${esc(t.name)}</span></button>
+        <button class="sw-edit" data-edit="${t.id}" title="${BUILTIN_IDS.includes(t.id) ? "Edit a copy" : "Edit this theme"}">✎</button>
+      </div>`).join("")}
     </div>
     <div class="row" style="margin:12px 0 0">
+      <button class="btn ghost small" id="theme-new">+ New theme</button>
       <label class="btn ghost small">Import theme… <input type="file" id="theme-file" accept=".json,application/json" hidden></label>
       <a class="btn ghost small" href="${exportUrl(state.activeTheme)}" download>Export current</a>
       ${BUILTIN_IDS.includes(state.activeTheme) ? "" : `<button class="btn danger small" id="theme-del">Delete current</button>`}
       <span class="small muted" id="theme-msg"></span>
     </div>
+    <div id="theme-editor-slot"></div>
     ${on ? `<div class="adv">
       <div class="sec" style="margin-top:0">Advanced</div>
       <div class="field"><label>Density</label>
@@ -59,13 +67,23 @@ function sectionAppearance(box, s) {
       <div class="field"><label>Motion</label>
         <select id="f-motion"><option value="auto" ${root.dataset.motion !== "reduce" ? "selected" : ""}>Follow system</option><option value="reduce" ${root.dataset.motion === "reduce" ? "selected" : ""}>Reduce animations</option></select></div>
     </div>` : ""}`;
-  $$(".theme-swatch", body).forEach((b) => b.onclick = async () => { await setActive(b.dataset.theme); sectionAppearance(box, s); });
+  $$("[data-pick]", body).forEach((b) => b.onclick = async () => { await setActive(b.dataset.pick); repaint(); });
+  $$("[data-edit]", body).forEach((b) => b.onclick = () => {
+    const t = state.themes.find((x) => x.id === b.dataset.edit);
+    const editingId = BUILTIN_IDS.includes(t.id) ? null : t.id;
+    $("#theme-editor-slot", body).scrollIntoView({ behavior: "smooth", block: "nearest" });
+    openThemeEditor($("#theme-editor-slot", body), { base: t, editingId, onDone: () => repaint() });
+  });
+  $("#theme-new", body).onclick = () => {
+    const base = state.themes.find((x) => x.id === state.activeTheme) || state.themes[0];
+    openThemeEditor($("#theme-editor-slot", body), { base, editingId: null, onDone: () => repaint() });
+  };
   $("#theme-file", body).onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    try { const t = await importTheme(f); await setActive(t.id); sectionAppearance(box, s); toast(`Imported "${t.name}"`); }
+    try { const t = await importTheme(f); await setActive(t.id); repaint(); toast(`Imported "${t.name}"`); }
     catch (err) { $("#theme-msg", body).textContent = err.message; }
   };
-  if ($("#theme-del", body)) $("#theme-del", body).onclick = async () => { await deleteTheme(state.activeTheme); await setActive("midnight"); sectionAppearance(box, s); };
+  if ($("#theme-del", body)) $("#theme-del", body).onclick = async () => { await deleteTheme(state.activeTheme); await setActive("midnight"); repaint(); };
   if ($("#f-density", body)) $("#f-density", body).onchange = (e) => setDensity(e.target.value);
   if ($("#f-motion", body)) $("#f-motion", body).onchange = (e) => setMotion(e.target.value);
 }
@@ -474,14 +492,13 @@ async function paintEnginePanel() {
 
 // ── Extraction types editor (Settings → AI → Advanced) ───────────────────────
 
-const TYPE_COLORS = ["accent", "green", "amber", "red", "blue", "dim"];
-
 async function paintTypesEditor(box) {
   if (!box) return;
   await loadTypes();
+  const hex = (c) => resolveHex(c, "#8b93a8");
   const rows = state.types.map((t) => `
     <div class="type-row ${t.enabled ? "" : "off"}" data-id="${t.id}">
-      <select class="t-color" title="Color">${TYPE_COLORS.map((c) => `<option value="${c}" ${t.color === c ? "selected" : ""}>${c}</option>`).join("")}${TYPE_COLORS.includes(t.color) ? "" : `<option value="${esc(t.color)}" selected>${esc(t.color)}</option>`}</select>
+      <span class="te-color" style="gap:4px"><input type="color" class="t-color" title="Color" value="${hex(t.color)}"><input type="text" class="t-hex" value="${hex(t.color)}" maxlength="7" spellcheck="false"></span>
       <span class="kind" style="--kc:${colorCss(t.color)}">${t.icon ? t.icon + " " : ""}${esc(t.label)}</span>
       <input class="t-icon" value="${esc(t.icon)}" placeholder="icon" title="Emoji" maxlength="4">
       <input class="t-label" value="${esc(t.label)}" placeholder="Label" maxlength="30">
@@ -502,7 +519,15 @@ async function paintTypesEditor(box) {
     catch (e) { msg(e.message, true); }
   };
   $$(".type-row[data-id]", box).forEach((row) => {
-    $(".t-color", row).onchange = (e) => save(row, { color: e.target.value });
+    const colorEl = $(".t-color", row), hexEl = $(".t-hex", row);
+    colorEl.oninput = () => { hexEl.value = colorEl.value; };
+    colorEl.onchange = () => save(row, { color: colorEl.value });
+    hexEl.onchange = () => {
+      const v = hexEl.value.trim().startsWith("#") ? hexEl.value.trim() : "#" + hexEl.value.trim();
+      if (!/^#[0-9a-f]{6}$/i.test(v)) { msg("Color must be #rrggbb.", true); return; }
+      colorEl.value = v;
+      save(row, { color: v });
+    };
     $(".t-on", row).onchange = (e) => save(row, { enabled: e.target.checked });
     for (const [cls, key] of [[".t-icon", "icon"], [".t-label", "label"], [".t-hint", "hint"]]) {
       const inp = $(cls, row);

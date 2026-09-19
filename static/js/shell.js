@@ -6,8 +6,9 @@ import { state, on, refreshStatus } from "./state.js";
 import { setTitleHandler, go } from "./router.js";
 
 export const NAV = [
-  { id: "capture", label: "Capture" }, { id: "today", label: "Today" }, { id: "history", label: "History" }, { id: "tasks", label: "Tasks" },
-  { id: "inbox", label: "Inbox" }, { id: "graph", label: "Graph" }, { id: "search", label: "Search" }, { id: "reflect", label: "Reflect" },
+  { id: "capture", label: "Capture" }, { id: "graph", label: "Graph" }, { id: "search", label: "Search" },
+  { id: "today", label: "Today" }, { id: "history", label: "History" }, { id: "tasks", label: "Tasks" },
+  { id: "inbox", label: "Inbox" }, { id: "reflect", label: "Reflect" },
 ];
 
 export function mountShell() {

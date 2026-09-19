@@ -4,8 +4,16 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.14.0 — 2026-09-19
+- Graph and Search moved up in the left rail, right under Capture.
+- Theme editor: pick every color by hand, name your own theme, and see the whole app repaint live before you save. Edit a built-in theme to start a copy of it.
+- Node types are yours to customize: rename or recolor Dumps, Concepts and People from the Graph legend (with a reset), and add your own node types right there too — the AI looks for them from the next dump on.
+- Delete a downloaded built-in model to free up space, including the one you're currently using; stray or partial download files can be cleared too.
+- Optional "Show AI output as it arrives" panel under Processing, off by default, for watching what each pipeline stage actually produced.
+- Removed the Gemma 4 family from the model catalog (e2b/e4b/12b/26b-a4b/31b): a user report showed classify failing outright on it with this app's pinned llama.cpp build. Held back pending a fix or an engine upgrade.
+
 ## 0.13.2 — 2026-09-18
-- The built-in model catalog grows from 4 to 22 models, from 3B up to 32B: Qwen, Gemma 4, Mistral, IBM Granite, Microsoft Phi, Ai2 Olmo and more, including mixture-of-experts models for bigger GPUs.
+- The built-in model catalog grows from 4 to 17 models, from 3B up to 32B: Qwen, Mistral, IBM Granite, Microsoft Phi, Ai2 Olmo and more, including a mixture-of-experts model for bigger GPUs.
 - Every model now shows its size, parameter count, quantization, license, the GPU memory it needs, the RAM a CPU-only run needs, and plain-language caveats. Models bigger than your GPU are flagged before you download them.
 - New 12, 16 and 24 GB filters, and search now matches model family and license.
 - The list is sorted smallest to largest. The recommended model for your GPU can now be a bigger one if your card has the room.

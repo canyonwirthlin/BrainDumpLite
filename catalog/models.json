@@ -1,7 +1,7 @@
 {
-  "version": 2,
-  "updated": "2026-09-18",
-  "notes": "Curated for BrainDump Lite: instruct models that answer directly (no thinking phase) and follow JSON schemas. Every architecture is supported by the app's pinned llama.cpp build; file hashes and sizes are checked against Hugging Face. vram_gb is the smallest GPU that runs the model fully on-GPU at the app's 8K context; ram_gb is what a CPU-only run needs; both come from one size-based formula and are estimates. Nothing here downloads until the user picks it.",
+  "version": 3,
+  "updated": "2026-09-19",
+  "notes": "Curated for BrainDump Lite: instruct models that answer directly (no thinking phase) and follow JSON schemas. Every architecture is supported by the app's pinned llama.cpp build; file hashes and sizes are checked against Hugging Face. vram_gb is the smallest GPU that runs the model fully on-GPU at the app's 8K context; ram_gb is what a CPU-only run needs; both come from one size-based formula and are estimates. Nothing here downloads until the user picks it. The Gemma 4 family (e2b/e4b/12b/26b-a4b/31b) is excluded: a user report showed classify failing outright on it with this app's pinned llama.cpp build (single echoed-dump item), and all five share the same new \"gemma4\" architecture and channel-based chat template, so the whole family is held back pending a verified fix or an engine upgrade.",
   "chat_models": [
     {
       "id": "llama-3.2-3b",
@@ -154,50 +154,6 @@
       ]
     },
     {
-      "id": "gemma-4-e2b",
-      "label": "Gemma 4 E2B",
-      "blurb": "Google's newest small model — light to run",
-      "family": "Google Gemma",
-      "params": "4.6B stored, about 2B effective",
-      "arch": "dense",
-      "quant": "Q4_K_M",
-      "context_k": 128,
-      "license": "Apache-2.0",
-      "repo": "bartowski/google_gemma-4-E2B-it-GGUF",
-      "file": "google_gemma-4-E2B-it-Q4_K_M.gguf",
-      "sha256": "923c4c86177d2ee173a7f5b4fa3d0ac65f5962ab15e6d6a5bc250aec4fd7bf7e",
-      "size": 3462680032,
-      "vram_gb": 6,
-      "ram_gb": 8,
-      "tags": ["fast", "writing", "multilingual"],
-      "caveats": [
-        "The \"E\" means effective: the file holds more parameters than the 2B in the name, so it is bigger than a true 2B model.",
-        "Multimodal model; only text is used here."
-      ]
-    },
-    {
-      "id": "gemma-4-e4b",
-      "label": "Gemma 4 E4B",
-      "blurb": "Google's newer small model — a step up from Gemma 3 4B",
-      "family": "Google Gemma",
-      "params": "7.5B stored, about 4B effective",
-      "arch": "dense",
-      "quant": "Q4_K_M",
-      "context_k": 128,
-      "license": "Apache-2.0",
-      "repo": "bartowski/google_gemma-4-E4B-it-GGUF",
-      "file": "google_gemma-4-E4B-it-Q4_K_M.gguf",
-      "sha256": "d35a3aa7a6d47de237fd488bb6f7f3efd62908d828f85a63da0ee93acdbefe9f",
-      "size": 5405170144,
-      "vram_gb": 8,
-      "ram_gb": 16,
-      "tags": ["writing", "balanced", "multilingual"],
-      "caveats": [
-        "The \"E\" means effective: the file holds more parameters than the 4B in the name, so it is bigger than a true 4B model.",
-        "Multimodal model; only text is used here."
-      ]
-    },
-    {
       "id": "ministral-3-8b",
       "label": "Ministral 3 8B Instruct",
       "blurb": "Mistral's mid-size model — a capable all-rounder with a very long context window",
@@ -279,27 +235,6 @@
       "tags": ["balanced", "multilingual"],
       "caveats": [
         "2024 release; newer models here usually beat it, but it never spends tokens thinking out loud."
-      ]
-    },
-    {
-      "id": "gemma-4-12b",
-      "label": "Gemma 4 12B",
-      "blurb": "Google's 12B — a step up from the 4B class, with Gemma's warmer voice",
-      "family": "Google Gemma",
-      "params": "11.9B",
-      "arch": "dense",
-      "quant": "Q4_K_M",
-      "context_k": 256,
-      "license": "Apache-2.0",
-      "repo": "lmstudio-community/gemma-4-12B-it-GGUF",
-      "file": "gemma-4-12B-it-Q4_K_M.gguf",
-      "sha256": "95d83ba36642b1f385fb906b5962a71763361be3bac930a709945f72d97473f8",
-      "size": 7381382944,
-      "vram_gb": 10,
-      "ram_gb": 16,
-      "tags": ["writing", "quality", "multilingual"],
-      "caveats": [
-        "Multimodal model; only text is used here."
       ]
     },
     {
@@ -391,28 +326,6 @@
       ]
     },
     {
-      "id": "gemma-4-26b-a4b",
-      "label": "Gemma 4 26B-A4B",
-      "blurb": "Google's mixture-of-experts — a big model's knowledge at small-model speed",
-      "family": "Google Gemma",
-      "params": "25.2B total, about 4B active",
-      "arch": "moe",
-      "quant": "Q4_K_M",
-      "context_k": 256,
-      "license": "Apache-2.0",
-      "repo": "bartowski/google_gemma-4-26B-A4B-it-GGUF",
-      "file": "google_gemma-4-26B-A4B-it-Q4_K_M.gguf",
-      "sha256": "a07f72221e8e3f77455ab0d7f7652d01a9f63c262b954aa6932a53275a0e895a",
-      "size": 17035039872,
-      "vram_gb": 20,
-      "ram_gb": 32,
-      "tags": ["quality", "big", "moe", "writing", "multilingual"],
-      "caveats": [
-        "Mixture-of-experts: only about 4B parameters run per token so it is fast, but every weight must still fit in memory.",
-        "Multimodal model; only text is used here."
-      ]
-    },
-    {
       "id": "qwen3-30b-a3b",
       "label": "Qwen3 30B-A3B Instruct",
       "blurb": "Big Qwen mixture-of-experts — a big model's knowledge at small-model speed",
@@ -432,28 +345,6 @@
       "caveats": [
         "Mixture-of-experts: only about 3B parameters run per token so it is fast, but every weight must still fit in memory.",
         "The 2507 Instruct edition answers directly, with no thinking phase."
-      ]
-    },
-    {
-      "id": "gemma-4-31b",
-      "label": "Gemma 4 31B",
-      "blurb": "Google's largest Gemma — big-model quality with Gemma's warmer voice",
-      "family": "Google Gemma",
-      "params": "30.7B",
-      "arch": "dense",
-      "quant": "Q4_K_M",
-      "context_k": 256,
-      "license": "Apache-2.0",
-      "repo": "bartowski/google_gemma-4-31B-it-GGUF",
-      "file": "google_gemma-4-31B-it-Q4_K_M.gguf",
-      "sha256": "2959c1b0a4f792493bb0092846ea06aec54547e47be979c282634d938d501b75",
-      "size": 19598489952,
-      "vram_gb": 24,
-      "ram_gb": 32,
-      "tags": ["quality", "big", "writing", "multilingual"],
-      "caveats": [
-        "Dense 31B: noticeably slower than the mixture-of-experts models of similar size.",
-        "Multimodal model; only text is used here."
       ]
     },
     {

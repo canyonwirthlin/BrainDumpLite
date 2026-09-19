@@ -1,7 +1,9 @@
 // Force-directed brain map (canvas, no library).
-import { $, $$, esc, colorCss } from "../ui.js";
+import { $, $$, esc, colorCss, toast } from "../ui.js";
 import { api } from "../api.js";
+import { loadTypes } from "../state.js";
 import { go } from "../router.js";
+import { openNodeEditor } from "../nodeeditor.js";
 import * as browse from "./browse.js";
 
 const GRAPH_R = { dump: 7, concept: 5, person: 5 };
@@ -37,9 +39,42 @@ const saveHidden = () => { try { localStorage.setItem("bdl-graph-types", JSON.st
 
 function legendHtml() {
   const gc = graphColors();
-  return TYPES.map((t) =>
-    `<button class="chip ${hidden.has(t.id) ? "off" : "on"}" data-type="${t.id}" title="Show/hide ${t.label.toLowerCase()}"><i class="legend-dot" style="background:${gc.colors[t.id]}"></i>${esc(t.label)}</button>`).join("")
+  return `<span class="legend-types">` + TYPES.map((t) => `
+    <span class="legend-item">
+      <button class="chip ${hidden.has(t.id) ? "off" : "on"}" data-type="${t.id}" title="Show/hide ${t.label.toLowerCase()}"><i class="legend-dot" style="background:${gc.colors[t.id]}"></i>${esc(t.label)}</button>
+      <button class="legend-edit" data-edit="${t.id}" title="Rename or recolor">✎</button>
+    </span>`).join("") + `</span>`
+    + `<button class="chip" id="graph-add-type" title="Add a new node type">+ Node type</button>`
     + `<button class="chip ${focus ? "on" : ""}" id="graph-focus" title="Dim everything more than two hops from the selected node">◎ Focus</button>`;
+}
+
+function bindLegendEditors(ctx) {
+  $$(".legend-edit").forEach((b) => b.onclick = () => {
+    const t = TYPES.find((x) => x.id === b.dataset.edit);
+    if (t) openNodeEditor(t, () => refresh(ctx));
+  });
+  const add = $("#graph-add-type");
+  if (add) add.onclick = () => openNodeEditor(null, () => { toast("Node type added — the AI looks for it from the next dump on."); refresh(ctx); });
+}
+
+async function refresh(ctx) {
+  try { TYPES = await api.get("/graph/types"); } catch { /* keep the current list on a transient failure */ }
+  await loadTypes();  // item-type edits from the legend also affect kindBadge() elsewhere (Today, Review)
+  ctx.setTitle("Brain map", legendHtml());
+  bindLegendEditors(ctx);
+  $$(".topbar-slot .chip[data-type]").forEach((b) => b.onclick = () => toggleType(ctx, b));
+  $("#graph-focus").onclick = () => { focus = !focus; $("#graph-focus").classList.toggle("on", focus); mount(); };
+  if (needItems() && !lastData?.hasItems) await load();
+  mount();
+}
+
+async function toggleType(ctx, b) {
+  const t = b.dataset.type;
+  hidden.has(t) ? hidden.delete(t) : hidden.add(t);
+  saveHidden();
+  b.classList.toggle("off", hidden.has(t)); b.classList.toggle("on", !hidden.has(t));
+  if (needItems() && !lastData?.hasItems) await load();
+  mount();
 }
 
 function mount() {
@@ -62,14 +97,8 @@ export async function render(ctx) {
   $("#view").innerHTML = `<div class="wide">
     <p class="sub" style="margin-bottom:10px">Every dump, concept, and person you've mentioned. Drag nodes, scroll to zoom, click to explore.</p>
     <div class="graph-wrap" id="graph-wrap"></div></div>`;
-  $$(".topbar-slot .chip[data-type]").forEach((b) => b.onclick = async () => {
-    const t = b.dataset.type;
-    hidden.has(t) ? hidden.delete(t) : hidden.add(t);
-    saveHidden();
-    b.classList.toggle("off", hidden.has(t)); b.classList.toggle("on", !hidden.has(t));
-    if (needItems() && !lastData?.hasItems) await load();
-    mount();
-  });
+  bindLegendEditors(ctx);
+  $$(".topbar-slot .chip[data-type]").forEach((b) => b.onclick = () => toggleType(ctx, b));
   $("#graph-focus").onclick = () => { focus = !focus; $("#graph-focus").classList.toggle("on", focus); mount(); };
   await load();
   if (!lastData) return;

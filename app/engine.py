@@ -616,17 +616,59 @@ def _run_setup(meta: dict) -> None:
         _phase("error", str(e)[:400])
 
 
+_BUSY_PHASES = ("queued", "engine", "model", "embed", "starting")
+_BUSY_MSG = "A download is in progress — wait for it to finish first"
+
+
+def _setup_busy() -> bool:
+    return setup_progress()["phase"] in _BUSY_PHASES
+
+
 def delete_model(model_id: str) -> tuple[bool, str]:
+    """Remove a downloaded model. Deleting the ACTIVE one is allowed: its server is
+    stopped and the selection cleared, so built-in AI stays off until another is picked."""
+    global _chat_proc, _chat_model
     meta = _model_by_id(model_id)
     if meta is None:
         return False, "Unknown model"
-    if model_id == active_model():
-        return False, "This model is in use — switch to another one first"
+    if _setup_busy():
+        return False, _BUSY_MSG
+    was_active = model_id == active_model()
     with _proc_lock:
-        if _chat_model == model_id:
+        if was_active or _chat_model == model_id:
             _stop(_chat_proc)
-    model_path(meta).unlink(missing_ok=True)
-    model_path(meta).with_name(meta["file"] + ".part").unlink(missing_ok=True)
+            _chat_proc, _chat_model = None, ""
+    try:
+        model_path(meta).unlink(missing_ok=True)
+        model_path(meta).with_name(meta["file"] + ".part").unlink(missing_ok=True)
+    except OSError as e:
+        return False, f"Couldn't delete the file (is something still using it?): {e}"
+    if was_active:
+        db.set_setting("builtin_model", "")
+    return True, "deleted"
+
+
+def other_files() -> list[dict]:
+    """.gguf/.part files in the models folder that no catalog entry owns: partial
+    downloads, and models a catalog update dropped. Listed so they can be cleared."""
+    known = {m["file"] for m in CHAT_MODELS()} | {EMBED_MODEL["file"]}
+    out = []
+    for p in sorted(models_dir().iterdir()):
+        if p.is_file() and p.suffix in (".gguf", ".part") and p.name not in known:
+            out.append({"name": p.name, "size_mb": p.stat().st_size >> 20, "partial": p.suffix == ".part"})
+    return out
+
+
+def delete_file(name: str) -> tuple[bool, str]:
+    if _setup_busy():
+        return False, _BUSY_MSG
+    # Only names that other_files() itself produced: no path separators, nothing outside the folder.
+    if name not in {f["name"] for f in other_files()}:
+        return False, "That isn't a removable model file"
+    try:
+        (models_dir() / name).unlink()
+    except OSError as e:
+        return False, f"Couldn't delete the file (is something still using it?): {e}"
     return True, "deleted"
 
 
@@ -664,6 +706,7 @@ def status() -> dict:
             "ram_gb": m.get("ram_gb"),
             "caveats": m.get("caveats") or [],
         } for m in CHAT_MODELS()],
+        "other_files": other_files(),
         "embed_downloaded": _file_ok(EMBED_MODEL),
         "setup": setup_progress(),
         "server": {"running": running, "model": loaded},

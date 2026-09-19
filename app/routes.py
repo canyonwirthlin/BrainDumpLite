@@ -28,6 +28,7 @@ class DumpIn(BaseModel):
 class ItemPatch(BaseModel):
     status: str | None = None   # suggested|approved|rejected
     done: bool | None = None
+    kind: str | None = None     # an enabled item type id (task, idea, or a custom one)
     # "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM"; null clears. Only applied when the
     # client actually sends the key (see model_fields_set) — so null means
     # "clear" while an absent key means "leave unchanged".
@@ -739,6 +740,22 @@ def set_active_theme(body: ThemeActiveIn):
     return {"active": themes.active_id()}
 
 
+@router.post("/themes")
+def create_theme(body: dict):
+    try:
+        return themes.save(body)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.put("/themes/{theme_id}")
+def update_theme(theme_id: str, body: dict):
+    try:
+        return themes.save(body, theme_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @router.post("/themes/import")
 def import_theme(body: dict):
     try:
@@ -850,6 +867,11 @@ def patch_item(item_id: str, body: ItemPatch):
         db.execute("UPDATE items SET status=? WHERE id=?", (body.status, item_id))
     if body.done is not None:
         db.execute("UPDATE items SET done=? WHERE id=?", (1 if body.done else 0, item_id))
+    if body.kind is not None:
+        # Hand-retagging: how a custom type gets its first node without waiting for the AI.
+        if body.kind not in item_types.enum():
+            raise HTTPException(400, "Unknown or disabled item type")
+        db.execute("UPDATE items SET kind=? WHERE id=?", (body.kind, item_id))
     if "due_date" in body.model_fields_set:
         dd = body.due_date
         if dd is not None:
@@ -882,6 +904,28 @@ def graph_data(items: int = 0):
 @router.get("/graph/types")
 def graph_types():
     return graph.types()
+
+
+class BaseTypeIn(BaseModel):
+    label: str | None = None
+    color: str | None = None
+
+
+@router.put("/graph/types/{type_id}")
+def update_graph_type(type_id: str, body: BaseTypeIn):
+    """Rename/recolor a built-in node kind (dump/concept/person). Item types use /item-types."""
+    try:
+        return graph.update_base_type(type_id, body.label, body.color)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/graph/types/{type_id}")
+def reset_graph_type(type_id: str):
+    try:
+        return graph.reset_base_type(type_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @router.get("/concepts")
@@ -1166,6 +1210,14 @@ def engine_setup(body: EngineSetupIn):
 @router.delete("/engine/models/{model_id}")
 def engine_delete_model(model_id: str):
     ok, msg = engine.delete_model(model_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True}
+
+
+@router.delete("/engine/files/{name}")
+def engine_delete_file(name: str):
+    ok, msg = engine.delete_file(name)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True}

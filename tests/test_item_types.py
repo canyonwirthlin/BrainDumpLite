@@ -61,3 +61,22 @@ def test_api_round_trip():
     assert "decision" in ids and ids[:6] == ["task", "goal", "idea", "concern", "event", "note"]
     assert client.delete("/api/item-types/task").status_code == 400
     assert client.delete("/api/item-types/decision").status_code == 200
+
+
+def test_item_can_be_retagged_into_a_custom_type():
+    client = TestClient(create_app())
+    client.post("/api/item-types", json={"label": "Question", "color": "#22aa88"})
+    db.execute("INSERT INTO dumps (id, created_at, mode, raw_text, status) VALUES ('d9', '2026-01-01T00:00:00', 'freeform', 'x', 'ready')")
+    db.execute("INSERT INTO items (id, dump_id, kind, content, status, done, created_at) VALUES ('i9', 'd9', 'note', 'why?', 'suggested', 0, '2026-01-01T00:00:00')")
+    try:
+        r = client.patch("/api/items/i9", json={"kind": "question"})
+        assert r.status_code == 200 and r.json()["kind"] == "question"
+        nodes = client.get("/api/graph?items=1").json()["nodes"]
+        assert next(n for n in nodes if n["id"] == "item:i9")["type"] == "question"
+        assert client.patch("/api/items/i9", json={"kind": "nonsense"}).status_code == 400
+        client.put("/api/item-types/question", json={"enabled": False})
+        assert client.patch("/api/items/i9", json={"kind": "question"}).status_code == 400   # disabled types can't be assigned
+        assert client.patch("/api/items/i9", json={"kind": "idea"}).json()["kind"] == "idea"
+        assert client.patch("/api/items/i9", json={"done": True}).json()["kind"] == "idea"   # other patches leave kind alone
+    finally:
+        db.execute("DELETE FROM dumps WHERE id='d9'")

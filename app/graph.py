@@ -17,9 +17,46 @@ BASE_TYPES = [
 ]
 
 
+BASE_KEY = "graph_base_types"   # settings: {"dump": {"label": ..., "color": ...}, ...} user renames/recolors
+
+
+def _overrides() -> dict:
+    d = db.get_setting(BASE_KEY, {})
+    return d if isinstance(d, dict) else {}
+
+
 def types() -> list[dict]:
-    return BASE_TYPES + [{"id": t["id"], "label": t["label"], "color": t["color"], "icon": t["icon"], "builtin": False}
-                         for t in item_types.enabled()]
+    ov = _overrides()
+    base = [{**b, **{k: v for k, v in (ov.get(b["id"]) or {}).items() if k in ("label", "color") and v}} for b in BASE_TYPES]
+    return base + [{"id": t["id"], "label": t["label"], "color": t["color"], "icon": t["icon"], "builtin": False}
+                   for t in item_types.enabled()]
+
+
+def update_base_type(type_id: str, label: str | None = None, color: str | None = None) -> dict:
+    """Rename / recolor one of the fixed node kinds (dumps, concepts, people)."""
+    if type_id not in {b["id"] for b in BASE_TYPES}:
+        raise ValueError(f"'{type_id}' isn't a built-in node kind")
+    cur = dict(_overrides().get(type_id) or {})
+    if label is not None:
+        label = label.strip()
+        if not 1 <= len(label) <= 30:
+            raise ValueError("label must be 1-30 characters")
+        cur["label"] = label
+    if color is not None:
+        cur["color"] = item_types._check_color(color)
+    ov = _overrides()
+    ov[type_id] = cur
+    db.set_setting(BASE_KEY, ov)
+    return next(t for t in types() if t["id"] == type_id)
+
+
+def reset_base_type(type_id: str) -> dict:
+    if type_id not in {b["id"] for b in BASE_TYPES}:
+        raise ValueError(f"'{type_id}' isn't a built-in node kind")
+    ov = _overrides()
+    ov.pop(type_id, None)
+    db.set_setting(BASE_KEY, ov)
+    return next(t for t in types() if t["id"] == type_id)
 
 
 def _names(raw) -> list[str]:

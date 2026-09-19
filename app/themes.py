@@ -109,6 +109,60 @@ def set_active(theme_id: str) -> None:
     db.set_setting("theme", theme_id)
 
 
+MAX_CUSTOM = 50
+
+
+def _slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")[:32].strip("-")
+
+
+def _soft_from(accent: str, scheme: str) -> str | None:
+    """The translucent accent tint (buttons, selected rows) as rgba(), from a #hex accent."""
+    m = re.fullmatch(r"#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?", (accent or "").strip())
+    if not m:
+        return None
+    h = m.group(1)
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r},{g},{b},{'.12' if scheme == 'light' else '.16'})"
+
+
+def save(raw, theme_id: str | None = None) -> dict:
+    """Create (theme_id None) or update a custom theme from the editor.
+
+    The editor sends a name and 12 colors; the id comes from the name (kept unique
+    against built-ins and existing customs) and accentSoft is derived from accent."""
+    if not isinstance(raw, dict):
+        raise ValueError("theme must be a JSON object")
+    items = custom()
+    taken = {c.get("id") for c in items} | _BUILTIN_IDS
+    if theme_id is not None:
+        if theme_id in _BUILTIN_IDS:
+            raise ValueError("built-in themes can't be edited — save a copy instead")
+        if theme_id not in taken:
+            raise ValueError(f"unknown theme '{theme_id}'")
+        tid = theme_id
+    else:
+        if len(items) >= MAX_CUSTOM:
+            raise ValueError(f"you can keep up to {MAX_CUSTOM} custom themes")
+        base = _slug(str(raw.get("name", ""))) or "theme"
+        if len(base) < 2:
+            base = f"theme-{base}"
+        tid, n = base, 2
+        while tid in taken:
+            tid = f"{base[:29]}-{n}"
+            n += 1
+    colors = dict(raw.get("colors") or {}) if isinstance(raw.get("colors"), dict) else raw.get("colors")
+    if isinstance(colors, dict) and not str(colors.get("accentSoft", "")).strip():
+        soft = _soft_from(str(colors.get("accent", "")), raw.get("scheme"))
+        if soft:
+            colors["accentSoft"] = soft
+    t = validate({**raw, "id": tid, "colors": colors})
+    _save_custom([c for c in items if c.get("id") != tid] + [t])
+    return t
+
+
 def import_theme(raw) -> dict:
     t = validate(raw)
     if t["id"] in _BUILTIN_IDS:

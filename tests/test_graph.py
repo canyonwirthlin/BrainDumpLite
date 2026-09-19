@@ -70,3 +70,26 @@ def test_api(data):
     assert client.get("/api/dumps/g1/backlinks").json()["similar"][0]["id"] == "g3"
     assert client.get("/api/today").json()["date"] == date.today().isoformat()
     assert client.get("/api/resurface").status_code == 200
+
+
+def test_base_node_kinds_can_be_renamed_recolored_and_reset(data):
+    client = TestClient(create_app())
+    try:
+        r = client.put("/api/graph/types/person", json={"label": "Friends", "color": "#ff8800"})
+        assert r.status_code == 200 and r.json()["label"] == "Friends" and r.json()["color"] == "#ff8800"
+        by_id = {t["id"]: t for t in client.get("/api/graph/types").json()}
+        assert by_id["person"]["label"] == "Friends" and by_id["person"]["color"] == "#ff8800"
+        assert by_id["concept"]["label"] == "Concepts"                       # others untouched
+        # Partial update keeps the other field.
+        client.put("/api/graph/types/person", json={"label": "Crew"})
+        assert next(t for t in graph.types() if t["id"] == "person")["color"] == "#ff8800"
+        # Validation: bad colour, empty/long label, and non-base ids are rejected.
+        assert client.put("/api/graph/types/person", json={"color": "purple"}).status_code == 400
+        assert client.put("/api/graph/types/person", json={"label": "  "}).status_code == 400
+        assert client.put("/api/graph/types/person", json={"label": "x" * 31}).status_code == 400
+        assert client.put("/api/graph/types/task", json={"label": "Nope"}).status_code == 400
+        assert client.delete("/api/graph/types/person").json()["label"] == "People"
+        assert next(t for t in graph.types() if t["id"] == "person")["color"] == "blue"
+        assert client.delete("/api/graph/types/task").status_code == 400
+    finally:
+        db.execute("DELETE FROM settings WHERE key=?", (graph.BASE_KEY,))
