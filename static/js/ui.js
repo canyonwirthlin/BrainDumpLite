@@ -93,6 +93,14 @@ export const ICONS = {
   settings: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M5.6 18.4l2-2M16.4 7.6l2-2"/></svg>`,
 };
 
+// Windows-11-style window control glyphs for the custom titlebar (native.js).
+export const WIN_ICONS = {
+  min: `<svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg>`,
+  max: `<svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7"/></svg>`,
+  restore: `<svg viewBox="0 0 10 10"><rect x="1" y="2.5" width="6.5" height="6"/><path d="M2.5 2.5V1h6.5v6H8"/></svg>`,
+  close: `<svg viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8"/></svg>`,
+};
+
 // ── Phase 3: item types, tone, trust, time chips ─────────────────────────────
 const TOKEN_COLORS = { accent: "var(--accent)", green: "var(--green)", amber: "var(--amber)", red: "var(--red)", blue: "#60a5fa", dim: "var(--dim)" };
 export const colorCss = (c) => TOKEN_COLORS[c] || c || "var(--dim)";

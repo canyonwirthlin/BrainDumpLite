@@ -10,6 +10,14 @@ import { setUpdate } from "./shell.js";
 // here degrades gracefully.
 export const native = window.__TAURI__ || null;
 
+// The window itself, for the custom titlebar (shell.js) — decorations are off
+// (see tauri.conf.json), so minimize/maximize/close are ours to draw and wire up.
+export const currentWindow = native ? native.window.getCurrentWindow() : null;
+
+export const minimizeWindow = () => currentWindow?.minimize();
+export const toggleMaximizeWindow = () => currentWindow?.toggleMaximize();
+export const closeWindow = () => currentWindow?.close();
+
 export function openExternal(url) {
   if (native) native.opener.openUrl(url).catch((e) => toast("Couldn't open link: " + (e.message || e), true));
   else window.open(url, "_blank", "noopener");

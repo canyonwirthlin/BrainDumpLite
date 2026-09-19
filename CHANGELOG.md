@@ -4,6 +4,10 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.16.0 — 2026-09-19
+- The window no longer looks like a browser tab: a custom titlebar with its own minimize/maximize/close replaces the OS chrome, UI elements (buttons, nav, chips, labels) no longer drag-select like webpage text, right-click no longer shows a browser menu on the app's own chrome, and Ctrl+scroll/Ctrl+=/− page-zoom is disabled.
+- Onboarding's "Recommended" badge now checks your hardware: a capable GPU points you at the free built-in local model, otherwise it points at Gemini's free tier instead — with a line explaining why.
+
 ## 0.15.0 — 2026-09-19
 - First-run setup: pick an AI provider before doing anything else. Free options (Gemini's free tier, the built-in local model) are front and center; Claude and OpenAI are clearly marked as paid, with a cost acknowledgement before you can continue. A step-by-step tutorial walks through getting a free Gemini API key, with `gemini-2.5-flash` recommended for this app.
 - A short, skippable tour of the app follows setup — Capture, Today/Tasks, History/Search/Graph, Inbox, and Settings in six slides. Replay it anytime from Settings → About.
