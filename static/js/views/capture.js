@@ -82,7 +82,6 @@ function drawAiOutput(d) {
     ${(d.people || []).map((p) => `<span class="wl-chip p">@${esc(p)}</span>`).join("")}</div></div>`);
   if ((d.items || []).length) parts.push(`<div class="ao-field"><h3>Extracted items</h3>
     ${d.items.map((it) => `<div class="ao-item">${kindBadge(it.kind)} ${esc(it.content)}</div>`).join("")}</div>`);
-  if (d.reflection) parts.push(`<div class="ao-field"><h3>Reflection</h3>${md(d.reflection)}</div>`);
   box.innerHTML = parts.length ? parts.join("") : `<p class="small muted">Nothing from the AI yet…</p>`;
 }
 

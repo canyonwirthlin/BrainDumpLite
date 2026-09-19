@@ -55,7 +55,7 @@ def test_pipeline_stores_tone_time_provider_and_runs(fake_ai):
     u = items["unknown type falls back"]
     assert u["kind"] == "note" and u["est_minutes"] is None and u["urgency"] == 3
     stages = {r["stage"]: dict(r) for r in db.query("SELECT * FROM runs WHERE dump_id=?", (did,))}
-    assert {"cleanup", "classify", "expand"} <= set(stages)
+    assert {"cleanup", "classify"} <= set(stages)
     assert stages["classify"]["ok"] == 1 and stages["classify"]["prompt_tokens"] == 120
     assert stages["classify"]["model"] == "gpt-test"
     hit = db.query("SELECT item_id FROM items_fts WHERE items_fts MATCH 'dentist'")

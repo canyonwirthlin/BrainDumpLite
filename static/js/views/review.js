@@ -135,7 +135,6 @@ export function reviewHtml(d, { showBack = false, detail = false } = {}) {
     ${detail ? `<div class="meta"><span>${fmtDate(d.created_at)}</span><span>${mode.icon} ${mode.label}</span><span>${n} item${n === 1 ? "" : "s"}</span>${toneChip(d.tone)}${trustBadge(d.provider)}</div>`
              : `<p class="sub">${mode.icon} ${mode.label} · ${fmtDate(d.created_at)}</p>`}
     ${d.summary ? `<div class="card">${md(d.summary)}</div>` : ""}
-    ${d.reflection ? `<div class="reflection"><div class="tag">${mode.icon} ${mode.label} take</div>${md(d.reflection)}</div>` : ""}
     ${d.items.length ? `<div class="card"><h2>Extracted items <span class="muted small">(✓ keep · ✕ reject)</span></h2>
       <div id="items">${d.items.map(itemRow).join("")}</div>
       <div class="row"><button class="btn ghost" id="approve-all">Keep all</button></div></div>` : ""}

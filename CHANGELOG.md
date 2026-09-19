@@ -4,6 +4,11 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.15.0 — 2026-09-19
+- First-run setup: pick an AI provider before doing anything else. Free options (Gemini's free tier, the built-in local model) are front and center; Claude and OpenAI are clearly marked as paid, with a cost acknowledgement before you can continue. A step-by-step tutorial walks through getting a free Gemini API key, with `gemini-2.5-flash` recommended for this app.
+- A short, skippable tour of the app follows setup — Capture, Today/Tasks, History/Search/Graph, Inbox, and Settings in six slides. Replay it anytime from Settings → About.
+- Removed the per-dump "reflection" (the brainstorm/therapy/execution/freeform AI take shown after Processing) — it burned an extra model call on every single dump for a paragraph nobody acted on. Capture modes still pick the tone of a live "Talk it through" conversation.
+
 ## 0.14.0 — 2026-09-19
 - Graph and Search moved up in the left rail, right under Capture.
 - Theme editor: pick every color by hand, name your own theme, and see the whole app repaint live before you save. Edit a built-in theme to start a copy of it.

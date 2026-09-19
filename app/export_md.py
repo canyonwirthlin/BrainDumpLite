@@ -92,8 +92,6 @@ def dump_markdown(dump_id: str, wikilinks: bool = True) -> tuple[str, str]:
         lines.append("## Links")
         lines.append(" · ".join(_link(n, wikilinks) for n in concepts + people))
         lines.append("")
-    if d["reflection"]:
-        lines += ["## Reflection", d["reflection"].strip(), ""]
     lines += ["## Text", (d["clean_text"] or d["raw_text"] or "").strip(), ""]
     filename = f"{dt.strftime('%Y-%m-%d %H%M')} {_safe_title(title)}.md"
     return filename, "\n".join(lines)
