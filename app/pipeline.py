@@ -11,7 +11,7 @@ import re
 import traceback
 from datetime import datetime, timedelta
 
-from . import ai, db, instrument, item_types, wikilinks
+from . import ai, db, graph, instrument, item_types, wikilinks
 
 TONES = ["calm", "hopeful", "excited", "neutral", "reflective", "anxious", "frustrated", "overwhelmed", "low"]
 EST_BUCKETS = [5, 15, 30, 60, 120, 240]
@@ -262,26 +262,39 @@ def _fts_terms(text: str, n: int = 8) -> list[str]:
     return out
 
 
-def _known_concepts_hint(dump_id: str, limit: int = 30) -> str:
-    """The user's most-used concept names so far. Small models invent a fresh spelling every
-    time ("internships" / "internship applications"), which fragments the knowledge graph;
-    nudging them to reuse an existing name keeps recurring topics in one place."""
-    counts: dict[str, list] = {}
-    for r in db.query("SELECT concepts FROM dumps WHERE concepts IS NOT NULL AND status='ready' AND id != ?", (dump_id,)):
+def _link_shared_topics(dump_id: str, max_links: int = 3) -> None:
+    """Soft-link this dump to earlier ones whose concepts share a distinctive word
+    ("internship applications" ~ "internships"), without changing any concept name.
+    Deterministic and adds nothing to the model prompt. A word used by many dumps
+    (over ~15% of them, min 3) says nothing about topic, so it is ignored. Links are
+    suggestions: the user can remove any from the dump page."""
+    def words(raw) -> set[str]:
         try:
-            names = json.loads(r["concepts"] or "[]")
+            return graph.topic_words(json.loads(raw or "[]"))
         except (ValueError, TypeError):
-            continue
-        for n in names:
-            n = str(n).strip()
-            if n:
-                counts.setdefault(n.lower(), [n, 0])[1] += 1
-    if not counts:
-        return ""
-    top = [v[0] for v in sorted(counts.values(), key=lambda v: (-v[1], v[0].lower()))[:limit]]
-    return ("\n\nConcepts this user already has: " + ", ".join(top) +
-            ". When this dump is about one of these, use that exact name instead of a new variant "
-            "(e.g. reuse \"internships\", don't write \"internship applications\"). Still add genuinely new concepts.")
+            return set()
+
+    me = db.query_one("SELECT concepts FROM dumps WHERE id=?", (dump_id,))
+    mine = words(me["concepts"]) if me else set()
+    if not mine:
+        return
+    others = {r["id"]: (words(r["concepts"]), r["created_at"]) for r in db.query(
+        "SELECT id, concepts, created_at FROM dumps WHERE status='ready' AND concepts IS NOT NULL AND id != ?", (dump_id,))}
+    df: dict[str, int] = {}
+    for ws, _ in others.values():
+        for w in ws:
+            df[w] = df.get(w, 0) + 1
+    cap = max(3, int(len(others) * 0.15))
+    scored = []
+    for oid, (ws, created) in others.items():
+        shared = {w for w in mine & ws if df[w] <= cap}
+        if shared:
+            scored.append((len(shared), created, oid))
+    scored.sort(reverse=True)
+    for _, _, oid in scored[:max_links]:
+        if not db.query_one("SELECT 1 FROM links WHERE (dump_id=? AND related_id=?) OR (dump_id=? AND related_id=?)",
+                            (dump_id, oid, oid, dump_id)):
+            db.execute("INSERT INTO links VALUES (?,?,?)", (dump_id, oid, 0.5))
 
 
 def _link(dump_id: str, emb: list[float] | None, title: str, text: str) -> None:
@@ -343,7 +356,7 @@ def run_pipeline(dump_id: str) -> None:
         if use_ai:
             try:
                 with instrument.timed(dump_id, "classify"):
-                    data = ai.chat_json(_classify_system() + _known_concepts_hint(dump_id) + "\n\n" + _date_table(), clean,
+                    data = ai.chat_json(_classify_system() + "\n\n" + _date_table(), clean,
                                         schema=_classify_schema())
                 tone = _parse_tone(data)
                 title = preset_title or (str(data.get("title") or title)).strip()[:80]
@@ -388,6 +401,7 @@ def run_pipeline(dump_id: str) -> None:
         db.execute("INSERT INTO dumps_fts (id, body) VALUES (?,?)",
                    (dump_id, f"{title}\n{summary}\n{clean}"))
         _link(dump_id, emb, title, clean)
+        _link_shared_topics(dump_id)
 
         _set(dump_id, status="ready", stage=None)
 

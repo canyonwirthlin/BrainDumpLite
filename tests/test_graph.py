@@ -95,54 +95,62 @@ def test_base_node_kinds_can_be_renamed_recolored_and_reset(data):
         db.execute("DELETE FROM settings WHERE key=?", (graph.BASE_KEY,))
 
 
-# ── Concept grouping: "internships" vs "internship applications" (real case) ──
+# ── Concepts: spelling variants merge, everything else stays separate ─────────
 
 @pytest.fixture
 def internships():
     create_app()
     _dump("gi1", "Balancing hobbies and work", concepts=["home lab", "internship applications", "exam"])
     _dump("gi2", "Mixed progress and gratitude", concepts=["Internships", "finances", "home lab"])
-    _dump("gi3", "Unrelated", concepts=["cooking"])
+    _dump("gi3", "Unrelated", concepts=["cooking", "internship", "home"])
     yield
-    db.execute("DELETE FROM dumps WHERE id IN ('gi1','gi2','gi3')")
+    db.execute("DELETE FROM links")
+    db.execute("DELETE FROM dumps WHERE id IN ('gi1','gi2','gi3','gi-new')")
 
 
-def test_similar_concept_names_fold_into_one_group(internships):
+def test_only_spelling_variants_merge(internships):
     cmap = graph.canonical_map("concepts")
-    assert cmap["internship applications"] == cmap["internships"] == "Internships"
-    assert cmap["cooking"] == "cooking"           # unrelated names stay themselves
-    tally = {c["name"]: c["count"] for c in graph.concepts()}
-    assert tally["Internships"] == 2 and "internship applications" not in tally
+    assert cmap["internships"] == cmap["internship"]                     # plural / case variants are one concept
+    assert cmap["internship applications"] == "internship applications"  # a different phrase is NOT folded in
+    assert cmap["home"] == "home" and cmap["home lab"] == "home lab"     # "home" must not swallow "home lab"
 
 
-def test_grouped_concepts_share_a_node_and_browse_together(internships):
+def test_variants_share_a_node_and_browse_together(internships):
     g = graph.build()
-    concept_nodes = [n for n in g["nodes"] if n["type"] == "concept" and "internship" in n["label"].lower()]
-    assert len(concept_nodes) == 1
-    mentions = {e["source"] for e in g["edges"] if e["target"] == concept_nodes[0]["id"]}
-    assert mentions == {"gi1", "gi2"}
-    # either spelling opens the same group
-    assert {d["id"] for d in graph.for_concept("internship applications")} == {"gi1", "gi2"}
-    assert {d["id"] for d in graph.for_concept("Internships")} == {"gi1", "gi2"}
-    via = graph.backlinks("gi1")["via_concepts"]
-    assert [v["name"] for v in via if "ntern" in v["name"]] == ["Internships"]
+    labels = sorted(n["label"].lower() for n in g["nodes"] if n["type"] == "concept" and "internship" in n["label"].lower())
+    assert len(labels) == 2                                              # "internships" (merged) + "internship applications"
+    assert {d["id"] for d in graph.for_concept("internship")} == {"gi2", "gi3"}
+    assert {d["id"] for d in graph.for_concept("home lab")} == {"gi1", "gi2"}
 
 
-def test_short_and_unrelated_names_do_not_fold():
-    create_app()
-    _dump("gs1", "a", concepts=["ai", "ai safety"])
-    _dump("gs2", "b", concepts=["game design", "game night"])
-    try:
-        cmap = graph.canonical_map("concepts")
-        assert cmap["ai safety"] == "ai safety"       # "ai" is too short to absorb anything
-        assert cmap["game design"] == "game design" and cmap["game night"] == "game night"
-    finally:
-        db.execute("DELETE FROM dumps WHERE id IN ('gs1','gs2')")
-
-
-def test_known_concepts_hint_lists_existing_names(internships):
+def test_shared_word_links_related_dumps_without_touching_concepts(internships):
     from app import pipeline
-    hint = pipeline._known_concepts_hint("some-new-dump")
-    low = hint.lower()
-    assert "home lab" in low and "internships" in low and "internship applications" in low
-    assert pipeline._known_concepts_hint("gi1").count("Internships") == 1
+    _dump("gi-new", "New one", concepts=["internship search", "finance tips"])
+    pipeline._link_shared_topics("gi-new")
+    linked = {r["related_id"] for r in db.query("SELECT related_id FROM links WHERE dump_id='gi-new'")}
+    assert {"gi1", "gi2", "gi3"} >= linked and {"gi1", "gi2"} <= linked   # both share "internship" / "finance"
+    assert json.loads(db.query_one("SELECT concepts FROM dumps WHERE id='gi-new'")["concepts"]) == ["internship search", "finance tips"]
+    pipeline._link_shared_topics("gi-new")                                            # idempotent
+    assert db.query_one("SELECT COUNT(*) AS n FROM links WHERE dump_id='gi-new'")["n"] == len(linked)
+
+
+def test_shared_word_ignored_when_too_common():
+    from app import pipeline
+    create_app()
+    ids = [f"gc{i}" for i in range(10)]
+    for i in ids:
+        _dump(i, "t" + i, concepts=["planning stuff", f"unique{i}topic"])
+    _dump("gc-new", "new", concepts=["planning ahead", "brandnewword"])
+    try:
+        pipeline._link_shared_topics("gc-new")
+        # "planning" appears in all 10 others (> 15% of them) so it says nothing about topic
+        assert db.query_one("SELECT COUNT(*) AS n FROM links WHERE dump_id='gc-new'")["n"] == 0
+    finally:
+        db.execute("DELETE FROM links")
+        db.execute("DELETE FROM dumps WHERE id LIKE 'gc%'")
+
+
+def test_links_capped_and_pipeline_prompt_has_no_concept_list(internships):
+    from app import pipeline
+    assert not hasattr(pipeline, "_known_concepts_hint")                # nothing grows with the concept count
+    assert "internship" not in pipeline._classify_system().lower()

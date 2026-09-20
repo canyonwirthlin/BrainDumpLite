@@ -4,6 +4,9 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.18.1 — 2026-09-20
+- Reworked how recurring topics connect. The concept grouping from 0.18.0 was too aggressive (it could fold "home lab" into "home") and the AI prompt grew with every concept you had, so both are gone. Concepts now only merge when they're spelling variants (case, plural, word order). Instead, a new dump is softly linked to earlier dumps whose concepts share a distinctive word (e.g. "internship search" ↔ "internships"), without renaming anything or adding to the prompt. Words that appear across many dumps are ignored, and you can remove any link from the dump page.
+
 ## 0.18.0 — 2026-09-20
 - Edit anything the AI produced: rename a dump, edit each extracted item's text / first step / type, and add, rename or remove concepts and people. Add or remove links between dumps. Works right after a dump and from History.
 - Dump pages now show the cleaned transcript first, with the key-point bullets underneath it.

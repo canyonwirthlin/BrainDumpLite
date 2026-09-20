@@ -68,12 +68,13 @@ def _names(raw) -> list[str]:
         return []
 
 
-# ── Concept grouping ─────────────────────────────────────────────────────────
-# The model names concepts freely, so two dumps about the same thing rarely agree on the
-# exact string ("internships" vs "internship applications"). Matching on exact text left
-# them as separate graph nodes with no shared "Also about". So concepts are grouped at read
-# time: a name folds into the shortest existing name whose (singularised) words are all
-# contained in it. People stay exact — "Sam" and "Samuel" may be different people.
+# ── Concept spelling variants ────────────────────────────────────────────────
+# "Internship", "internships" and "Internships" are one concept, not three graph nodes.
+# Only spelling variants merge (case, plural, word order). Anything that needs judgement
+# ("home" vs "home lab", "internships" vs "internship applications") stays separate: no word
+# rule can tell those apart from "home" vs "home lab", and a wrong merge silently rewrites
+# what the user sees. Related-but-different concepts are connected by dump links instead
+# (pipeline._link_shared_topics). People stay exact — "Sam" and "Samuel" may differ.
 _STOP_TOK = {"a", "an", "the", "and", "of", "for", "to", "in", "on", "at", "my", "with", "your", "our"}
 
 
@@ -89,8 +90,13 @@ def _tokset(name: str) -> frozenset:
     return frozenset(_stem(t) for t in re.findall(r"[a-z0-9]+", name.lower()) if t not in _STOP_TOK)
 
 
+def topic_words(names) -> set[str]:
+    """Distinctive stemmed words (4+ letters) across a dump's concept names."""
+    return {w for n in names for w in _tokset(str(n)) if len(w) >= 4}
+
+
 def canonical_map(column: str = "concepts") -> dict[str, str]:
-    """{lowercased name as stored: display name of its group} across all ready dumps."""
+    """{lowercased name as stored: display name of its spelling-variant group} across all ready dumps."""
     freq: Counter = Counter()
     display: dict[str, str] = {}
     for r in db.query(f"SELECT {column} FROM dumps WHERE status='ready'"):
@@ -100,13 +106,14 @@ def canonical_map(column: str = "concepts") -> dict[str, str]:
             display.setdefault(k, name)
     if column != "concepts":
         return dict(display)
-    toks = {k: _tokset(k) for k in freq}
-    usable = {k: t for k, t in toks.items() if t and sum(len(x) for x in t) >= 4}   # skip "ai", "go"…
-    out = {}
+    groups: dict[frozenset, list[str]] = {}
     for k in freq:
-        cands = [m for m, t in usable.items() if t <= toks[k]] or [k]
-        best = min(cands, key=lambda m: (len(toks[m]), -freq[m], len(m), m))
-        out[k] = display[best]
+        groups.setdefault(_tokset(k) or frozenset([k]), []).append(k)
+    out = {}
+    for members in groups.values():
+        best = min(members, key=lambda m: (-freq[m], len(m), m))
+        for m in members:
+            out[m] = display[best]
     return out
 
 
