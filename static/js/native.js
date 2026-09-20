@@ -18,6 +18,17 @@ export const minimizeWindow = () => currentWindow?.minimize();
 export const toggleMaximizeWindow = () => currentWindow?.toggleMaximize();
 export const closeWindow = () => currentWindow?.close();
 
+// "Open at system startup" (onboarding + Settings → Data). No-op in a browser.
+export async function isAutostartEnabled() {
+  if (!native) return false;
+  try { return await native.autostart.isEnabled(); } catch { return false; }
+}
+
+export async function setAutostart(on) {
+  if (!native) return;
+  try { await native.autostart[on ? "enable" : "disable"](); } catch (e) { console.warn("autostart toggle failed", e); }
+}
+
 export function openExternal(url) {
   if (native) native.opener.openUrl(url).catch((e) => toast("Couldn't open link: " + (e.message || e), true));
   else window.open(url, "_blank", "noopener");
@@ -110,23 +121,37 @@ export function initNative() {
 }
 
 
-// ── Idle nudge (Phase 4): one native notification per launch when nothing was
-// captured for 3 days and the user opted in (Settings → Data → Notifications).
-export async function maybeNudge() {
+// ── Streak reminders: every couple hours (while the window is open OR just
+// hidden to the tray — closing to tray keeps this JS running), nudge toward
+// today's dump if nothing's landed yet and the setting is on (Settings →
+// Data). Stays quiet once a dump lands, and outside a reasonable waking window.
+const STREAK_CHECK_MS = 2 * 60 * 60 * 1000;
+
+export function startStreakReminders() {
+  checkStreakReminder();
+  setInterval(checkStreakReminder, STREAK_CHECK_MS);
+}
+
+async function checkStreakReminder() {
   if (!native?.notification) return;
   let on = false;
-  try { on = localStorage.getItem("bdl-nudge") === "1"; } catch {}
+  try { on = localStorage.getItem("bdl-streak-notify") === "1"; } catch {}
   if (!on) return;
-  const last = state.status.last_dump_at ? new Date(state.status.last_dump_at) : null;
-  const days = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : null;
-  if (days !== null && days < 3) return;
+  const hour = new Date().getHours();
+  if (hour < 9 || hour >= 22) return;  // no 3 a.m. buzzing
+  let s;
+  try { s = await api.get("/streaks"); } catch { return; }
+  const dumpedToday = s.current_streak > 0 && !s.at_risk;
+  if (dumpedToday) return;
   try {
     let ok = await native.notification.isPermissionGranted();
     if (!ok) ok = (await native.notification.requestPermission()) === "granted";
     if (!ok) return;
     native.notification.sendNotification({
       title: "BrainDump Lite",
-      body: days === null ? "Nothing captured yet — anything on your mind?" : `It's been ${days} days — anything on your mind?`,
+      body: s.current_streak > 0
+        ? `🔥 Keep your ${s.current_streak}-day streak alive — dump something before the day ends.`
+        : "Start today's streak — dump whatever's on your mind.",
     });
-  } catch (e) { console.warn("nudge failed", e); }
+  } catch (e) { console.warn("streak reminder failed", e); }
 }

@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, catalog, changelog, db, engine, export_md, gitsync, google_cal, graph, import_md, item_types, lock, mcp_client, pipeline, planner, plugins, profiles, secrets, sessions, stats, suggestions, themes, todoist, transcribe, vault
+from . import ai, catalog, changelog, db, engine, export_md, gitsync, google_cal, graph, import_md, item_types, lock, mcp_client, pipeline, planner, plugins, profiles, secrets, sessions, stats, streaks, suggestions, themes, todoist, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -431,6 +431,11 @@ def get_catalog(refresh: int = 0):
 @router.get("/stats")
 def get_stats(days: int = 30):
     return stats.summary(days)
+
+
+@router.get("/streaks")
+def get_streaks():
+    return {**streaks.compute(), "words": streaks.word_stats()}
 
 
 # ── Integrations + Suggestions inbox (Phase 8) ───────────────────────────────
@@ -1201,10 +1206,11 @@ class EngineSetupIn(BaseModel):
 
 @router.get("/engine/gpu")
 def engine_gpu():
-    """Cheap hardware check for onboarding's provider recommendation: GPU info
-    only, no catalog fetch (that can hit the network; this never does)."""
+    """Cheap hardware check for onboarding: GPU info and the app's own idle RAM
+    footprint, no catalog fetch (that can hit the network; this never does)."""
     gpu = engine.detect_gpu()
-    return {"gpu": gpu, "capable": gpu["vram_mb"] >= 4 * 1024 - 600}  # smallest catalog tier's own headroom rule
+    return {"gpu": gpu, "capable": gpu["vram_mb"] >= 4 * 1024 - 600,  # smallest catalog tier's own headroom rule
+            "own_ram_mb": engine.own_ram_mb(), "idle_offload_minutes": engine.IDLE_OFFLOAD_S // 60}
 
 
 @router.get("/engine/status")

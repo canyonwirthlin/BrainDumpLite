@@ -3,7 +3,7 @@
 import { $, $$, esc, toast, modal, colorCss } from "../ui.js";
 import { api } from "../api.js";
 import { state, clearPoll, refreshStatus, loadTypes } from "../state.js";
-import { native, openExternal, showWhatsNew, checkForUpdates } from "../native.js";
+import { native, openExternal, showWhatsNew, checkForUpdates, isAutostartEnabled, setAutostart } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
 import { openThemeEditor } from "../themeeditor.js";
 import { resolveHex, isHex6 } from "../color.js";
@@ -11,7 +11,7 @@ import { lockNow } from "../shell.js";
 import { runTool, MODE_LABEL } from "../tools.js";
 import { replayTutorial } from "../onboarding.js";
 
-const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["stats", "Stats"], ["about", "About"]];
+const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["about", "About"]];
 const advOn = (s) => { try { return localStorage.getItem("bdl-adv-" + s) === "1"; } catch { return false; } };
 const setAdv = (s, v) => { try { localStorage.setItem("bdl-adv-" + s, v ? "1" : "0"); } catch {} };
 
@@ -24,7 +24,7 @@ export async function render(ctx) {
     <div class="detail body" id="sec"><div class="center">Loading…</div></div></div>`;
   let s;
   try { s = await api.get("/settings"); } catch (e) { $("#sec").innerHTML = `<div class="center">Couldn't load settings: ${esc(e.message)}</div>`; return; }
-  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, integrations: sectionIntegrations, extend: sectionExtend, stats: sectionStats, about: sectionAbout }[section];
+  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, integrations: sectionIntegrations, extend: sectionExtend, about: sectionAbout }[section];
   paint($("#sec"), s);
 }
 
@@ -212,6 +212,7 @@ async function paintData(body) {
   let v = null;
   try { v = await api.get("/vault"); } catch (e) { body.innerHTML = `<div class="center">Couldn't read vault info: ${esc(e.message)}</div>`; return; }
   const mb = (v.size_bytes / 1048576).toFixed(1);
+  const autostartOn = await isAutostartEnabled();
   body.innerHTML = `
     <div class="card">
       <h2>Vault</h2>
@@ -276,8 +277,9 @@ async function paintData(body) {
       </div>
     </div>
     ${native ? `<div class="card">
-      <h2>Notifications</h2>
-      <label class="sw" style="font-size:13.5px;color:var(--text)"><input type="checkbox" id="nudge-on" ${localStorage.getItem("bdl-nudge") === "1" ? "checked" : ""}><i></i> Nudge me when I haven't captured anything for 3 days</label>
+      <h2>Startup &amp; notifications</h2>
+      <label class="sw" style="font-size:13.5px;color:var(--text);margin-bottom:10px"><input type="checkbox" id="startup-on" ${autostartOn ? "checked" : ""}><i></i> Open BrainDump Lite when my computer starts</label>
+      <label class="sw" style="font-size:13.5px;color:var(--text)"><input type="checkbox" id="streak-notify-on" ${localStorage.getItem("bdl-streak-notify") === "1" ? "checked" : ""}><i></i> Remind me about today's dump / streak, every couple hours</label>
     </div>` : ""}`;
   const msg = (m, bad) => { const el = $("#data-msg", body); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
   $("#reveal", body).onclick = async () => {
@@ -333,8 +335,9 @@ async function paintData(body) {
     catch (e) { lkmsg(e.message, true); }
   };
   if ($("#lk-now", body)) $("#lk-now", body).onclick = () => lockNow();
-  if ($("#nudge-on", body)) $("#nudge-on", body).onchange = async (e) => {
-    try { localStorage.setItem("bdl-nudge", e.target.checked ? "1" : "0"); } catch {}
+  if ($("#startup-on", body)) $("#startup-on", body).onchange = (e) => setAutostart(e.target.checked);
+  if ($("#streak-notify-on", body)) $("#streak-notify-on", body).onchange = async (e) => {
+    try { localStorage.setItem("bdl-streak-notify", e.target.checked ? "1" : "0"); } catch {}
     if (e.target.checked && native?.notification) {
       try { if (!(await native.notification.isPermissionGranted())) await native.notification.requestPermission(); } catch {}
     }
@@ -624,62 +627,6 @@ async function paintGit(body) {
   if ($("#git-off", body)) $("#git-off", body).onclick = async () => { await api.post("/gitsync/configure", { dir: null }); paintGit(body); };
 }
 
-
-// ── Stats (Phase 7) ──────────────────────────────────────────────────────────
-// Single-series bars in the accent hue, values in text tokens, one axis per chart.
-
-let statsDays = 30;
-
-function sectionStats(box, s) {
-  const { body } = head(box, "stats", "Stats", false, () => sectionStats(box, s));
-  body.innerHTML = `<div class="center"><span class="spin"></span></div>`;
-  paintStats(body);
-}
-
-const fmtMs = (ms) => ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : ms + " ms";
-const fmtBytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.round(b / 1024) + " KB";
-const fmtInt = (n) => (n || 0).toLocaleString();
-
-function bars(rows, key, label, fmt = fmtInt) {
-  const max = Math.max(1, ...rows.map((r) => r[key] || 0));
-  return `<div class="bars">${rows.map((r) => `<div class="bar-row" title="${esc(label(r))}: ${esc(fmt(r[key] || 0))}">
-    <span class="bar-label">${esc(label(r))}</span>
-    <span class="bar-track"><i style="width:${Math.round(100 * (r[key] || 0) / max)}%"></i></span>
-    <span class="bar-val mono">${esc(fmt(r[key] || 0))}</span></div>`).join("")}</div>`;
-}
-
-async function paintStats(body) {
-  let st;
-  try { st = await api.get("/stats?days=" + statsDays); } catch (e) { body.innerHTML = `<div class="center">Couldn't load stats: ${esc(e.message)}</div>`; return; }
-  const range = [7, 30, 90].map((d) => `<button class="chip ${statsDays === d ? "on" : ""}" data-days="${d}">${d} days</button>`).join("");
-  const rate = st.success_rate == null ? "—" : Math.round(st.success_rate * 100) + "%";
-  const cost = st.providers.reduce((a, p) => a + (p.est_cost_usd || 0), 0);
-  body.innerHTML = `
-    <div class="row" style="margin:0 0 14px">${range}<div class="grow"></div><span class="small muted">Estimates use list prices from the catalog; local models cost nothing.</span></div>
-    <div class="tiles">
-      <div class="tile"><div class="tile-v mono">${fmtInt(st.calls)}</div><div class="tile-l">model calls</div></div>
-      <div class="tile"><div class="tile-v mono">${rate}</div><div class="tile-l">success rate</div></div>
-      <div class="tile"><div class="tile-v mono">$${cost.toFixed(2)}</div><div class="tile-l">est. cloud cost</div></div>
-      <div class="tile"><div class="tile-v mono">${fmtInt(st.total_dumps)}</div><div class="tile-l">dumps · ${fmtBytes(st.db_bytes)} vault</div></div>
-    </div>
-    <div class="card"><h2>Latency by stage <span class="small muted">(median · p90)</span></h2>
-      ${st.stages.length ? bars(st.stages, "median_ms", (r) => r.stage, fmtMs) : `<p class="small muted">No model calls in this window.</p>`}
-      ${st.stages.length ? `<table class="stat-table"><tr><th>stage</th><th>calls</th><th>ok</th><th>median</th><th>p90</th></tr>
-        ${st.stages.map((r) => `<tr><td>${esc(r.stage)}</td><td class="mono">${r.calls}</td><td class="mono">${Math.round(r.success_rate * 100)}%</td><td class="mono">${fmtMs(r.median_ms)}</td><td class="mono">${fmtMs(r.p90_ms)}</td></tr>`).join("")}</table>` : ""}
-    </div>
-    <div class="card"><h2>Tokens by provider</h2>
-      ${st.providers.length ? bars(st.providers, "prompt_tokens", (r) => `${r.provider}/${r.model}${r.local ? " (on-device)" : ""}`) : `<p class="small muted">Nothing yet.</p>`}
-      ${st.providers.length ? `<table class="stat-table"><tr><th>provider / model</th><th>calls</th><th>ok</th><th>in</th><th>out</th><th>median</th><th>est. cost</th></tr>
-        ${st.providers.map((r) => `<tr><td>${esc(r.provider)}/${esc(r.model)}</td><td class="mono">${r.calls}</td><td class="mono">${Math.round(r.success_rate * 100)}%</td><td class="mono">${fmtInt(r.prompt_tokens)}</td><td class="mono">${fmtInt(r.completion_tokens)}</td><td class="mono">${fmtMs(r.median_ms)}</td><td class="mono">${r.local ? "free" : r.est_cost_usd == null ? "—" : "$" + r.est_cost_usd.toFixed(3)}</td></tr>`).join("")}</table>` : ""}
-    </div>
-    <div class="card"><h2>Dumps per day</h2>
-      ${st.dumps_per_day.length ? bars(st.dumps_per_day.slice(-30), "dumps", (r) => r.date.slice(5)) : `<p class="small muted">No dumps in this window.</p>`}
-    </div>
-    <div class="card"><h2>Vault growth</h2>
-      ${st.growth.length ? bars(st.growth.slice(-30), "db_bytes", (r) => r.date.slice(5), fmtBytes) : `<p class="small muted">Sampled once a day at launch — check back tomorrow.</p>`}
-    </div>`;
-  $$("[data-days]", body).forEach((b) => b.onclick = () => { statsDays = +b.dataset.days; paintStats(body); });
-}
 
 // ── Integrations (Phase 8) ───────────────────────────────────────────────────
 async function sectionIntegrations(box, s) {

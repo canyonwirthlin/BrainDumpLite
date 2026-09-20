@@ -339,6 +339,15 @@ a.iconbtn.cal { text-decoration: none; }
 .git-log { margin-top: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font: 11.5px var(--mono); white-space: pre-wrap; max-height: 220px; overflow: auto; }
 
 
+/* ── Statistics ───────────────────────────────────────────────────────────── */
+.streak-hero { text-align: center; padding: 24px 14px; margin-bottom: 14px; }
+.streak-flame { font-size: 36px; line-height: 1; margin-bottom: 4px; filter: grayscale(1); opacity: .6; }
+.streak-flame.lit { filter: none; opacity: 1; }
+.streak-hero .streak-num { font-size: 40px; font-weight: 700; letter-spacing: -.02em; }
+.streak-label { color: var(--dim); font-size: 13px; margin-top: 2px; }
+.streak-warn { margin-top: 10px; color: var(--amber); font-size: 12.5px; }
+.streak-hero.at-risk { border-color: color-mix(in srgb, var(--amber) 45%, var(--line)); }
+
 /* ── Phase 7: model browser, stats ───────────────────────────────────────── */
 .browse .chip { cursor: pointer; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }

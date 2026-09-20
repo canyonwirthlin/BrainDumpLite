@@ -92,6 +92,10 @@ _embed_proc: subprocess.Popen | None = None
 _embed_port = 0
 _embed_failed_at = 0.0              # throttle embed respawn attempts
 
+IDLE_OFFLOAD_S = 600                # unload after 10 idle minutes — RAM/VRAM back when not dumping
+_chat_last_used = 0.0
+_embed_last_used = 0.0
+
 _progress_lock = threading.Lock()   # guards _progress
 _progress = {"phase": "idle", "message": "", "pct": None, "done_mb": 0, "total_mb": 0}
 
@@ -493,6 +497,28 @@ def stop_all() -> None:
 atexit.register(stop_all)
 
 
+def _idle_watchdog() -> None:
+    """Runs for the life of the app: offloads the chat/embed servers after
+    IDLE_OFFLOAD_S with no use, so the model only sits in RAM/VRAM while a
+    dump is actually being processed. Restarts lazily on the next call."""
+    global _chat_proc, _chat_model, _embed_proc
+    while True:
+        time.sleep(60)
+        now = time.time()
+        with _proc_lock:
+            if _chat_proc is not None and now - _chat_last_used > IDLE_OFFLOAD_S:
+                _stop(_chat_proc)
+                _chat_proc, _chat_model = None, ""
+                print("[engine] chat model offloaded (idle)", flush=True)
+            if _embed_proc is not None and now - _embed_last_used > IDLE_OFFLOAD_S:
+                _stop(_embed_proc)
+                _embed_proc = None
+                print("[engine] embedding model offloaded (idle)", flush=True)
+
+
+threading.Thread(target=_idle_watchdog, daemon=True).start()
+
+
 def _start_chat_locked(meta: dict) -> None:
     """Start (or restart) the chat server. Tries full GPU offload first; if
     the server dies during load (usually VRAM exhaustion), falls back to CPU
@@ -529,7 +555,9 @@ def ensure_chat_running() -> None:
     meta = _model_by_id(mid)
     if not is_configured() or meta is None:
         raise RuntimeError("Built-in AI isn't set up yet — open Settings and pick a model")
+    global _chat_last_used
     with _proc_lock:
+        _chat_last_used = time.time()
         if _chat_proc is not None and _chat_proc.poll() is None and _chat_model == mid:
             return
         _start_chat_locked(meta)
@@ -538,10 +566,11 @@ def ensure_chat_running() -> None:
 def ensure_embed_running() -> bool:
     """Best-effort: embeddings are a bonus, never an error. CPU-only — the
     137M-param model is fast anyway and this keeps VRAM for the chat model."""
-    global _embed_proc, _embed_port, _embed_failed_at
+    global _embed_proc, _embed_port, _embed_failed_at, _embed_last_used
     if not _file_ok(EMBED_MODEL):
         return False
     with _proc_lock:
+        _embed_last_used = time.time()
         if _embed_proc is not None and _embed_proc.poll() is None:
             return True
         if time.time() - _embed_failed_at < 300:  # don't respawn-loop a broken setup
@@ -710,4 +739,29 @@ def status() -> dict:
         "embed_downloaded": _file_ok(EMBED_MODEL),
         "setup": setup_progress(),
         "server": {"running": running, "model": loaded},
+        "idle_offload_minutes": IDLE_OFFLOAD_S // 60,
+        "own_ram_mb": own_ram_mb(),
     }
+
+
+def own_ram_mb() -> int | None:
+    """This process's own working set — what's resident when no model is
+    loaded (see _idle_watchdog). Windows only; ctypes, no new dependency."""
+    if os.name != "nt":
+        return None
+    try:
+        from ctypes import wintypes
+
+        class _Counters(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                        ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                        ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                        ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                        ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+        counters = _Counters(cb=ctypes.sizeof(_Counters))
+        h = ctypes.windll.kernel32.GetCurrentProcess()
+        if ctypes.windll.psapi.GetProcessMemoryInfo(h, ctypes.byref(counters), counters.cb):
+            return counters.WorkingSetSize // (1024 * 1024)
+    except Exception:
+        pass
+    return None

@@ -16,11 +16,25 @@ pub fn run() {
         .plugin(tauri_plugin_process::init()) // JS: __TAURI__.process.relaunch()
         .plugin(tauri_plugin_dialog::init()) // JS: __TAURI__.dialog.open({ directory: true })
         .plugin(tauri_plugin_notification::init()) // JS: __TAURI__.notification.sendNotification()
+        // JS: __TAURI__.autostart.{enable,disable,isEnabled}() — the onboarding /
+        // Settings "open at startup" toggle. `--minimized` is only present when
+        // the OS itself launched us at login, so that boot stays out of the way
+        // in the tray instead of popping the window up.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--minimized".into()]),
+        ))
         .setup(|app| {
             // 1. Start the backend on a port we choose, so we know where to navigate.
             let port = backend::pick_port(8756);
             let child = backend::spawn(app.handle(), port)?;
             app.manage(backend::Backend(Mutex::new(Some(child))));
+            let launched_minimized = std::env::args().any(|a| a == "--minimized");
+            if launched_minimized {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
 
             // 2. Off the UI thread: wait for the port, then swap the splash for the app.
             let handle = app.handle().clone();
