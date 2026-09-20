@@ -11,6 +11,7 @@ import shutil
 import socket
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Callable, Mapping
 
@@ -69,7 +70,7 @@ def watch_parent(pid: int, on_exit: Callable[[], None]) -> threading.Thread | No
     never outlive the shell (e.g. shell crashed, or Task Manager killed it).
     Holding a real process HANDLE means PID reuse can't fool us."""
     if os.name != "nt":
-        return None  # Windows-only v1; posix gets prctl(PR_SET_PDEATHSIG) later
+        return _watch_parent_posix(pid, on_exit)
     SYNCHRONIZE = 0x00100000
     k32 = ctypes.windll.kernel32
     handle = k32.OpenProcess(SYNCHRONIZE, False, int(pid))
@@ -78,6 +79,30 @@ def watch_parent(pid: int, on_exit: Callable[[], None]) -> threading.Thread | No
 
     def wait() -> None:
         k32.WaitForSingleObject(handle, 0xFFFFFFFF)  # INFINITE
+        on_exit()
+
+    t = threading.Thread(target=wait, daemon=True, name="parent-watchdog")
+    t.start()
+    return t
+
+
+def _watch_parent_posix(pid: int, on_exit: Callable[[], None], interval: float = 2.0) -> threading.Thread:
+    """macOS/Linux have no wait-on-process-handle, so poll: once our parent is gone we are
+    re-parented (to launchd/init), so getppid() stops matching. os.kill(pid, 0) covers the
+    case where the launcher isn't our direct parent."""
+    def alive() -> bool:
+        if os.getppid() != pid:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return False
+            except PermissionError:
+                pass
+        return True
+
+    def wait() -> None:
+        while alive():
+            time.sleep(interval)
         on_exit()
 
     t = threading.Thread(target=wait, daemon=True, name="parent-watchdog")

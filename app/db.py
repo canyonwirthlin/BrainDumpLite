@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import sys
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -18,15 +19,23 @@ _conn: sqlite3.Connection | None = None
 _lock = threading.RLock()
 
 
+def default_data_dir(nt: bool | None = None, platform: str | None = None, environ=None, home: Path | None = None) -> Path:
+    """Where the per-user data lives on each OS (parameters exist so tests can cover all three)."""
+    nt = os.name == "nt" if nt is None else nt
+    platform = sys.platform if platform is None else platform
+    env = os.environ if environ is None else environ
+    home = Path.home() if home is None else home
+    if nt:
+        return Path(env.get("LOCALAPPDATA", str(home))) / "BrainDumpLite"
+    if platform == "darwin":
+        return home / "Library" / "Application Support" / "BrainDumpLite"
+    return home / ".braindump-lite"
+
+
 def data_dir() -> Path:
     """Per-user data folder (NOT next to the exe, which may live in Downloads)."""
     override = os.environ.get("BRAINDUMP_LITE_DATA")
-    if override:
-        p = Path(override)
-    elif os.name == "nt":
-        p = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "BrainDumpLite"
-    else:
-        p = Path.home() / ".braindump-lite"
+    p = Path(override) if override else default_data_dir()
     p.mkdir(parents=True, exist_ok=True)
     return p
 

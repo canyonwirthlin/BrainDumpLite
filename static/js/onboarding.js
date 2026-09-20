@@ -38,7 +38,9 @@ export function runOnboarding() {
     try {
       gpuInfo = await api.get("/engine/gpu");
       const { gpu, capable } = gpuInfo;
-      if (capable) {
+      if (!state.status.builtin_ai) {
+        // e.g. macOS: no built-in engine yet, so the free cloud tier is the answer and there's nothing to explain.
+      } else if (capable) {
         recommended = "builtin";
         hwNote = `Your ${esc(gpu.name || "GPU")} can run a good local model well, so Built-in is recommended — completely free and offline.`;
       } else {
@@ -65,7 +67,7 @@ function paintAi() {
         <p class="sub">First, pick how it thinks. Two options below are completely free —
           you can change this anytime later in Settings → AI.</p>
       </div>
-      <div class="providers ob-providers">${ORDER.map((id) => {
+      <div class="providers ob-providers">${ORDER.filter((id) => id !== "builtin" || state.status.builtin_ai).map((id) => {
         const p = PROVIDER_META.find((x) => x.id === id);
         const cost = COST[id];
         return `<button class="provider ${id === ob.provider ? "active" : ""}" data-p="${id}">

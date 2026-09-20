@@ -13,7 +13,10 @@ use tauri::{AppHandle, Manager};
 /// exit handler can kill it. `None` after stop().
 pub struct Backend(pub Mutex<Option<Child>>);
 
+#[cfg(windows)]
 pub const BACKEND_EXE: &str = "braindump-backend.exe";
+#[cfg(not(windows))]
+pub const BACKEND_EXE: &str = "braindump-backend";
 
 /// First free port in [start, start+25), matching the range the standalone
 /// backend always used (8756-8780). Falls back to an OS-chosen port.
@@ -45,7 +48,7 @@ pub fn exe_path(app: &AppHandle) -> PathBuf {
 pub fn spawn(app: &AppHandle, port: u16) -> Result<Child, String> {
     let exe = exe_path(app);
     if !exe.exists() {
-        return Err(format!("backend not found at {} - run build-backend.ps1", exe.display()));
+        return Err(format!("backend not found at {} - run build-backend.ps1 (build-backend.sh on macOS)", exe.display()));
     }
     let mut cmd = Command::new(&exe);
     cmd.env("BRAINDUMP_LITE_SIDECAR", "1")

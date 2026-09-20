@@ -1,13 +1,22 @@
-# Tag push (vX.Y.Z, made by release.ps1) -> tests -> frozen Python backend ->
-# Tauri NSIS installer -> GitHub Release with installer, .sig and latest.json.
-# The updater in every installed app reads latest.json from /releases/latest.
+# Tag push (vX.Y.Z, made by release.ps1) -> tests -> frozen Python backend -> installers:
+#   Windows: Tauri NSIS installer          (job "build")
+#   macOS:   .dmg for Apple Silicon + Intel (job "build-mac", runs AFTER Windows and one arch
+#            at a time, because every job merges its platform into the shared latest.json)
+# All of it lands on one GitHub Release. The updater in every installed app reads latest.json
+# from /releases/latest.
+#
+# Pushing the branch "mac-ci" runs ONLY the macOS jobs as a dry run: nothing is published, the
+# .dmg files are attached to the workflow run instead. Use it to check macOS changes without
+# cutting a release (git push origin HEAD:refs/heads/mac-ci --force).
 name: release
 on:
   push:
     tags: ["v*"]
+    branches: ["mac-ci"]
 
 jobs:
   build:
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: windows-latest
     permissions:
       contents: write
@@ -73,3 +82,109 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
+
+  build-mac:
+    needs: build
+    # Windows first on a tag (skipped on the mac-ci branch); a failed Windows build stops the release.
+    if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1     # one at a time: each job read-modify-writes the shared latest.json
+      matrix:
+        include:
+          - { os: macos-14, arch: aarch64 }        # Apple Silicon
+          - { os: macos-15-intel, arch: x86_64 }   # Intel
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    env:
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Signing secrets must exist
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set (see the Windows job's note)."
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.arch }}
+
+      - name: Python tests
+        run: |
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+          python -m pytest -q
+
+      - name: Tag must match app/version.py
+        if: env.IS_TAG == 'true'
+        run: |
+          v=$(python -c "from app.version import __version__; print(__version__)")
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME != version $v"; exit 1; }
+
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        if: env.IS_TAG == 'true'
+        run: |
+          { echo "body<<BDL_EOF"; python -m app.changelog "${GITHUB_REF_NAME#v}"; echo "BDL_EOF"; } >> "$GITHUB_OUTPUT"
+
+      - name: Freeze Python backend
+        run: ./build-backend.sh
+
+      - name: Smoke-test the frozen backend
+        # If the frozen backend can't start or serve /api/status, fail now instead of shipping an app
+        # that opens to a blank window.
+        run: |
+          export BRAINDUMP_LITE_SIDECAR=1 BRAINDUMP_LITE_PORT=8761 BRAINDUMP_LITE_DATA="$RUNNER_TEMP/bdl-smoke"
+          src-tauri/backend/braindump-backend &
+          PID=$!
+          ok=0
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8761/api/status > status.json; then ok=1; break; fi
+            sleep 1
+          done
+          kill $PID 2>/dev/null || true
+          if [ "$ok" != 1 ] || ! grep -q '"platform":"macos"' status.json; then
+            echo "::error::frozen backend did not come up on macOS"
+            cat "$BRAINDUMP_LITE_DATA/logs/backend.log" 2>/dev/null || true
+            exit 1
+          fi
+          cat status.json
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # "-" = ad-hoc signature, which Apple Silicon requires just to launch. Add an Apple
+          # Developer ID certificate secret later and this becomes a properly signed build.
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
+        with:
+          tagName: ${{ env.IS_TAG == 'true' && github.ref_name || '' }}
+          releaseName: "BrainDump Lite ${{ github.ref_name }}"
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+
+      - name: Keep the .dmg from dry runs
+        if: env.IS_TAG != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BrainDump-Lite-macos-${{ matrix.arch }}
+          path: src-tauri/target/release/bundle/dmg/*.dmg

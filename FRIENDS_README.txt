@@ -17,6 +17,22 @@ HOW TO INSTALL IT
    a tray icon (bottom-right, near the clock). Closing the window keeps it
    running in the tray; right-click the tray icon -> Quit to fully exit.
 
+ON A MAC
+1. Download the .dmg from the same page: "BrainDump Lite_x.y.z_aarch64.dmg" for
+   Apple Silicon (M1/M2/M3/M4), or "..._x64.dmg" for an Intel Mac. (Apple menu ->
+   About This Mac shows which chip you have.)
+2. Open the .dmg and drag BrainDump Lite into Applications.
+3. The first time, macOS says it can't verify the app (I don't pay Apple for
+   a developer certificate). Don't double-click it: open Applications, right-click
+   (or Control-click) BrainDump Lite -> Open -> Open. If there's no Open button,
+   go to System Settings -> Privacy & Security, scroll down, and click
+   "Open Anyway" next to BrainDump Lite. You only do this once.
+4. It lives in the menu bar at the top right. Closing the window keeps it
+   running; click the Dock icon to bring it back, or menu bar icon -> Quit.
+Your dumps are stored in ~/Library/Application Support/BrainDumpLite.
+The "built-in AI" option is Windows-only for now; on a Mac, pick Gemini
+(free) when it asks - the app walks you through getting the key.
+
 UPDATES
 The app checks for updates when it starts. When one exists a small
 "update available" pill appears at the top - click it, read what's new,

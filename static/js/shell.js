@@ -1,6 +1,6 @@
 // Left rail + top bar. Views call ctx.setTitle(title, slotHtml) to own the
 // top bar's middle slot; the right cluster (AI pill, update pill) is global.
-import { $, $$, ICONS, WIN_ICONS, PROVIDER_NAMES, esc } from "./ui.js";
+import { $, $$, ICONS, WIN_ICONS, PROVIDER_NAMES, esc, isMac } from "./ui.js";
 import { api } from "./api.js";
 import { state, on, refreshStatus } from "./state.js";
 import { setTitleHandler, go } from "./router.js";
@@ -14,6 +14,7 @@ export const NAV = [
 
 export function mountShell() {
   mountTitlebar();
+  if (isMac) macKeys();
   $("#rail").innerHTML = `
     <a class="brain" href="#capture" title="BrainDump Lite">${ICONS.brain}</a>
     ${NAV.map((n) => `<a class="nav" data-v="${n.id}" href="#${n.id}" title="${n.label}">${ICONS[n.id]}<span>${n.label}</span>${n.id === "inbox" ? `<i class="nbadge" id="inbox-badge" hidden></i>` : ""}</a>`).join("")}
@@ -42,13 +43,13 @@ export function mountShell() {
   });
 }
 
-// The OS titlebar is off (decorations:false in tauri.conf.json) so the window
+// On Windows the OS titlebar is off (decorations:false in tauri.conf.json) so the window
 // has zero chrome without this — draw our own drag region + min/max/close.
 // In a plain browser (dev mode) there's no window to control; leave it empty
 // and its :empty CSS rule collapses it, so the real browser tab bar shows instead.
 function mountTitlebar() {
   const el = $("#titlebar");
-  if (!native) return;
+  if (!native || isMac) return;   // macOS keeps its own traffic-light titlebar (tauri.macos.conf.json)
   el.innerHTML = `
     <div class="tb-drag" data-tauri-drag-region>
       <span class="tb-icon">${ICONS.brain}</span><span class="tb-name">BrainDump Lite</span>
@@ -145,4 +146,17 @@ function initIdleLock() {
   };
   for (const ev of ["pointerdown", "keydown", "wheel", "touchstart"]) document.addEventListener(ev, bump, { passive: true });
   bump();
+}
+
+
+// Shortcuts already accept Cmd (metaKey); make the on-screen hints say ⌘ instead of Ctrl on a Mac.
+function macKeys() {
+  const fix = (root) => {
+    root.querySelectorAll?.("kbd, .r, [placeholder*='Ctrl']").forEach((el) => {
+      if (el.placeholder?.includes("Ctrl")) el.placeholder = el.placeholder.replace(/Ctrl/g, "⌘");
+      if (el.childNodes.length === 1 && el.firstChild.nodeType === 3 && el.textContent.includes("Ctrl")) el.textContent = el.textContent.replace(/Ctrl/g, "⌘");
+    });
+  };
+  fix(document.body);
+  new MutationObserver((muts) => muts.forEach((m) => m.addedNodes.forEach((n) => n.nodeType === 1 && (fix(n), fix(n.parentNode))))).observe(document.body, { childList: true, subtree: true });
 }

@@ -109,7 +109,7 @@ function sectionAI(box, s) {
   const engineDir = (state.status.data_dir || "%LOCALAPPDATA%\\BrainDumpLite") + "\\engine";
   body.innerHTML = `
     <p class="small muted" style="margin-bottom:12px">Your dumps only ever go to the provider you choose.</p>
-    <div class="providers">${PROVIDER_META.map((p) => `
+    <div class="providers">${PROVIDER_META.filter((p) => p.id !== "builtin" || state.status.builtin_ai || cur === "builtin").map((p) => `
       <button class="provider ${p.id === cur ? "active" : ""}" data-p="${p.id}"><b>${p.name}</b><span>${p.desc}</span></button>`).join("")}
     </div>
     <div class="card">

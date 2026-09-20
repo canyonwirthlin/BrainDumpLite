@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -86,6 +87,8 @@ def status():
         "last_dump_at": (db.query_one("SELECT MAX(created_at) AS m FROM dumps") or {"m": None})["m"],
         "inbox_pending": suggestions.count_pending(),
         "onboarded": bool(db.get_setting("onboarded", False)),
+        "platform": {"win32": "windows", "darwin": "macos"}.get(sys.platform, "linux"),
+        "builtin_ai": engine.SUPPORTED,
     }
 
 
@@ -1321,7 +1324,7 @@ def engine_gpu():
     """Cheap hardware check for onboarding: GPU info and the app's own idle RAM
     footprint, no catalog fetch (that can hit the network; this never does)."""
     gpu = engine.detect_gpu()
-    return {"gpu": gpu, "capable": gpu["vram_mb"] >= 4 * 1024 - 600,  # smallest catalog tier's own headroom rule
+    return {"gpu": gpu, "supported": engine.SUPPORTED, "capable": engine.SUPPORTED and gpu["vram_mb"] >= 4 * 1024 - 600,  # smallest catalog tier's own headroom rule
             "own_ram_mb": engine.own_ram_mb(), "idle_offload_minutes": engine.IDLE_OFFLOAD_S // 60}
 
 

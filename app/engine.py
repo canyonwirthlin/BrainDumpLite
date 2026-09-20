@@ -49,6 +49,10 @@ except Exception:
 
 CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 
+# The managed llama.cpp engine ships a Windows (Vulkan) build only. On other platforms the
+# Built-in AI option is hidden and cloud / self-hosted providers are used instead.
+SUPPORTED = os.name == "nt"
+
 # ── Pinned artifacts ─────────────────────────────────────────────────────────
 # llama.cpp release (github.com/ggml-org/llama.cpp). sha256 values come from
 # the GitHub release-asset digests; bump tag + hash together. Deliberately a
@@ -609,8 +613,8 @@ def autostart() -> None:
 # ── Setup orchestration (background thread, progress polled by the UI) ──────
 
 def start_setup(model_id: str) -> tuple[bool, str]:
-    if os.name != "nt":
-        return False, "Built-in AI is only available on Windows"
+    if not SUPPORTED:
+        return False, "Built-in AI isn't available on this platform yet — pick Gemini, Claude, OpenAI or a self-hosted server."
     meta = _model_by_id(model_id)
     if meta is None:
         return False, "Unknown model"
@@ -711,7 +715,7 @@ def status() -> dict:
         running = _chat_proc is not None and _chat_proc.poll() is None
         loaded = _chat_model
     return {
-        "supported": os.name == "nt",
+        "supported": SUPPORTED,
         "engine_installed": server_exe() is not None or engine_zip_path().exists(),
         "gpu": gpu,
         "active_model": active,

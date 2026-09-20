@@ -67,10 +67,13 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while building BrainDump Lite")
-        .run(|app, event| {
+        .run(|app, event| match event {
             // 3. Whatever way the app exits, take the backend down with it.
-            if let tauri::RunEvent::Exit = event {
-                backend::stop(app);
-            }
+            tauri::RunEvent::Exit => backend::stop(app),
+            // macOS: closing the window only hides it (like Windows' tray behaviour), so a click
+            // on the Dock icon has to bring it back.
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { .. } => tray::show_main(app),
+            _ => {}
         });
 }

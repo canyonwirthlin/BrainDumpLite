@@ -1,5 +1,6 @@
 // Shared helpers + constants. Pure functions only; no app state here.
 import { state } from "./state.js";
+export const isMac = /Mac/i.test(navigator.platform || navigator.userAgent || "");
 export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>

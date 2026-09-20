@@ -4,7 +4,7 @@ One night, when sitting in my room, I realized that all of my systems for journa
 
 I had a distrust of cloud AI and commercially available journaling tools with my private and personal information. That's why I built BrainDump: a local-first "second brain" app where you type or speak an entire dump of whatever is on your mind, and an AI pipeline extracts tasks, events, goals, ideas, concerns, people, concepts and more. It can optionally push to Google Calendar or Todoist, and it runs on your own machine. Nothing leaves it unless you connect a cloud AI or an outside service yourself.
 
-**BrainDump Lite is the single-app version of BrainDump.** It is a Windows desktop app you install with one installer. There is no Docker, no database server and no separate AI program to set up.
+**BrainDump Lite is the single-app version of BrainDump.** It is a desktop app for Windows and macOS that you install with one installer. There is no Docker, no database server and no separate AI program to set up.
 
 ## How I built it
 
@@ -37,7 +37,7 @@ The original BrainDump ran as a set of services under Docker Compose. Lite folds
 What that means in practice:
 
 - **Nothing to run first.** No containers, no ports to remember. The backend listens on `127.0.0.1` only, on a free port in the 8756-8780 range, and only the app talks to it.
-- **Your data is one folder**, `%LOCALAPPDATA%\BrainDumpLite`, which holds the database, the AI engine and downloaded models, and your plugins. `BRAINDUMP_LITE_DATA` overrides it for testing.
+- **Your data is one folder** (`%LOCALAPPDATA%\BrainDumpLite` on Windows, `~/Library/Application Support/BrainDumpLite` on macOS), which holds the database, the AI engine and downloaded models, and your plugins. `BRAINDUMP_LITE_DATA` overrides it for testing.
 - **There is no automatic import from the Postgres/Neo4j database.** The two versions keep separate data. If you can get old entries out as markdown or text files, Settings -> Data can import them (select as many as you like), and each file runs through the pipeline as a new dump. Going the other way, any dump or the whole vault exports as Obsidian-compatible markdown.
 - **Phone access is gone for now.** The Docker version was reachable from a phone on the local network, and I was working toward a PWA for offline capture. Lite is a desktop app that only listens on the machine it runs on.
 - **Not ported yet:** habits, templates, per-stage admin settings and live dictation. `RECOMMENDATIONS.md` lists what I'd port back.
@@ -112,7 +112,7 @@ How long it takes depends heavily on the model and the hardware.
 
 **Nothing leaves without a human press.** Every extracted item starts as *suggested*. Everything that would touch the outside world (Calendar, Todoist, a plugin, an MCP tool) lands in the Inbox first, where you can edit it or reject it.
 
-**Local vs cloud, always visible.** Every dump carries an on-device or cloud badge showing where its text went. Tokens for connected services are encrypted with Windows DPAPI.
+**Local vs cloud, always visible.** Every dump carries an on-device or cloud badge showing where its text went. On Windows, tokens for connected services are encrypted with DPAPI; on macOS they are stored unencrypted in your data folder (Settings says so).
 
 **Local-first, not lock-in.** Markdown export with `[[wikilinks]]`, a markdown importer, whole-vault backup and restore, movable vault folders, multiple vaults and an optional Git mirror mean your notes are never stuck inside the app.
 
@@ -126,12 +126,12 @@ How long it takes depends heavily on the model and the hardware.
 
 ## Tech stack
 
-- **Shell**: Tauri 2 (Rust), WebView2, NSIS installer
+- **Shell**: Tauri 2 (Rust); WebView2 + NSIS installer on Windows, WKWebView + .dmg on macOS (Apple Silicon and Intel)
 - **Frontend**: vanilla JavaScript ES modules, no build step
 - **Backend**: Python, FastAPI, synchronous SQLite (FTS5), packaged with PyInstaller
 - **AI**: llama.cpp (built-in), or Claude / OpenAI / Gemini / any OpenAI-compatible server; faster-whisper for local transcription
 - **Integrations**: Google Calendar (OAuth with PKCE), Todoist, MCP servers, Python plugins
-- **Release**: GitHub Actions builds and signs the installer; the app updates itself from GitHub Releases
+- **Release**: GitHub Actions builds and signs the installers (Windows and macOS); the app updates itself from GitHub Releases
 
 ## Dev
 
@@ -145,6 +145,20 @@ cd src-tauri; cargo test                   # Rust tests
 ```
 
 One-time: Rust (`rustup`, MSVC Build Tools with the C++ workload) and `npm install`.
+
+### macOS
+
+```bash
+./build-backend.sh        # freeze the backend into src-tauri/backend/
+npm run tauri dev         # native window (debug build)
+npm run tauri build       # .app + .dmg under src-tauri/target/release/bundle/
+python3 -m pytest -q
+```
+
+Platform differences: the standard macOS titlebar replaces the custom Windows one (`src-tauri/tauri.macos.conf.json`),
+Built-in AI (the managed llama.cpp engine) is Windows-only for now so macOS uses Gemini / Claude / OpenAI / a
+self-hosted server, and the app is ad-hoc signed, not notarized (no Apple Developer ID yet), so the first launch needs
+right-click → Open. To dry-run the macOS CI jobs without a release: `git push origin HEAD:refs/heads/mac-ci --force`.
 After rebuilding the backend with changed `static/` files, WebView2 may keep serving its
 cached JS/CSS (same `?v=` cache-buster) — clear `%LOCALAPPDATA%\com.canyonwirthlin.braindumplite`
 or bump the `?v=` in `static/index.html` while iterating.
@@ -214,6 +228,7 @@ static/               # vanilla-JS SPA, served by the backend (no build step)
   css/                # tokens.css (theme tokens), shell.css (layout), views.css
 shell-ui/             # splash page + icon source for the native window
 src-tauri/            # Tauri 2 shell (Rust): window, tray, sidecar spawn, updater
-build-backend.ps1     # PyInstaller -> src-tauri/backend/
+build-backend.ps1     # PyInstaller -> src-tauri/backend/ (Windows)
+build-backend.sh      # same, for macOS
 release.ps1           # version bump + tag; CI (.github/workflows/release.yml) does the rest
 ```
