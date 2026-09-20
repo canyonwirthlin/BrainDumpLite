@@ -4,6 +4,14 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.17.0 — 2026-09-20
+- New Statistics tab: a daily dump streak (gained by dumping once a day, lost after a full empty day — the flame warns you when today's still open), longest and average streak, days dumped, words dumped this week/month/year/all-time, plus the model-activity numbers that used to live under Settings → Stats.
+- Onboarding now asks whether to open at startup, with the free-tier "open at startup" being the honest choice: closing the window already just sends it to the tray, this only decides whether it's there when you log in. Shows the actual background footprint for the AI provider you picked (RAM/CPU while idle vs. while a dump is processing).
+- The built-in local model now unloads itself after 10 idle minutes and reloads on the next dump — RAM/VRAM back for everything else when you're not actively using it.
+- Opt-in notifications (Settings → Data) remind you about today's dump / streak every couple hours, only during waking hours, and only until you've dumped that day.
+- The tutorial now covers every tab, including the new Statistics one, and mentions the startup/notification settings.
+- `scripts/install_count.py`: a rough, privacy-respecting install count from GitHub's own public release download stats — no telemetry in the app itself. See the README's "Checking install counts" section.
+
 ## 0.16.0 — 2026-09-19
 - The window no longer looks like a browser tab: a custom titlebar with its own minimize/maximize/close replaces the OS chrome, UI elements (buttons, nav, chips, labels) no longer drag-select like webpage text, right-click no longer shows a browser menu on the app's own chrome, and Ctrl+scroll/Ctrl+=/− page-zoom is disabled.
 - Onboarding's "Recommended" badge now checks your hardware: a capable GPU points you at the free built-in local model, otherwise it points at Gemini's free tier instead — with a line explaining why.

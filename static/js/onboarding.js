@@ -4,7 +4,7 @@
 import { $, $$, esc, toast, ICONS } from "./ui.js";
 import { api } from "./api.js";
 import { state, refreshStatus } from "./state.js";
-import { openExternal } from "./native.js";
+import { openExternal, setAutostart } from "./native.js";
 import { PROVIDER_META, paintEnginePanel } from "./views/settings.js";
 
 const COST = {
@@ -33,9 +33,10 @@ export function runOnboarding() {
     // A capable GPU can run a good local model well, so Built-in is the free
     // recommendation there; without one, local inference is slow enough that
     // Gemini's free cloud tier is the better default.
-    let recommended = "gemini", hwNote = "";
+    let recommended = "gemini", hwNote = "", gpuInfo = null;
     try {
-      const { gpu, capable } = await api.get("/engine/gpu");
+      gpuInfo = await api.get("/engine/gpu");
+      const { gpu, capable } = gpuInfo;
       if (capable) {
         recommended = "builtin";
         hwNote = `Your ${esc(gpu.name || "GPU")} can run a good local model well, so Built-in is recommended — completely free and offline.`;
@@ -45,7 +46,7 @@ export function runOnboarding() {
           : "No dedicated GPU was detected, so local models would run slowly on the CPU — Gemini's free cloud tier is recommended instead.";
       }
     } catch { /* status endpoint unreachable — keep the Gemini default */ }
-    ob = { s, provider: null, recommended, hwNote, resolve };
+    ob = { s, provider: null, recommended, hwNote, gpuInfo, startupOn: true, resolve };
     const el = document.createElement("div");
     el.id = "onboarding";
     document.body.appendChild(el);
@@ -215,18 +216,74 @@ async function continueWith(fields) {
 async function complete() {
   try { await api.post("/onboarding/complete"); } catch {}
   await refreshStatus();
-  paintTutorial();
+  paintStartup();
+}
+
+// ── Startup + background footprint ──────────────────────────────────────────
+
+async function resourceEstimate() {
+  const g = ob.gpuInfo;
+  const ram = g?.own_ram_mb ? `~${g.own_ram_mb} MB` : "well under 100 MB";
+  if (ob.provider === "builtin") {
+    try {
+      const es = await api.get("/engine/status");
+      const m = es.models.find((x) => x.id === es.active_model) || es.models.find((x) => x.recommended);
+      const vram = m && es.gpu.vram_mb ? ` (or ~${m.vram_gb} GB of your GPU's VRAM instead of system RAM)` : "";
+      return `<b>Idle in the background:</b> ${ram} RAM, ~0% CPU — the AI model itself isn't loaded.<br>
+        <b>While actually sorting a dump:</b> ${m ? `up to ~${m.ram_gb} GB RAM${vram}` : "depends on the model you pick"}
+        for a few seconds, then it unloads again after ${es.idle_offload_minutes} idle minutes.`;
+    } catch {
+      return `<b>Idle in the background:</b> ${ram} RAM, ~0% CPU. Pick a model in Settings → AI to see its footprint.`;
+    }
+  }
+  if (ob.provider === "local") {
+    return `<b>Idle in the background:</b> ${ram} RAM for BrainDump Lite itself, ~0% CPU.
+      Your own server (LM Studio, Ollama, …) manages its own memory separately.`;
+  }
+  return `<b>Idle in the background:</b> ${ram} RAM, ~0% CPU${ob.provider === "off" ? " — nothing runs locally." : " — dumps go straight to the cloud, so there's no local model to manage."}`;
+}
+
+async function paintStartup() {
+  const el = $("#onboarding");
+  el.innerHTML = `<div class="ob-wrap"><div class="center"><span class="spin"></span></div></div>`;
+  const estimate = await resourceEstimate();
+  el.innerHTML = `
+    <div class="ob-wrap">
+      <div class="ob-head">
+        <div class="brain-mark">${ICONS.brain}</div>
+        <h1>Run in the background?</h1>
+        <p class="sub">Closing the window doesn't quit BrainDump Lite — it keeps running in the
+          tray so streak reminders still work. This just decides whether it's already there
+          when your computer starts.</p>
+      </div>
+      <div class="card">
+        <label class="row" style="margin:0;justify-content:space-between">
+          <span>Open BrainDump Lite when my computer starts</span>
+          <label class="sw"><input type="checkbox" id="ob-startup" ${ob.startupOn ? "checked" : ""}><i></i></label>
+        </label>
+      </div>
+      <div class="card small" style="line-height:1.6">${estimate}</div>
+      <div class="ob-foot"><div class="grow"></div><button class="btn" id="ob-continue">Continue</button></div>
+    </div>`;
+  $("#ob-startup", el).onchange = (e) => { ob.startupOn = e.target.checked; };
+  $("#ob-continue", el).onclick = async () => {
+    const cont = $("#ob-continue", el);
+    cont.disabled = true;
+    await setAutostart(ob.startupOn);
+    paintTutorial();
+  };
 }
 
 // ── Skippable tour ────────────────────────────────────────────────────────
 
 const SLIDES = [
-  { icon: "🌀", title: "Just dump it", body: "Type, paste, or hit the mic on the Capture screen and get everything out of your head. Don't organize — that's the AI's job." },
-  { icon: "🗂️", title: "It sorts itself out", body: "Every dump is split into tasks, ideas, concerns, events and notes automatically, with tone and time-sensitivity picked up along the way." },
-  { icon: "☀️", title: "Today & Tasks", body: "Today shows what actually matters right now. Tasks is the full list — everything you've kept, across every dump." },
-  { icon: "🔎", title: "History, Search & Graph", body: "History is your timeline. Search finds anything by keyword or meaning. Graph shows how dumps connect through shared people and topics." },
+  { icon: "🌀", title: "Just dump it", body: "Type, paste, or hit the mic on the Capture screen and get everything out of your head. Don't organize — that's the AI's job. Brainstorm, Therapy and Execution modes also unlock a live back-and-forth conversation instead of a one-shot dump." },
+  { icon: "🗂️", title: "It sorts itself out", body: "Every dump is split into tasks, ideas, concerns, events and notes automatically, with tone and time-sensitivity picked up along the way. Add your own item types anytime in Settings → AI." },
+  { icon: "☀️", title: "Today & Tasks", body: "Today shows what actually matters right now, with a quick-capture box at the top. Tasks is the full list — everything you've kept, across every dump, done or not." },
+  { icon: "🔎", title: "History, Search & Graph", body: "History is your full timeline. Search finds anything by keyword or meaning. Graph draws how dumps connect through shared people and topics — click a node to explore." },
+  { icon: "🔥", title: "Statistics & streaks", body: "The Statistics tab tracks a daily streak like you'd expect — dump once a day to keep it alive, miss a full day and it resets. It also shows your longest and average streak, words dumped this week/month/year, and where your AI calls are going." },
   { icon: "📥", title: "Inbox proposes, you decide", body: "Suggestions like calendar events or Todoist tasks wait in the Inbox for your approval — nothing gets pushed anywhere on its own." },
-  { icon: "⚙️", title: "Make it yours", body: "Settings lets you switch AI providers, customize what gets extracted, change themes, and connect integrations — anytime." },
+  { icon: "⚙️", title: "Settings, your way", body: "Switch AI providers, customize what gets extracted, change themes, and connect integrations anytime. Settings → Data also controls whether BrainDump Lite opens at startup and reminds you about your streak." },
 ];
 
 function paintTutorial() {

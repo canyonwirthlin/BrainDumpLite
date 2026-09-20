@@ -172,6 +172,18 @@ The model catalog is separate from app releases: installed apps re-fetch
 reaches everyone as soon as it is pushed. Keep new fields optional, because older
 installs read the same file.
 
+### Checking install counts
+
+The app has no telemetry — nothing about usage is ever sent anywhere. For a
+rough sense of reach without tracking anyone, `scripts/install_count.py` reads
+the download counts GitHub already publishes for every release asset (public
+data about the repo, not about any individual) and prints installer downloads
+per release plus total update-check pings:
+
+```
+python scripts/install_count.py
+```
+
 ## Repo layout
 
 ```
