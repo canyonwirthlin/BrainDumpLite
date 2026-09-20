@@ -12,6 +12,7 @@ export function render(ctx) {
     <div class="glow"></div>
     <h1 class="hero">What's on your mind?</h1>
     <p class="sub">Dump it all — tasks, worries, ideas. The AI sorts it out.</p>
+    <a href="#stats" class="streak-badge" id="streak-badge" hidden></a>
     ${state.status.ai ? "" : `<div class="banner">AI is off — dumps are saved raw without processing.
       <a href="#settings">Connect a key in Settings</a> to unlock the magic.</div>`}
     <div class="modes">${MODES.map((m) => `
@@ -48,6 +49,20 @@ export function render(ctx) {
   };
   $("#dump-btn").onclick = submitDump;
   if ($("#mic")) $("#mic").onclick = () => toggleRecording();
+  paintStreakBadge();
+}
+
+async function paintStreakBadge() {
+  let s;
+  try { s = await api.get("/streaks"); } catch { return; }
+  const el = $("#streak-badge");
+  if (!el) return;  // navigated away before this landed
+  el.hidden = false;
+  el.classList.toggle("lit", s.current_streak > 0);
+  el.classList.toggle("at-risk", s.at_risk);
+  el.textContent = s.current_streak > 0
+    ? `🔥 ${s.current_streak}-day streak${s.at_risk ? " — dump today to keep it" : ""}`
+    : "Start a streak today →";
 }
 
 async function submitDump() {
