@@ -18,10 +18,9 @@ const COST = {
 
 // Shown in this order — free options first, cheapest to try up top.
 const ORDER = ["gemini", "builtin", "local", "anthropic", "openai", "off"];
-const RECOMMENDED = "gemini";
 const RECOMMENDED_MODEL = "gemini-2.5-flash";
 
-let ob = null;  // { s, provider, resolve }
+let ob = null;  // { s, provider, recommended, hwNote, resolve }
 
 export function needsOnboarding() {
   return !state.status.onboarded;
@@ -31,7 +30,22 @@ export function runOnboarding() {
   return new Promise(async (resolve) => {
     let s;
     try { s = await api.get("/settings"); } catch { s = { provider: "off", defaults: {} }; }
-    ob = { s, provider: null, resolve };
+    // A capable GPU can run a good local model well, so Built-in is the free
+    // recommendation there; without one, local inference is slow enough that
+    // Gemini's free cloud tier is the better default.
+    let recommended = "gemini", hwNote = "";
+    try {
+      const { gpu, capable } = await api.get("/engine/gpu");
+      if (capable) {
+        recommended = "builtin";
+        hwNote = `Your ${esc(gpu.name || "GPU")} can run a good local model well, so Built-in is recommended — completely free and offline.`;
+      } else {
+        hwNote = gpu.name
+          ? `${esc(gpu.name)} doesn't have enough video memory to run local models quickly, so Gemini's free cloud tier is recommended instead.`
+          : "No dedicated GPU was detected, so local models would run slowly on the CPU — Gemini's free cloud tier is recommended instead.";
+      }
+    } catch { /* status endpoint unreachable — keep the Gemini default */ }
+    ob = { s, provider: null, recommended, hwNote, resolve };
     const el = document.createElement("div");
     el.id = "onboarding";
     document.body.appendChild(el);
@@ -54,10 +68,11 @@ function paintAi() {
         const cost = COST[id];
         return `<button class="provider ${id === ob.provider ? "active" : ""}" data-p="${id}">
           <span class="ob-tag ${cost.cls}">${cost.tag}</span>
-          ${id === RECOMMENDED ? `<span class="ob-rec">★ Recommended</span>` : ""}
+          ${id === ob.recommended ? `<span class="ob-rec">★ Recommended</span>` : ""}
           <b>${esc(p.name)}</b><span>${esc(p.desc)}</span>
         </button>`;
       }).join("")}</div>
+      ${ob.hwNote ? `<p class="small muted ob-hwnote">${ob.hwNote}</p>` : ""}
       <div id="ob-detail"></div>
       <div class="ob-foot">
         <button class="btn" id="ob-continue" disabled>Continue</button>

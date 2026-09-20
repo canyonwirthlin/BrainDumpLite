@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BrainDump Lite</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
-<link rel="stylesheet" href="css/tokens.css?v=0.15.0">
+<link rel="stylesheet" href="css/tokens.css?v=0.16.0">
 <script>
 /* Re-apply the cached theme + prefs before first paint — no flash of Midnight. */
 try {
@@ -15,10 +15,12 @@ try {
   r.dataset.motion = localStorage.getItem("bdl-motion") || "auto";
 } catch (e) {}
 </script>
-<link rel="stylesheet" href="css/shell.css?v=0.15.0">
-<link rel="stylesheet" href="css/views.css?v=0.15.0">
+<link rel="stylesheet" href="css/shell.css?v=0.16.0">
+<link rel="stylesheet" href="css/views.css?v=0.16.0">
 </head>
 <body>
+<div id="titlebar"></div>
+<div id="appwrap">
 <aside id="rail" aria-label="Navigation"></aside>
 <div id="main">
   <header id="topbar">
@@ -31,7 +33,8 @@ try {
   </header>
   <main id="view"></main>
 </div>
+</div>
 <div id="palette-root"></div>
-<script type="module" src="js/main.js?v=0.15.0"></script>
+<script type="module" src="js/main.js?v=0.16.0"></script>
 </body>
 </html>

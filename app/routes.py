@@ -1199,6 +1199,14 @@ class EngineSetupIn(BaseModel):
     model: str
 
 
+@router.get("/engine/gpu")
+def engine_gpu():
+    """Cheap hardware check for onboarding's provider recommendation: GPU info
+    only, no catalog fetch (that can hit the network; this never does)."""
+    gpu = engine.detect_gpu()
+    return {"gpu": gpu, "capable": gpu["vram_mb"] >= 4 * 1024 - 600}  # smallest catalog tier's own headroom rule
+
+
 @router.get("/engine/status")
 def engine_status():
     return engine.status()

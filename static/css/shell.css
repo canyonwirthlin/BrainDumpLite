@@ -4,16 +4,39 @@
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-html, body { height: 100%; }
-body { background: var(--bg); color: var(--text); font: var(--fs)/1.5 var(--font); display: flex; overflow: hidden; }
+html, body { height: 100%; overscroll-behavior: none; }
+body { background: var(--bg); color: var(--text); font: var(--fs)/1.5 var(--font);
+  display: flex; flex-direction: column; overflow: hidden; }
+#appwrap { flex: 1; min-height: 0; display: flex; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; cursor: pointer; border: none; border-radius: 10px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Native-app feel: UI chrome doesn't select/drag-highlight like a web page.
+   Real content (dump text, item content, inputs) is left selectable. */
+#rail, #titlebar, #topbar, button, .btn, .nav, .mode-chip, .provider, .chip, .tag,
+.pill, .sw, .dot, .status-dot, .sec, label, .kbd-hint, h2, .ob-tag, .ob-rec,
+.hero, .sub, .ao-wrap > summary {
+  user-select: none; -webkit-user-select: none;
+}
 kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--dim); background: var(--panel); }
 .grow { flex: 1; }
 .row { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .muted { color: var(--dim); } .small { font-size: 12.5px; }
 code { font: 12.5px var(--mono); background: var(--panel-2); padding: 1px 6px; border-radius: 5px; }
+
+/* ── Custom titlebar (native app window, decorations off — see native.js) ──── */
+#titlebar { height: 32px; flex: none; display: flex; background: var(--rail); }
+#titlebar:empty { display: none; }
+.tb-drag { flex: 1; display: flex; align-items: center; gap: 7px; padding-left: 12px; min-width: 0; }
+.tb-icon { display: flex; color: var(--dim); } .tb-icon svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.tb-name { font-size: 12px; color: var(--dim); letter-spacing: .01em; white-space: nowrap; }
+.tb-controls { flex: none; display: flex; }
+.tb-btn { width: 46px; height: 32px; border-radius: 0; background: transparent; color: var(--dim);
+  display: grid; place-items: center; transition: background .1s, color .1s; }
+.tb-btn svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 1.2; }
+.tb-btn:hover { background: var(--panel); color: var(--text); }
+.tb-btn.close:hover { background: #e81123; color: #fff; }
 
 /* ── Rail ─────────────────────────────────────────────────────────────────── */
 #rail { width: 60px; flex: none; background: var(--rail); border-right: 1px solid var(--line);
@@ -142,6 +165,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .ob-tag.paid { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
 .ob-tag.none { background: var(--panel-2); color: var(--dim); }
 .ob-rec { display: block; font-size: 10.5px; color: var(--accent); font-weight: 700; margin-bottom: 3px; }
+.ob-hwnote { margin: -6px 0 14px; }
 .ob-warn { background: color-mix(in srgb, var(--amber) 10%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
   border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
 .ob-steps { margin-bottom: 16px; } .ob-step-item { font-size: 13.5px; margin-bottom: 8px; display: flex; gap: 8px; }

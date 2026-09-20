@@ -1,9 +1,10 @@
 // Left rail + top bar. Views call ctx.setTitle(title, slotHtml) to own the
 // top bar's middle slot; the right cluster (AI pill, update pill) is global.
-import { $, $$, ICONS, PROVIDER_NAMES, esc } from "./ui.js";
+import { $, $$, ICONS, WIN_ICONS, PROVIDER_NAMES, esc } from "./ui.js";
 import { api } from "./api.js";
 import { state, on, refreshStatus } from "./state.js";
 import { setTitleHandler, go } from "./router.js";
+import { native, currentWindow, minimizeWindow, toggleMaximizeWindow, closeWindow } from "./native.js";
 
 export const NAV = [
   { id: "capture", label: "Capture" }, { id: "graph", label: "Graph" }, { id: "search", label: "Search" },
@@ -12,6 +13,7 @@ export const NAV = [
 ];
 
 export function mountShell() {
+  mountTitlebar();
   $("#rail").innerHTML = `
     <a class="brain" href="#capture" title="BrainDump Lite">${ICONS.brain}</a>
     ${NAV.map((n) => `<a class="nav" data-v="${n.id}" href="#${n.id}" title="${n.label}">${ICONS[n.id]}<span>${n.label}</span>${n.id === "inbox" ? `<i class="nbadge" id="inbox-badge" hidden></i>` : ""}</a>`).join("")}
@@ -25,11 +27,47 @@ export function mountShell() {
   paintStatus(state.status);
   initIdleLock();
   document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && ["=", "+", "-", "0"].includes(e.key)) e.preventDefault();  // no webview zoom
     if (isLocked()) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
       e.preventDefault(); go("capture"); setTimeout(() => $("#dump-text")?.focus(), 50);
     }
   });
+  document.addEventListener("wheel", (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+  // A native app's right-click isn't the browser's Back/Reload/Inspect menu —
+  // but editable fields and an active selection still need Cut/Copy/Paste.
+  document.addEventListener("contextmenu", (e) => {
+    const editable = e.target.closest("input, textarea, [contenteditable]");
+    if (!editable && !window.getSelection().toString()) e.preventDefault();
+  });
+}
+
+// The OS titlebar is off (decorations:false in tauri.conf.json) so the window
+// has zero chrome without this — draw our own drag region + min/max/close.
+// In a plain browser (dev mode) there's no window to control; leave it empty
+// and its :empty CSS rule collapses it, so the real browser tab bar shows instead.
+function mountTitlebar() {
+  const el = $("#titlebar");
+  if (!native) return;
+  el.innerHTML = `
+    <div class="tb-drag" data-tauri-drag-region>
+      <span class="tb-icon">${ICONS.brain}</span><span class="tb-name">BrainDump Lite</span>
+    </div>
+    <div class="tb-controls">
+      <button class="tb-btn" id="tb-min" title="Minimize">${WIN_ICONS.min}</button>
+      <button class="tb-btn" id="tb-max" title="Maximize">${WIN_ICONS.max}</button>
+      <button class="tb-btn close" id="tb-close" title="Close">${WIN_ICONS.close}</button>
+    </div>`;
+  $("#tb-min", el).onclick = minimizeWindow;
+  $("#tb-close", el).onclick = closeWindow;
+  const maxBtn = $("#tb-max", el);
+  maxBtn.onclick = toggleMaximizeWindow;
+  $(".tb-drag", el).addEventListener("dblclick", toggleMaximizeWindow);
+  const syncMaxIcon = () => currentWindow.isMaximized()
+    .then((m) => { maxBtn.innerHTML = m ? WIN_ICONS.restore : WIN_ICONS.max; maxBtn.title = m ? "Restore" : "Maximize"; })
+    .catch(() => {});
+  syncMaxIcon();
+  currentWindow.onResized(syncMaxIcon);
 }
 
 export function setTitle(title, slotHtml = "") {
