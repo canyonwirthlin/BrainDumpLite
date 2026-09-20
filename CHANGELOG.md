@@ -4,6 +4,11 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.19.0 — 2026-09-20
+- BrainDump Lite now runs on macOS, for both Apple Silicon and Intel Macs. Download the .dmg from the releases page; the app is not notarized yet, so the first launch needs right-click → Open (the friends guide has the steps). It uses the normal Mac title bar and ⌘ shortcuts, sits in the menu bar, comes back when you click the Dock icon, and updates itself like the Windows app. Your data lives in ~/Library/Application Support/BrainDumpLite.
+- On a Mac, pick Gemini (free), Claude, OpenAI or your own server for the AI. The built-in local AI is Windows-only for now, so it isn't offered on Mac.
+- Under the hood: every release now also starts the packaged backend on each Mac build before publishing, so a broken package can't ship.
+
 ## 0.18.2 — 2026-09-20
 - Fixes Gemini. Google closed 2.5 Flash to new users and shut down the old search model, so setup failed with a fresh key. The app now asks Google for its current model list, picks the newest free model that actually answers for your key (never a Pro model, so nothing gets billed by surprise), and lets you choose any other model from a dropdown in onboarding and Settings → AI ("Pick best" and "Refresh list" buttons). If a saved model is ever retired, the app swaps in a working one on its own.
 
