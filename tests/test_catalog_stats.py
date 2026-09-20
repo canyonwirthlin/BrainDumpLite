@@ -98,7 +98,7 @@ def test_gemini_provider_defaults(monkeypatch):
     assert ai.DEFAULTS["gemini"]["base_url"].startswith("https://generativelanguage.googleapis.com")
     monkeypatch.setattr(db, "get_setting", lambda k, d=None: {"provider": "gemini", "api_key": "k"}.get(k, d))
     c = ai.config()
-    assert c["model"] == "gemini-2.5-flash" and c["embed_model"] == "text-embedding-004"
+    assert c["model"] == "gemini-flash-latest" and c["embed_model"] == "gemini-embedding-001"  # fallbacks only; see test_gemini.py
     assert ai.available()
 
 

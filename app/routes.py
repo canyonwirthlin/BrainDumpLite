@@ -13,7 +13,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, catalog, changelog, db, engine, export_md, gitsync, google_cal, graph, import_md, item_types, lock, mcp_client, pipeline, planner, plugins, profiles, secrets, sessions, stats, streaks, suggestions, themes, todoist, transcribe, vault
+from . import ai, catalog, changelog, db, engine, export_md, gemini, gitsync, google_cal, graph, import_md, item_types, lock, mcp_client, pipeline, planner, plugins, profiles, secrets, sessions, stats, streaks, suggestions, themes, todoist, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -1361,6 +1361,22 @@ def models():
     try:
         return {"models": ai.list_models()}
     except ai.AIError as e:
+        raise HTTPException(502, str(e))
+
+
+class GeminiSetupIn(BaseModel):
+    api_key: str | None = None   # a key typed but not saved yet (onboarding); else the saved one
+    probe: bool = True           # False = just list, don't spend calls checking which models answer
+
+
+@router.post("/gemini/setup")
+def gemini_setup(body: GeminiSetupIn):
+    """Ask Google which models this key can use and (by default) which of the free ones
+    actually answers. Powers the model pickers in onboarding and Settings → AI."""
+    key = (body.api_key or db.get_setting("api_key", "") or "").strip()
+    try:
+        return gemini.setup(key, probe=body.probe)
+    except gemini.GeminiError as e:
         raise HTTPException(502, str(e))
 
 

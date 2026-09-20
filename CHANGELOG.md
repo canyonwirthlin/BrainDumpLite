@@ -4,6 +4,9 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.18.2 — 2026-09-20
+- Fixes Gemini. Google closed 2.5 Flash to new users and shut down the old search model, so setup failed with a fresh key. The app now asks Google for its current model list, picks the newest free model that actually answers for your key (never a Pro model, so nothing gets billed by surprise), and lets you choose any other model from a dropdown in onboarding and Settings → AI ("Pick best" and "Refresh list" buttons). If a saved model is ever retired, the app swaps in a working one on its own.
+
 ## 0.18.1 — 2026-09-20
 - Reworked how recurring topics connect. The concept grouping from 0.18.0 was too aggressive (it could fold "home lab" into "home") and the AI prompt grew with every concept you had, so both are gone. Concepts now only merge when they're spelling variants (case, plural, word order). Instead, a new dump is softly linked to earlier dumps whose concepts share a distinctive word (e.g. "internship search" ↔ "internships"), without renaming anything or adding to the prompt. Words that appear across many dumps are ignored, and you can remove any link from the dump page.
 

@@ -7,6 +7,7 @@ import { state, refreshStatus } from "./state.js";
 import { openExternal, setAutostart, setStreakNotify, streakNotifyOn } from "./native.js";
 import { PROVIDER_META, paintEnginePanel } from "./views/settings.js";
 import { runTour } from "./tour.js";
+import { modelOptions, geminiSetup, autoPickNote } from "./geminipicker.js";
 
 const COST = {
   gemini: { tag: "Free tier", cls: "free" },
@@ -19,7 +20,6 @@ const COST = {
 
 // Shown in this order — free options first, cheapest to try up top.
 const ORDER = ["gemini", "builtin", "local", "anthropic", "openai", "off"];
-const RECOMMENDED_MODEL = "gemini-2.5-flash";
 
 let ob = null;  // { s, provider, recommended, hwNote, resolve }
 
@@ -101,17 +101,41 @@ function paintDetail() {
       </div>
       <div class="field"><label>API key</label>
         <input type="password" id="ob-key" placeholder="AIza…" value="${esc(s.provider === "gemini" ? s.api_key : "")}"></div>
-      <p class="small muted">Recommended model for this project: <b>${RECOMMENDED_MODEL}</b> — fast,
-        accurate at sorting dumps into tasks/ideas, and comfortably inside Gemini's free-tier limits.
-        Already set below; change it later in Settings if you like.</p>
+      <p class="small muted" id="ob-mstatus">Paste your key and I'll ask Google which models it can use, then pick the best free one.</p>
+      <div id="ob-models" hidden>
+        <div class="field"><label>Model</label><select id="ob-model"></select></div>
+        <div class="field"><label>Search model <span class="muted">(powers semantic search)</span></label><select id="ob-embed"></select></div>
+      </div>
     </div>`;
     $("#ob-gemini-link", box).onclick = (e) => { e.preventDefault(); openExternal("https://aistudio.google.com/app/apikey"); };
-    const key = $("#ob-key", box);
-    const update = () => { cont.disabled = !key.value.trim(); };
-    key.oninput = update; update();
+    const key = $("#ob-key", box), status = $("#ob-mstatus", box);
+    let timer = null, seq = 0, blocked = false;
+    const update = () => { cont.disabled = !key.value.trim() || blocked; };
+    const find = async () => {
+      const mine = ++seq, k = key.value.trim();
+      if (k.length < 20) { blocked = false; update(); return; }
+      blocked = true; update();
+      status.className = "small muted"; status.innerHTML = `<span class="spin"></span> Asking Google which models your key can use…`;
+      try {
+        const r = await geminiSetup(k, true);
+        if (mine !== seq) return;
+        $("#ob-model", box).innerHTML = modelOptions(r.chat_models, r.model || d.model);
+        $("#ob-embed", box).innerHTML = modelOptions(r.embed_models, r.embed_model || d.embed_model);
+        $("#ob-models", box).hidden = false;
+        status.className = "small " + (r.model ? "muted" : "bad"); status.textContent = autoPickNote(r);
+        blocked = false;
+      } catch (e) {
+        if (mine !== seq) return;
+        status.className = "small bad"; status.textContent = e.message;
+        blocked = /rejected/i.test(e.message);   // a bad key can't work; a network hiccup can still continue on defaults
+      }
+      update();
+    };
+    key.oninput = () => { blocked = !!key.value.trim(); update(); clearTimeout(timer); timer = setTimeout(find, 700); };
+    if (key.value.trim()) find(); else update();
     cont.onclick = () => continueWith({
       provider: "gemini", api_key: key.value.trim(),
-      model: RECOMMENDED_MODEL, embed_model: d.embed_model || "text-embedding-004",
+      model: $("#ob-model", box)?.value || d.model, embed_model: $("#ob-embed", box)?.value || d.embed_model,
     });
     return;
   }

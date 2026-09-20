@@ -10,6 +10,7 @@ import { resolveHex, isHex6 } from "../color.js";
 import { lockNow } from "../shell.js";
 import { runTool, MODE_LABEL } from "../tools.js";
 import { replayTutorial } from "../onboarding.js";
+import { modelOptions, geminiSetup, autoPickNote } from "../geminipicker.js";
 
 const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["about", "About"]];
 const advOn = (s) => { try { return localStorage.getItem("bdl-adv-" + s) === "1"; } catch { return false; } };
@@ -95,7 +96,7 @@ export const PROVIDER_META = [
   { id: "builtin", name: "Built-in", desc: "Free · runs on this PC", help: "Runs a small AI model directly on this computer — GPU-accelerated, no account, no cost, and nothing you write ever leaves your machine. One-time model download (2–5 GB), then it works offline." },
   { id: "anthropic", name: "Claude", desc: "Anthropic API key", help: "Get a key at console.anthropic.com → API Keys. Costs cents/day at normal use." },
   { id: "openai", name: "OpenAI", desc: "OpenAI API key", help: "Get a key at platform.openai.com → API Keys. Also enables semantic search embeddings." },
-  { id: "gemini", name: "Gemini", desc: "Google · free tier", help: "Get a free key at aistudio.google.com → Get API key. Generous free quota; also enables semantic search embeddings." },
+  { id: "gemini", name: "Gemini", desc: "Google · free tier", help: "Get a free key at aistudio.google.com → Get API key. Free quota; the app asks Google for its current models and picks the best free one for you." },
   { id: "local", name: "Self-hosted", desc: "LM Studio / Ollama", help: "Point at any OpenAI-compatible server. Nothing ever leaves your machine." },
   { id: "off", name: "Off", desc: "No AI", help: "Dumps are stored raw. You can turn AI on any time — old dumps stay as they are." },
 ];
@@ -116,8 +117,15 @@ function sectionAI(box, s) {
       ${cur === "builtin" ? `<div id="engine-panel"><div class="center"><span class="spin"></span></div></div>` : ""}
       ${cloud ? `<div class="field"><label>API key</label>
         <input type="password" id="f-key" value="${esc(s.api_key)}" placeholder="${cur === "anthropic" ? "sk-ant-…" : cur === "gemini" ? "AIza…" : "sk-…"}"></div>` : ""}
+      ${cur === "gemini" ? `<div class="field"><label>Chat model</label>
+          <div class="row" style="margin:0"><select id="f-model" class="grow"><option value="${esc(s.model)}">${esc(s.model)}</option></select>
+            <button class="btn ghost small" id="g-best" title="Ask Google which free model answers best for your key">Pick best</button>
+            <button class="btn ghost small" id="g-refresh">Refresh list</button></div></div>
+        <div class="field"><label>Search model <span class="muted">(powers semantic search)</span></label>
+          <select id="f-embed"><option value="${esc(s.embed_model)}">${esc(s.embed_model)}</option></select></div>
+        <p class="small muted" id="g-msg">The list comes straight from Google, so it stays current.</p>` : ""}
       ${cur === "local" && !on ? `<p class="small muted">Server URL and model live under <b>Advanced</b>.</p>` : ""}
-      ${on && cur !== "off" ? `<div class="adv">
+      ${on && cur !== "off" && cur !== "gemini" ? `<div class="adv">
         <div class="sec" style="margin-top:0">Advanced</div>
         ${cur === "builtin" ? `
           <div class="field"><label>Engine folder</label><div class="ro">${esc(engineDir)}</div></div>
@@ -180,6 +188,28 @@ function sectionAI(box, s) {
       if (pick) $("#f-model", body).value = pick.trim();
     } catch (e) { toast("Could not list models: " + e.message, true); }
   };
+  if (cur === "gemini") {
+    const msg = $("#g-msg", body);
+    const fill = async (probe) => {
+      const k = $("#f-key", body).value.trim();
+      if (!k) { msg.textContent = "Enter your API key first."; return; }
+      msg.className = "small muted";
+      msg.innerHTML = `<span class="spin"></span> ${probe ? "Checking which free models answer for your key…" : "Asking Google…"}`;
+      try {
+        const r = await geminiSetup(k, probe);
+        const m = $("#f-model", body), e = $("#f-embed", body);
+        const wantM = probe && r.model ? r.model : m.value, wantE = probe && r.embed_model ? r.embed_model : e.value;
+        m.innerHTML = modelOptions(r.chat_models, wantM);
+        e.innerHTML = modelOptions(r.embed_models, wantE);
+        msg.className = "small " + (probe && !r.model ? "bad" : "muted");
+        msg.textContent = probe ? autoPickNote(r) + " Press Save to keep it." : `${r.chat_models.length} chat and ${r.embed_models.length} search models available.`;
+      } catch (err) { msg.className = "small bad"; msg.textContent = err.message; }
+    };
+    $("#g-refresh", body).onclick = () => fill(false);
+    $("#g-best", body).onclick = () => fill(true);
+    $("#f-key", body).onchange = () => fill(false);
+    if (s.api_key) fill(false);
+  }
   if (cur === "builtin") paintEnginePanel();
 }
 

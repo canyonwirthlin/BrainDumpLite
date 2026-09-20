@@ -212,3 +212,4 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .t-inline { padding: 2px 8px; font-size: inherit; width: min(420px, 100%); }
 .tour mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
 .tour .iconbtn.edit { opacity: 1; }
+#ob-mstatus { margin: 10px 0 14px; }

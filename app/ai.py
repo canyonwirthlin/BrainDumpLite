@@ -16,7 +16,7 @@ import json
 import re
 import threading
 
-from openai import OpenAI, BadRequestError
+from openai import OpenAI, BadRequestError, NotFoundError, RateLimitError
 
 from . import db
 
@@ -67,9 +67,11 @@ DEFAULTS = {
     },
     "gemini": {
         # Google's OpenAI-compatible endpoint; key from aistudio.google.com (free tier).
+        # These two are only the fallback: onboarding/Settings ask Google's model list for the
+        # best free model (gemini.py), and a saved model that disappears is replaced (gemini.heal).
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-        "model": "gemini-2.5-flash",
-        "embed_model": "text-embedding-004",
+        "model": "gemini-flash-latest",
+        "embed_model": "gemini-embedding-001",
     },
     "local": {
         "base_url": "http://localhost:1234/v1",
@@ -217,6 +219,16 @@ def chat(system: str, user: str, max_tokens: int = 2048, temperature: float = 0.
                     kwargs.pop("extra_body", None)
                     continue
                 raise AIError(f"Model request rejected: {msg[:300]}") from e
+            except (NotFoundError, RateLimitError) as e:
+                # Gemini retires models and closes them to new users; a 404 (or a free-tier
+                # quota of 0) on the saved model means "pick a working one", not "give up".
+                if attempt == 1 and c["provider"] == "gemini" and (isinstance(e, NotFoundError) or "limit: 0" in str(e)):
+                    from . import gemini
+                    new_model = gemini.heal("chat")
+                    if new_model and new_model != kwargs["model"]:
+                        kwargs["model"] = new_model
+                        continue
+                raise AIError(f"AI call failed: {e}") from e
             except Exception as e:  # connection, auth, timeout…
                 raise AIError(f"AI call failed: {e}") from e
 
@@ -280,6 +292,20 @@ def chat_stream(messages: list[dict], max_tokens: int = 400, temperature: float 
                 stream = _client(c).chat.completions.create(**kwargs)
         except Exception as e2:
             raise AIError(f"AI call failed: {e2}") from e2
+    except NotFoundError as e:
+        # Same retired-model recovery as chat(): swap in a working Gemini model once.
+        new_model = None
+        if c["provider"] == "gemini":
+            from . import gemini
+            new_model = gemini.heal("chat")
+        if not new_model:
+            raise AIError(f"AI call failed: {e}") from e
+        kwargs["model"] = new_model
+        try:
+            with _llm_lock:
+                stream = _client(c).chat.completions.create(**kwargs)
+        except Exception as e2:
+            raise AIError(f"AI call failed: {e2}") from e2
     except Exception as e:
         raise AIError(f"AI call failed: {e}") from e
     for chunk in stream:
@@ -328,7 +354,7 @@ def embed(text: str) -> list[float] | None:
     if c["provider"] == "openai":
         model = c["embed_model"] or "text-embedding-3-small"
     elif c["provider"] == "gemini":
-        model = c["embed_model"] or "text-embedding-004"
+        model = c["embed_model"] or DEFAULTS["gemini"]["embed_model"]
     elif c["provider"] == "local" and c["embed_model"]:
         model = c["embed_model"]
     elif c["provider"] == "builtin":
@@ -340,13 +366,30 @@ def embed(text: str) -> list[float] | None:
         text = text[:4000]  # nomic-embed runs with a 2k-token context
     else:
         return None
-    try:
-        with _llm_lock:
-            resp = _client(c).embeddings.create(model=model, input=text[:6000])
-        _capture_usage(resp)
-        return list(resp.data[0].embedding)
-    except Exception:
-        return None
+    extra = {}
+    if c["provider"] == "gemini":
+        extra["dimensions"] = 768  # Gemini's newer embedders default to 3072 floats per dump; 768 is plenty
+    for attempt in (1, 2, 3):
+        try:
+            with _llm_lock:
+                resp = _client(c).embeddings.create(model=model, input=text[:6000], **extra)
+            _capture_usage(resp)
+            return list(resp.data[0].embedding)
+        except NotFoundError:
+            # Retired embedder (text-embedding-004 was shut down): swap in a working one once.
+            if c["provider"] != "gemini" or attempt > 1:
+                return None
+            from . import gemini
+            new_model = gemini.heal("embed")
+            if not new_model or new_model == model:
+                return None
+            model = new_model
+        except Exception:
+            if extra and attempt == 1:
+                extra = {}   # endpoint may not accept `dimensions`; retry plain
+                continue
+            return None
+    return None
 
 
 def cosine(a: list[float], b: list[float]) -> float:
