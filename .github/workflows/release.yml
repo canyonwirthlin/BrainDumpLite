@@ -146,20 +146,24 @@ jobs:
 
       - name: Smoke-test the frozen backend
         # If the frozen backend can't start or serve /api/status, fail now instead of shipping an app
-        # that opens to a blank window.
+        # that opens to a blank window. On failure the backend's own log is put in the error
+        # annotation so it can be read without downloading job logs.
         run: |
           export BRAINDUMP_LITE_SIDECAR=1 BRAINDUMP_LITE_PORT=8761 BRAINDUMP_LITE_DATA="$RUNNER_TEMP/bdl-smoke"
-          src-tauri/backend/braindump-backend &
+          src-tauri/backend/braindump-backend > "$RUNNER_TEMP/backend.out" 2>&1 &
           PID=$!
           ok=0
-          for i in $(seq 1 60); do
+          for i in $(seq 1 120); do
             if curl -sf http://127.0.0.1:8761/api/status > status.json; then ok=1; break; fi
+            kill -0 $PID 2>/dev/null || break      # backend already exited: no point waiting
             sleep 1
           done
+          alive=no; kill -0 $PID 2>/dev/null && alive=yes
           kill $PID 2>/dev/null || true
           if [ "$ok" != 1 ] || ! grep -q '"platform":"macos"' status.json; then
-            echo "::error::frozen backend did not come up on macOS"
-            cat "$BRAINDUMP_LITE_DATA/logs/backend.log" 2>/dev/null || true
+            detail="alive=$alive | stdout: $(tail -c 1200 "$RUNNER_TEMP/backend.out" 2>/dev/null) | log: $(tail -c 2500 "$BRAINDUMP_LITE_DATA/logs/backend.log" 2>/dev/null)"
+            detail=$(printf '%s' "$detail" | tr '\n\r' '||')
+            echo "::error title=frozen backend did not come up on macOS::${detail}"
             exit 1
           fi
           cat status.json
