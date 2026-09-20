@@ -44,9 +44,9 @@ CREATE TABLE IF NOT EXISTS dumps (
   clean_text TEXT,
   title      TEXT,
   summary    TEXT,
-  reflection TEXT,
+  reflection TEXT,                             -- unused; kept so old rows/exports stay readable
   status     TEXT NOT NULL DEFAULT 'pending',  -- pending|processing|ready|failed
-  stage      TEXT,                             -- cleanup|classify|expand|embed|link
+  stage      TEXT,                             -- cleanup|classify|embed|link
   error      TEXT,
   embedding  TEXT,                             -- JSON float array; NULL when unavailable
   people     TEXT,                             -- JSON string array
@@ -216,6 +216,10 @@ def _migrate() -> None:
                      ("tone", "TEXT"), ("provider", "TEXT")):
         if col not in cols:
             conn().execute(f"ALTER TABLE dumps ADD COLUMN {col} {typ}")
+    # A vault that already had a provider configured before onboarding existed
+    # skips the wizard — only a brand-new vault (no provider ever set) sees it.
+    if get_setting("onboarded") is None:
+        set_setting("onboarded", get_setting("provider") is not None)
     icols = {r["name"] for r in conn().execute("PRAGMA table_info(items)")}
     for col, typ in (("est_minutes", "INTEGER"), ("urgency", "INTEGER"), ("time_hint", "TEXT")):
         if col not in icols:

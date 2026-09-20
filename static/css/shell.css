@@ -125,3 +125,33 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
   background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
 .lock-card .brain-mark svg { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 1.8; }
 .lock-card h2 { margin: 0 0 4px; }
+
+/* ── First-run onboarding ─────────────────────────────────────────────────── */
+#onboarding { position: fixed; inset: 0; z-index: 95; background: var(--bg); overflow: auto; }
+.ob-wrap { max-width: 640px; margin: 0 auto; padding: 48px 24px 32px; min-height: 100%; display: flex; flex-direction: column; }
+.ob-head { text-align: center; margin-bottom: 22px; }
+.ob-head .brain-mark, .ob-slide-icon { width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 14px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 24px; }
+.ob-head .brain-mark svg { width: 28px; height: 28px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.ob-head h1 { margin: 0 0 8px; }
+.ob-providers { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.ob-providers .provider { position: relative; padding-top: 26px; }
+.ob-tag { position: absolute; top: 8px; right: 8px; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px; }
+.ob-tag.free { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+.ob-tag.paid { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
+.ob-tag.none { background: var(--panel-2); color: var(--dim); }
+.ob-rec { display: block; font-size: 10.5px; color: var(--accent); font-weight: 700; margin-bottom: 3px; }
+.ob-warn { background: color-mix(in srgb, var(--amber) 10%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
+.ob-steps { margin-bottom: 16px; } .ob-step-item { font-size: 13.5px; margin-bottom: 8px; display: flex; gap: 8px; }
+.ob-step-item b { color: var(--accent); flex-shrink: 0; }
+.ob-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 20px; }
+.ob-foot .btn { min-width: 110px; }
+.ob-tour { justify-content: center; position: relative; }
+.ob-skip { position: absolute; top: 0; right: 24px; }
+.ob-slide { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 0; }
+.ob-slide h1 { margin: 0 0 10px; } .ob-slide .sub { max-width: 420px; }
+.ob-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 8px; }
+.ob-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.ob-dots i.on { background: var(--accent); width: 18px; border-radius: 4px; }

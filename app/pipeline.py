@@ -1,4 +1,4 @@
-"""AI pipeline: cleanup → classify → expand → embed → link.
+"""AI pipeline: cleanup → classify → embed → link.
 
 Runs in a background thread after a dump is created. Every stage degrades
 gracefully — with no AI provider configured the dump is still saved, indexed
@@ -150,40 +150,9 @@ _CLASSIFY_SCHEMA = {
     "required": ["title", "summary", "items"],
 }
 
-# One expand call per dump (not per item — that's a cost decision for API users).
-_EXPAND_SYSTEMS = {
-    "brainstorm": """
-You are a creative thinking partner supercharging a brainstorm. For the 1-2 most
-promising ideas in this dump:
-1. Push each somewhere unexpected — a weird angle, an analogy from a completely different domain
-2. Identify what assumption is baked in and flip it
-3. Suggest one concrete experiment (under 30 mins) to test it
-
-Be genuinely surprising. Avoid the obvious. Under 120 words, tight.
-""".strip(),
-    "therapy": """
-You are a skilled, warm therapist reading a raw thought dump. In under 120 words:
-1. Name the feeling underneath it (not just the surface emotion)
-2. Offer one compassionate reframe — not toxic positivity, a genuine alternative lens
-3. Ask one Socratic question that invites deeper self-understanding
-
-Be warm and direct, not clinical. Address the person as "you".
-""".strip(),
-    "execution": """
-You are a ruthless execution coach reading a task dump. In under 120 words:
-1. Identify the single bottleneck that will make or break this set of tasks
-2. Name the most common way people stall on exactly this kind of work
-3. Give the specific first physical action to take in the next 10 minutes — include any tool or app needed
-
-No motivational fluff. Concrete nouns, verbs, and tools only.
-""".strip(),
-    "freeform": """
-You are a thoughtful thinking partner reading a raw dump. In under 80 words:
-- Add one piece of useful context or a connection to something related
-- Flag anything that might be more important than it seems
-- End with one short follow-up question
-""".strip(),
-}
+# Capture modes. "therapy" and "brainstorm" also unlock a live conversational
+# session (see personas.py); mode no longer changes how the pipeline itself runs.
+VALID_MODES = ("freeform", "brainstorm", "therapy", "execution")
 
 
 def _classify_system() -> str:
@@ -325,7 +294,7 @@ def run_pipeline(dump_id: str) -> None:
     row = db.query_one("SELECT * FROM dumps WHERE id=?", (dump_id,))
     if not row:
         return
-    raw, mode = row["raw_text"], row["mode"]
+    raw = row["raw_text"]
     use_ai = ai.available()
     provider = ai.config()["provider"] if use_ai else "off"
     try:
@@ -383,28 +352,16 @@ def run_pipeline(dump_id: str) -> None:
             db.execute("INSERT INTO items_fts (item_id, dump_id, body) VALUES (?,?,?)",
                        (iid, dump_id, f"{it['content']} {it['detail'] or ''}"))
         _set(dump_id, title=title, summary=summary, tone=json.dumps(tone) if tone else None,
-             people=json.dumps(people), concepts=json.dumps(concepts), stage="expand")
+             people=json.dumps(people), concepts=json.dumps(concepts), stage="embed")
 
-        # 3 · expand ----------------------------------------------------------
-        reflection = None
-        if use_ai:
-            try:
-                with instrument.timed(dump_id, "expand"):
-                    reflection = ai.chat(
-                        _EXPAND_SYSTEMS.get(mode, _EXPAND_SYSTEMS["freeform"]),
-                        clean, max_tokens=700, temperature=0.7)
-            except ai.AIError as e:
-                print(f"[pipeline] expand skipped: {e}", flush=True)
-        _set(dump_id, reflection=reflection, stage="embed")
-
-        # 4 · embed -----------------------------------------------------------
+        # 3 · embed -----------------------------------------------------------
         emb = None
         if use_ai:
             with instrument.timed(dump_id, "embed"):
                 emb = ai.embed(f"{title}\n{summary}\n{clean}")
         _set(dump_id, embedding=json.dumps(emb) if emb else None, stage="link")
 
-        # 5 · index + link ----------------------------------------------------
+        # 4 · index + link ----------------------------------------------------
         db.execute("DELETE FROM dumps_fts WHERE id=?", (dump_id,))
         db.execute("INSERT INTO dumps_fts (id, body) VALUES (?,?)",
                    (dump_id, f"{title}\n{summary}\n{clean}"))
@@ -412,7 +369,7 @@ def run_pipeline(dump_id: str) -> None:
 
         _set(dump_id, status="ready", stage=None)
 
-        # 6 · propose pushes to connected integrations (never auto-executes) ----
+        # 5 · propose pushes to connected integrations (never auto-executes) ----
         try:
             from . import plugins, suggestions
             suggestions.from_dump(dump_id)

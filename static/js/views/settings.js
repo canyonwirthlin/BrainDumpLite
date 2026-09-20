@@ -9,6 +9,7 @@ import { openThemeEditor } from "../themeeditor.js";
 import { resolveHex, isHex6 } from "../color.js";
 import { lockNow } from "../shell.js";
 import { runTool, MODE_LABEL } from "../tools.js";
+import { replayTutorial } from "../onboarding.js";
 
 const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["stats", "Stats"], ["about", "About"]];
 const advOn = (s) => { try { return localStorage.getItem("bdl-adv-" + s) === "1"; } catch { return false; } };
@@ -90,7 +91,7 @@ function sectionAppearance(box, s) {
 
 // ── AI ───────────────────────────────────────────────────────────────────────
 
-const PROVIDER_META = [
+export const PROVIDER_META = [
   { id: "builtin", name: "Built-in", desc: "Free · runs on this PC", help: "Runs a small AI model directly on this computer — GPU-accelerated, no account, no cost, and nothing you write ever leaves your machine. One-time model download (2–5 GB), then it works offline." },
   { id: "anthropic", name: "Claude", desc: "Anthropic API key", help: "Get a key at console.anthropic.com → API Keys. Costs cents/day at normal use." },
   { id: "openai", name: "OpenAI", desc: "OpenAI API key", help: "Get a key at platform.openai.com → API Keys. Also enables semantic search embeddings." },
@@ -360,10 +361,12 @@ function sectionAbout(box, s) {
       <p class="small" style="margin-bottom:12px">BrainDump Lite <b>v${esc(state.status.version || "?")}</b> · ${native ? "native app" : "browser mode"}</p>
       <div class="row" style="margin:0">
         <button class="btn ghost" id="about-whatsnew">What's new</button>
+        <button class="btn ghost" id="about-tutorial">Replay tutorial</button>
         ${native ? `<button class="btn ghost" id="about-update">Check for updates</button>` : ""}
       </div>
     </div>`;
   $("#about-whatsnew", body).onclick = () => showWhatsNew(state.status.version);
+  $("#about-tutorial", body).onclick = () => replayTutorial();
   if ($("#about-update", body)) $("#about-update", body).onclick = () => checkForUpdates({ silent: false });
 }
 
@@ -379,7 +382,7 @@ const ENGINE_PHASES = {
 let enginePrevPhase = null;
 const browseState = { q: "", vram: 0 };
 
-async function paintEnginePanel() {
+export async function paintEnginePanel() {
   const box = $("#engine-panel");
   if (!box) return;  // user navigated away — route() clears the poll timer
   let es;

@@ -13,7 +13,7 @@ export const MODES = [
 ];
 export const PROVIDER_NAMES = { builtin: "Built-in AI", anthropic: "Claude", openai: "OpenAI", gemini: "Gemini", local: "Self-hosted", off: "AI off" };
 export const STAGES = [
-  ["cleanup", "Cleaning transcript"], ["classify", "Extracting items"], ["expand", "Thinking deeper"],
+  ["cleanup", "Cleaning transcript"], ["classify", "Extracting items"],
   ["embed", "Embedding"], ["link", "Linking to past dumps"],
 ];
 

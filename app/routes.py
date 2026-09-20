@@ -67,7 +67,14 @@ def status():
         "lock_set": lock.is_set(),
         "last_dump_at": (db.query_one("SELECT MAX(created_at) AS m FROM dumps") or {"m": None})["m"],
         "inbox_pending": suggestions.count_pending(),
+        "onboarded": bool(db.get_setting("onboarded", False)),
     }
+
+
+@router.post("/onboarding/complete")
+def complete_onboarding():
+    db.set_setting("onboarded", True)
+    return {"onboarded": True}
 
 
 @router.get("/changelog")
@@ -319,7 +326,7 @@ async def import_markdown(files: list[UploadFile] = File(...), mode: str = "free
         except UnicodeDecodeError:
             text = raw.decode("latin-1")
         batch.append((f.filename or "note.md", text, None))
-    return import_md.import_files(batch, mode if mode in pipeline._EXPAND_SYSTEMS else "freeform")
+    return import_md.import_files(batch, mode if mode in pipeline.VALID_MODES else "freeform")
 
 
 @router.get("/import/status")
@@ -787,7 +794,7 @@ def export_theme(theme_id: str):
 def _dump_out(row, items=None, related=None):
     out = {k: row[k] for k in (
         "id", "created_at", "mode", "raw_text", "clean_text", "title",
-        "summary", "reflection", "status", "stage", "error", "provider", "captured_local")}
+        "summary", "status", "stage", "error", "provider", "captured_local")}
     try:
         out["tone"] = json.loads(row["tone"]) if row["tone"] else None
     except (ValueError, TypeError):
@@ -809,7 +816,7 @@ def create_dump(body: DumpIn, bg: BackgroundTasks):
     text = body.text.strip()
     if not text:
         raise HTTPException(400, "Empty dump")
-    mode = body.mode if body.mode in pipeline._EXPAND_SYSTEMS else "freeform"
+    mode = body.mode if body.mode in pipeline.VALID_MODES else "freeform"
     dump_id = db.new_id()
     db.execute(
         "INSERT INTO dumps (id, created_at, mode, raw_text, status) VALUES (?,?,?,?, 'pending')",
