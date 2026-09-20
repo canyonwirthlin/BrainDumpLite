@@ -23,6 +23,17 @@ PY=".venv/bin/python"
 echo "Installing dependencies..."
 "$PY" -m pip install --disable-pip-version-check -r requirements.txt pyinstaller
 
+# The frozen app can only contain what this venv has, so check the imports the backend needs up front
+# (and, in CI, put what's installed into an annotation so a failure is readable without job logs).
+if ! "$PY" -c "import httpx, openai, fastapi, uvicorn" 2> import-check.err; then
+  echo "::error title=backend dependencies missing::$(tr '
+' '|' < import-check.err) $("$PY" -m pip list 2>/dev/null | tr '
+' '|')"
+  cat import-check.err
+  exit 1
+fi
+rm -f import-check.err
+
 VOICE_OK=0
 if [ "${1:-}" != "--no-voice" ]; then
   # Voice is optional: if faster-whisper has no wheel for this Python/arch yet, build without it.
@@ -31,7 +42,8 @@ if [ "${1:-}" != "--no-voice" ]; then
 fi
 
 ARGS=(--noconfirm --clean --onedir --name braindump-backend --distpath src-tauri --workpath build
-      --add-data "app:app" --add-data "static:static" --add-data "CHANGELOG.md:." --add-data "catalog:catalog" --add-data "examples:examples")
+      --add-data "app:app" --add-data "static:static" --add-data "CHANGELOG.md:." --add-data "catalog:catalog" --add-data "examples:examples"
+      --hidden-import httpx --hidden-import httpcore --hidden-import h11 --hidden-import anyio)
 if [ "$VOICE_OK" = 1 ]; then
   ARGS+=(--collect-all faster_whisper --collect-all ctranslate2 --collect-all av)
 fi
