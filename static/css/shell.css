@@ -16,7 +16,7 @@ button { font: inherit; cursor: pointer; border: none; border-radius: 10px; }
    Real content (dump text, item content, inputs) is left selectable. */
 #rail, #titlebar, #topbar, button, .btn, .nav, .mode-chip, .provider, .chip, .tag,
 .pill, .sw, .dot, .status-dot, .sec, label, .kbd-hint, h2, .ob-tag, .ob-rec,
-.hero, .sub, .ao-wrap > summary {
+.hero, .sub, .ao-wrap > summary, .streak-badge {
   user-select: none; -webkit-user-select: none;
 }
 kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--dim); background: var(--panel); }
@@ -89,6 +89,12 @@ code { font: 12.5px var(--mono); background: var(--panel-2); padding: 1px 6px; b
   background: color-mix(in srgb, var(--panel) 70%, transparent); color: var(--dim); }
 .pill.on { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, transparent); }
 .pill.update { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); animation: glowpulse 2s infinite; }
+.streak-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 5px 12px;
+  border-radius: 999px; white-space: nowrap; border: 1px solid var(--line); color: var(--dim);
+  background: color-mix(in srgb, var(--panel) 70%, transparent); margin-bottom: 16px; transition: all .15s; }
+.streak-badge:hover { border-color: var(--accent); color: var(--text); }
+.streak-badge.lit { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.streak-badge.at-risk { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
 @keyframes glowpulse { 50% { opacity: .6; } }
 .btn { background: var(--accent); color: #fff; font-weight: 600; padding: 9px 16px; border-radius: 10px; font-size: 13.5px;
   box-shadow: 0 6px 20px var(--accent-soft); transition: filter var(--ease), transform .12s; display: inline-flex; align-items: center; gap: 6px; }

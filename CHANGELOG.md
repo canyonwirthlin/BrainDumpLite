@@ -4,6 +4,9 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.17.1 — 2026-09-20
+- Your current streak now shows right on the Capture screen too, not just Statistics — click it to jump to the full breakdown. Warns you when today's still open.
+
 ## 0.17.0 — 2026-09-20
 - New Statistics tab: a daily dump streak (gained by dumping once a day, lost after a full empty day — the flame warns you when today's still open), longest and average streak, days dumped, words dumped this week/month/year/all-time, plus the model-activity numbers that used to live under Settings → Stats.
 - Onboarding now asks whether to open at startup, with the free-tier "open at startup" being the honest choice: closing the window already just sends it to the tray, this only decides whether it's there when you log in. Shows the actual background footprint for the AI provider you picked (RAM/CPU while idle vs. while a dump is processing).
