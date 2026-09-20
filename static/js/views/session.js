@@ -1,6 +1,6 @@
 // Conversational capture: a streaming chat with the therapy/brainstorm persona,
 // plus a right panel of items noticed so far. Ending saves everything as one dump.
-import { $, $$, esc, md, toast, kindBadge, MODES } from "../ui.js";
+import { $, $$, esc, md, toast, kindBadge, MODES, modeOf } from "../ui.js";
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { go } from "../router.js";
@@ -17,14 +17,14 @@ export async function render(ctx) {
   try { s = await api.get("/sessions/" + sid); }
   catch { ctx.setTitle("Conversation"); $("#view").innerHTML = `<div class="center">Session not found. <a href="#capture">Back</a></div>`; return; }
   if (s.status === "ended" && s.dump_id) { location.replace("#history/" + s.dump_id); return; }
-  const mode = MODES.find((m) => m.id === s.mode) || { icon: "💬", label: s.mode };
+  const mode = MODES.find((m) => m.id === s.mode) || { icon: "💬", label: s.mode, color: "var(--accent)" };
   ctx.setTitle(`${mode.icon} ${mode.label} conversation`,
     `<button class="btn small" id="sess-end">End &amp; save</button><button class="btn ghost small" id="sess-discard">Discard</button>`);
   ctx.setLayout("full");
-  $("#view").innerHTML = `<div class="split right has-detail" id="sess">
+  $("#view").innerHTML = `<div class="split right has-detail" id="sess" data-mode="${esc(s.mode)}" style="--mode:${mode.color}">
     <div class="detail chat">
       <div class="bubbles" id="bubbles">${s.transcript.length ? s.transcript.map(bubble).join("")
-        : `<div class="center small muted">${s.mode === "therapy" ? "Say what's on your mind. I'll listen and ask one question at a time." : "Throw an idea at me — I'll build on it and push it somewhere new."}</div>`}</div>
+        : `<div class="bubble assistant opener">${esc(modeOf(s.mode).opener || "What's on your mind?")}</div>`}</div>
       <div class="composer">
         <textarea id="sess-text" class="editor" rows="3" placeholder="Type, or hit the mic and talk…"></textarea>
         <div class="row" style="margin-top:8px">
@@ -57,6 +57,12 @@ export async function render(ctx) {
     go("capture");
   };
   paintItems(sid, s.items);
+  // Text typed on the Capture screen before "Start talking" becomes the first message.
+  const opener = sessionStorage.getItem("bdl-session-opener");
+  if (opener) {
+    sessionStorage.removeItem("bdl-session-opener");
+    if (!s.transcript.length) sendMessage(sid, opener);
+  }
 }
 
 function bubble(t) {
@@ -95,7 +101,7 @@ async function sendMessage(sid, text) {
   if (!text) return;
   const ta = $("#sess-text"), btn = $("#sess-send"), box = $("#bubbles");
   ta.value = ""; btn.disabled = true;
-  $(".center", box)?.remove();
+  $(".opener", box)?.remove();
   box.insertAdjacentHTML("beforeend", bubble({ role: "user", content: text }));
   const live = document.createElement("div");
   live.className = "bubble assistant streaming";

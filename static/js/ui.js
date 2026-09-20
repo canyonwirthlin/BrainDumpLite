@@ -5,12 +5,34 @@ export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+// Capture modes. `chat` modes open a live conversation (needs AI); the others are one-shot dumps.
+// `color` tints the whole capture screen (chips, glow, bubbles) so the modes read as different places.
+const art = (body) => `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 export const MODES = [
-  { id: "freeform", icon: "🌀", label: "Freeform" },
-  { id: "brainstorm", icon: "💡", label: "Brainstorm" },
-  { id: "therapy", icon: "🫂", label: "Therapy" },
-  { id: "execution", icon: "⚡", label: "Execution" },
+  { id: "freeform", icon: "🌀", label: "Freeform", color: "var(--accent)", chat: false,
+    hero: "What's on your mind?", sub: "Dump it all — tasks, worries, ideas. The AI sorts it out.",
+    about: "Write, paste or talk with no structure at all. The AI tidies the text, then pulls out tasks, ideas, people and topics.",
+    how: "One-shot · saved as a dump", placeholder: "Type, paste, or hit the mic and just talk…",
+    art: art('<path d="M5 30c5-13 9 9 15-4s9 9 15-4 5 3 8-2"/><path d="M8 14h14M8 20h8" opacity=".5"/>') },
+  { id: "brainstorm", icon: "💡", label: "Brainstorm", color: "var(--amber)", chat: true,
+    hero: "What are we building?", sub: "Think out loud with a creative partner that builds on every idea.",
+    about: "A live back-and-forth with an idea partner. It adds an unexpected angle, suggests one small thing to try, then asks what's next.",
+    how: "Live chat · saved when you end it", placeholder: "Throw an idea, a problem or a half-formed thought…",
+    opener: "Got an idea, a problem or a half-formed thought? Throw it at me — I'll build on it and push it somewhere new.",
+    art: art('<path d="M24 6a10 10 0 0 0-5 18.5V30h10v-5.5A10 10 0 0 0 24 6z"/><path d="M20 35h8M21 39h6M24 1v2M9 9l1.5 1.5M39 9l-1.5 1.5M3 20h2M43 20h2"/>') },
+  { id: "therapy", icon: "🫂", label: "Therapy", color: "var(--green)", chat: true,
+    hero: "How are you doing?", sub: "A calm, private place to talk things through.",
+    about: "A gentle conversation. It reflects the feeling it hears and asks one open question at a time. It's an AI, not a therapist — no diagnosing or advice.",
+    how: "Live chat · saved when you end it", placeholder: "Say what's on your mind. Take your time…",
+    opener: "I'm here. What's on your mind today? Take your time — I'll listen and ask one question at a time.",
+    art: art('<path d="M8 8h22a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H20l-7 6v-6H8a4 4 0 0 1-4-4V12a4 4 0 0 1 4-4z"/><path d="M38 19h2a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4h-2v5l-6-5h-8" opacity=".55"/><path d="M19 22c-4-2.5-5.5-4.5-5.5-6.3a2.6 2.6 0 0 1 5.5-.9 2.6 2.6 0 0 1 5.5.9c0 1.8-1.5 3.8-5.5 6.3z"/>') },
+  { id: "execution", icon: "⚡", label: "Execution", color: "var(--accent-2)", chat: false,
+    hero: "What needs doing?", sub: "List it out — get tasks with dates and a first step for each.",
+    about: "For getting things done. List what needs doing, one per line; each becomes a task you can date, check off and send to your calendar in Tasks.",
+    how: "One-shot · saved as a dump", placeholder: "One thing per line — call the dentist Friday, finish the report, …",
+    art: art('<rect x="5" y="8" width="9" height="9" rx="2.5"/><path d="M7.5 12.5l2 2 3-4"/><path d="M20 12.5h22"/><rect x="5" y="22" width="9" height="9" rx="2.5"/><path d="M7.5 26.5l2 2 3-4"/><path d="M20 26.5h16"/><rect x="5" y="36" width="9" height="9" rx="2.5"/><path d="M20 40.5h12" opacity=".5"/>') },
 ];
+export const modeOf = (id) => MODES.find((m) => m.id === id) || MODES[0];
 export const PROVIDER_NAMES = { builtin: "Built-in AI", anthropic: "Claude", openai: "OpenAI", gemini: "Gemini", local: "Self-hosted", off: "AI off" };
 export const STAGES = [
   ["cleanup", "Cleaning transcript"], ["classify", "Extracting items"],

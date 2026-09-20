@@ -7,6 +7,7 @@ import json
 import re
 import threading
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
@@ -25,7 +26,24 @@ class DumpIn(BaseModel):
     mode: str = "freeform"
 
 
+class DumpPatch(BaseModel):
+    title: str | None = None
+    concepts: list[str] | None = None
+    people: list[str] | None = None
+
+
+class LinkIn(BaseModel):
+    related_id: str
+
+
+class SaveIn(BaseModel):
+    path: str                   # absolute path chosen in the native Save dialog
+    wikilinks: bool = True
+
+
 class ItemPatch(BaseModel):
+    content: str | None = None  # the item's text (hand-edit of an extracted node)
+    detail: str | None = None   # first tiny step / context; "" or null clears (see model_fields_set)
     status: str | None = None   # suggested|approved|rejected
     done: bool | None = None
     kind: str | None = None     # an enabled item type id (task, idea, or a custom one)
@@ -314,6 +332,37 @@ def export_markdown_zip(wikilinks: int = 1):
     data = export_md.vault_markdown_zip(bool(wikilinks))
     return Response(data, media_type="application/zip",
                     headers={"Content-Disposition": 'attachment; filename="braindump-markdown.zip"'})
+
+
+def _save_export(path: str, data: bytes, ext: str) -> dict:
+    """Write an export where the native Save dialog pointed. The dialog runs in the
+    shell; the file is written here because this process is the one holding the data."""
+    p = Path(path.strip())
+    if not p.is_absolute():
+        raise HTTPException(400, "Choose a full file path")
+    if p.suffix.lower() != ext:
+        p = p.with_name(p.name + ext)
+    if not p.parent.is_dir():
+        raise HTTPException(400, "That folder doesn't exist")
+    try:
+        p.write_bytes(data)
+    except OSError as e:
+        raise HTTPException(400, f"Couldn't write the file: {e.strerror or e}")
+    return {"path": str(p)}
+
+
+@router.post("/dumps/{dump_id}/markdown/save")
+def save_dump_markdown(dump_id: str, body: SaveIn):
+    try:
+        _, text = export_md.dump_markdown(dump_id, body.wikilinks)
+    except ValueError:
+        raise HTTPException(404, "Dump not found")
+    return _save_export(body.path, text.encode("utf-8"), ".md")
+
+
+@router.post("/export/markdown/save")
+def save_markdown_zip(body: SaveIn):
+    return _save_export(body.path, export_md.vault_markdown_zip(body.wikilinks), ".zip")
 
 
 @router.post("/import/markdown")
@@ -866,6 +915,57 @@ def delete_dump(dump_id: str):
     return {"ok": True}
 
 
+def _clean_names(names: list[str], cap: int = 12) -> list[str]:
+    out, seen = [], set()
+    for n in names:
+        n = " ".join(str(n).replace("[[", "").replace("]]", "").split()).lstrip("@")[:60]
+        if n and n.lower() not in seen:
+            seen.add(n.lower()); out.append(n)
+    return out[:cap]
+
+
+@router.patch("/dumps/{dump_id}")
+def patch_dump(dump_id: str, body: DumpPatch):
+    row = db.query_one("SELECT * FROM dumps WHERE id=?", (dump_id,))
+    if not row:
+        raise HTTPException(404, "Dump not found")
+    if body.title is not None:
+        title = " ".join(body.title.split())[:80]
+        if not title:
+            raise HTTPException(400, "A dump needs a title")
+        db.execute("UPDATE dumps SET title=? WHERE id=?", (title, dump_id))
+    if body.concepts is not None:
+        db.execute("UPDATE dumps SET concepts=? WHERE id=?", (json.dumps(_clean_names(body.concepts)), dump_id))
+    if body.people is not None:
+        db.execute("UPDATE dumps SET people=? WHERE id=?", (json.dumps(_clean_names(body.people)), dump_id))
+    if body.title is not None and row["status"] == "ready":  # keep search in step with the new title
+        d = db.query_one("SELECT title, summary, clean_text, raw_text FROM dumps WHERE id=?", (dump_id,))
+        db.execute("DELETE FROM dumps_fts WHERE id=?", (dump_id,))
+        db.execute("INSERT INTO dumps_fts (id, body) VALUES (?,?)",
+                   (dump_id, "\n".join([d["title"], d["summary"] or "", d["clean_text"] or d["raw_text"]])))
+    return _dump_out(db.query_one("SELECT * FROM dumps WHERE id=?", (dump_id,)))
+
+
+@router.post("/dumps/{dump_id}/links")
+def add_dump_link(dump_id: str, body: LinkIn):
+    if body.related_id == dump_id:
+        raise HTTPException(400, "A dump can't link to itself")
+    for i in (dump_id, body.related_id):
+        if not db.query_one("SELECT id FROM dumps WHERE id=?", (i,)):
+            raise HTTPException(404, "Dump not found")
+    if not db.query_one("SELECT 1 FROM links WHERE (dump_id=? AND related_id=?) OR (dump_id=? AND related_id=?)",
+                        (dump_id, body.related_id, body.related_id, dump_id)):
+        db.execute("INSERT INTO links VALUES (?,?,?)", (dump_id, body.related_id, 1.0))
+    return {"ok": True}
+
+
+@router.delete("/dumps/{dump_id}/links/{other_id}")
+def remove_dump_link(dump_id: str, other_id: str):
+    db.execute("DELETE FROM links WHERE (dump_id=? AND related_id=?) OR (dump_id=? AND related_id=?)",
+               (dump_id, other_id, other_id, dump_id))
+    return {"ok": True}
+
+
 # ── Items / tasks ────────────────────────────────────────────────────────────
 
 @router.patch("/items/{item_id}")
@@ -873,6 +973,18 @@ def patch_item(item_id: str, body: ItemPatch):
     row = db.query_one("SELECT id FROM items WHERE id=?", (item_id,))
     if not row:
         raise HTTPException(404, "Item not found")
+    if body.content is not None:
+        content = body.content.strip()[:500]
+        if not content:
+            raise HTTPException(400, "An item needs some text")
+        db.execute("UPDATE items SET content=? WHERE id=?", (content, item_id))
+    if "detail" in body.model_fields_set:
+        db.execute("UPDATE items SET detail=? WHERE id=?", ((body.detail or "").strip()[:500] or None, item_id))
+    if body.content is not None or "detail" in body.model_fields_set:
+        it = db.query_one("SELECT dump_id, content, detail FROM items WHERE id=?", (item_id,))
+        db.execute("DELETE FROM items_fts WHERE item_id=?", (item_id,))
+        db.execute("INSERT INTO items_fts (item_id, dump_id, body) VALUES (?,?,?)",
+                   (item_id, it["dump_id"], f"{it['content']} {it['detail'] or ''}"))
     if body.status is not None:
         if body.status not in ("suggested", "approved", "rejected"):
             raise HTTPException(400, "Bad status")

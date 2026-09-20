@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import json
 import random
+import re
+from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 
 from . import db, item_types
@@ -66,14 +68,63 @@ def _names(raw) -> list[str]:
         return []
 
 
+# ── Concept grouping ─────────────────────────────────────────────────────────
+# The model names concepts freely, so two dumps about the same thing rarely agree on the
+# exact string ("internships" vs "internship applications"). Matching on exact text left
+# them as separate graph nodes with no shared "Also about". So concepts are grouped at read
+# time: a name folds into the shortest existing name whose (singularised) words are all
+# contained in it. People stay exact — "Sam" and "Samuel" may be different people.
+_STOP_TOK = {"a", "an", "the", "and", "of", "for", "to", "in", "on", "at", "my", "with", "your", "our"}
+
+
+def _stem(tok: str) -> str:
+    if len(tok) > 4 and tok.endswith("ies"):
+        return tok[:-3] + "y"
+    if len(tok) > 3 and tok.endswith("s") and not tok.endswith("ss"):
+        return tok[:-1]
+    return tok
+
+
+def _tokset(name: str) -> frozenset:
+    return frozenset(_stem(t) for t in re.findall(r"[a-z0-9]+", name.lower()) if t not in _STOP_TOK)
+
+
+def canonical_map(column: str = "concepts") -> dict[str, str]:
+    """{lowercased name as stored: display name of its group} across all ready dumps."""
+    freq: Counter = Counter()
+    display: dict[str, str] = {}
+    for r in db.query(f"SELECT {column} FROM dumps WHERE status='ready'"):
+        for name in {n.lower(): n for n in _names(r[column])}.values():
+            k = name.lower()
+            freq[k] += 1
+            display.setdefault(k, name)
+    if column != "concepts":
+        return dict(display)
+    toks = {k: _tokset(k) for k in freq}
+    usable = {k: t for k, t in toks.items() if t and sum(len(x) for x in t) >= 4}   # skip "ai", "go"…
+    out = {}
+    for k in freq:
+        cands = [m for m, t in usable.items() if t <= toks[k]] or [k]
+        best = min(cands, key=lambda m: (len(toks[m]), -freq[m], len(m), m))
+        out[k] = display[best]
+    return out
+
+
+def _group_key(name: str, cmap: dict[str, str]) -> str:
+    return cmap.get(name.lower(), name).lower()
+
+
 def build(items: bool = False) -> dict:
     """Nodes: dumps + concepts + people (+ items). Edges: mention / similar / in."""
     rows = db.query("SELECT id, title, created_at, people, concepts FROM dumps WHERE status='ready'")
     nodes: list[dict] = []
     edges: list[dict] = []
     slots: dict[str, str] = {}
+    cmap = canonical_map("concepts")
 
     def slot(name: str, kind: str) -> str:
+        if kind == "concept":
+            name = cmap.get(name.lower(), name)
         key = f"{kind}:{name.lower()}"
         if key not in slots:
             slots[key] = key
@@ -82,8 +133,12 @@ def build(items: bool = False) -> dict:
 
     for r in rows:
         nodes.append({"id": r["id"], "label": r["title"] or "Untitled", "type": "dump", "created_at": r["created_at"]})
+        seen_c = set()
         for name in _names(r["concepts"]):
-            edges.append({"source": r["id"], "target": slot(name, "concept"), "type": "mention"})
+            tgt = slot(name, "concept")
+            if tgt not in seen_c:
+                seen_c.add(tgt)
+                edges.append({"source": r["id"], "target": tgt, "type": "mention"})
         for name in _names(r["people"]):
             edges.append({"source": r["id"], "target": slot(name, "person"), "type": "mention"})
     for r in db.query("SELECT dump_id, related_id, score FROM links"):
@@ -114,11 +169,11 @@ _BRIEF_SQL = ("SELECT d.id, d.title, d.created_at, d.mode, d.tone, d.provider, d
 
 
 def _tally(column: str) -> list[dict]:
+    cmap = canonical_map(column)
     counts: dict[str, dict] = {}
     for r in db.query(f"SELECT {column}, created_at FROM dumps WHERE status='ready'"):
-        for name in _names(r[column]):
-            k = name.lower()
-            e = counts.setdefault(k, {"name": name, "count": 0, "last_at": r["created_at"]})
+        for k in {_group_key(n, cmap) for n in _names(r[column])}:
+            e = counts.setdefault(k, {"name": cmap.get(k, k), "count": 0, "last_at": r["created_at"]})
             e["count"] += 1
             if r["created_at"] > e["last_at"]:
                 e["last_at"] = r["created_at"]
@@ -134,10 +189,11 @@ def people() -> list[dict]:
 
 
 def _for_name(column: str, name: str) -> list[dict]:
-    want = name.strip().lower()
+    cmap = canonical_map(column)
+    want = _group_key(name.strip(), cmap)
     out = []
     for r in db.query(_BRIEF_SQL + " ORDER BY d.created_at DESC"):
-        if want in [n.lower() for n in _names(r[column])]:
+        if want in {_group_key(n, cmap) for n in _names(r[column])}:
             out.append(_dump_brief(r))
     return out
 
@@ -160,11 +216,16 @@ def backlinks(dump_id: str) -> dict:
     all_rows = {r["id"]: r for r in db.query("SELECT id, people, concepts FROM dumps WHERE status='ready' AND id != ?", (dump_id,))}
 
     def via(column: str) -> list[dict]:
-        out = []
+        cmap = canonical_map(column)
+        out, seen = [], set()
         for name in _names(me[column]):
-            hits = [briefs[i] for i, r in all_rows.items() if name.lower() in [n.lower() for n in _names(r[column])] and i in briefs]
+            key = _group_key(name, cmap)
+            if key in seen:
+                continue
+            seen.add(key)
+            hits = [briefs[i] for i, r in all_rows.items() if key in {_group_key(n, cmap) for n in _names(r[column])} and i in briefs]
             if hits:
-                out.append({"name": name, "dumps": hits[:8]})
+                out.append({"name": cmap.get(name.lower(), name), "dumps": hits[:8]})
         return out
 
     return {"similar": [briefs[i] for i in similar_ids if i in briefs],

@@ -8,7 +8,7 @@ import { native, currentWindow, minimizeWindow, toggleMaximizeWindow, closeWindo
 
 export const NAV = [
   { id: "capture", label: "Capture" }, { id: "graph", label: "Graph" }, { id: "search", label: "Search" },
-  { id: "today", label: "Today" }, { id: "history", label: "History" }, { id: "tasks", label: "Tasks" },
+  { id: "history", label: "History" }, { id: "today", label: "Today" }, { id: "tasks", label: "Tasks" },
   { id: "inbox", label: "Inbox" }, { id: "reflect", label: "Reflect" }, { id: "stats", label: "Statistics" },
 ];
 

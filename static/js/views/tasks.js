@@ -1,9 +1,9 @@
-// Tasks as master/detail: due-date groups on the left, the group's tasks on the right.
+// Tasks as master/detail: "All" (open tasks, the default) plus due-date groups on the left, the group's tasks on the right.
 import { $, $$, esc, todayIso, timeChips } from "../ui.js";
 import { api } from "../api.js";
 import { dueWrap, bindDue, calBtns } from "./review.js";
 
-const GROUPS = [["overdue", "Overdue"], ["today", "Today"], ["upcoming", "Upcoming"], ["someday", "Someday"], ["done", "Done"]];
+const GROUPS = [["all", "All"], ["overdue", "Overdue"], ["today", "Today"], ["upcoming", "Upcoming"], ["someday", "Someday"], ["done", "Done"]];
 
 export async function render(ctx) {
   ctx.setTitle("Tasks");
@@ -15,16 +15,17 @@ export async function render(ctx) {
   try { tasks = await api.get("/tasks"); }
   catch (e) { $("#task-list").innerHTML = `<div class="center">Couldn't load tasks: ${esc(e.message)}</div>`; return; }
   const today = todayIso(), dayOf = (t) => (t.due_date || "").split("T")[0] || null;
-  const by = { overdue: [], today: [], upcoming: [], someday: [], done: [] };
+  const by = { all: [], overdue: [], today: [], upcoming: [], someday: [], done: [] };
   for (const t of tasks) {
     const day = dayOf(t);
-    if (t.done) by.done.push(t);
-    else if (day && day < today) by.overdue.push(t);
+    if (t.done) { by.done.push(t); continue; }
+    by.all.push(t);  // everything still open — Done is the only thing "All" leaves out
+    if (day && day < today) by.overdue.push(t);
     else if (day === today) by.today.push(t);
     else if (day) by.upcoming.push(t);
     else by.someday.push(t);
   }
-  const group = GROUPS.some(([g]) => g === ctx.params[0]) ? ctx.params[0] : (GROUPS.find(([g]) => by[g].length)?.[0] || "today");
+  const group = GROUPS.some(([g]) => g === ctx.params[0]) ? ctx.params[0] : "all";
   const label = GROUPS.find(([g]) => g === group)[1];
   $("#task-groups").innerHTML = `<div class="glist">${GROUPS.map(([g, l]) => `
       <a href="#tasks/${g}" class="grow-row ${g === group ? "on" : ""}"><span>${l}</span><span class="count">${by[g].length}</span></a>`).join("")}</div>
@@ -45,7 +46,7 @@ export async function render(ctx) {
         ${calBtns(t)}
         <button class="iconbtn no" title="Reject">✕</button>
       </div>`).join("")}</div>`
-    : `<div class="center"><div class="big">🧺</div>Nothing in ${label.toLowerCase()}${tasks.length ? "" : " — tasks appear when your dumps contain them"}.</div>`}`;
+    : `<div class="center"><div class="big">🧺</div>${group === "all" ? "No open tasks" : "Nothing in " + label.toLowerCase()}${tasks.length ? "" : " — tasks appear when your dumps contain them"}.</div>`}`;
   const reload = () => render(ctx);
   bindDue($("#task-list"), reload);
   $$(".task-row").forEach((el) => {

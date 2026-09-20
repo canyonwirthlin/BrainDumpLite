@@ -3,7 +3,7 @@
 import { $, $$, esc, toast, modal, colorCss } from "../ui.js";
 import { api } from "../api.js";
 import { state, clearPoll, refreshStatus, loadTypes } from "../state.js";
-import { native, openExternal, showWhatsNew, checkForUpdates, isAutostartEnabled, setAutostart } from "../native.js";
+import { native, openExternal, showWhatsNew, checkForUpdates, isAutostartEnabled, setAutostart, saveAs, streakNotifyOn, setStreakNotify } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
 import { openThemeEditor } from "../themeeditor.js";
 import { resolveHex, isHex6 } from "../color.js";
@@ -279,7 +279,7 @@ async function paintData(body) {
     ${native ? `<div class="card">
       <h2>Startup &amp; notifications</h2>
       <label class="sw" style="font-size:13.5px;color:var(--text);margin-bottom:10px"><input type="checkbox" id="startup-on" ${autostartOn ? "checked" : ""}><i></i> Open BrainDump Lite when my computer starts</label>
-      <label class="sw" style="font-size:13.5px;color:var(--text)"><input type="checkbox" id="streak-notify-on" ${localStorage.getItem("bdl-streak-notify") === "1" ? "checked" : ""}><i></i> Remind me about today's dump / streak, every couple hours</label>
+      <label class="sw" style="font-size:13.5px;color:var(--text)"><input type="checkbox" id="streak-notify-on" ${streakNotifyOn() ? "checked" : ""}><i></i> Remind me about today's dump / streak, every couple hours</label>
     </div>` : ""}`;
   const msg = (m, bad) => { const el = $("#data-msg", body); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
   $("#reveal", body).onclick = async () => {
@@ -308,6 +308,14 @@ async function paintData(body) {
   };
   // markdown export / import
   $("#md-wiki", body).onchange = (e) => { $("#md-export", body).href = "/api/export/markdown.zip?wikilinks=" + (e.target.checked ? 1 : 0); };
+  $("#md-export", body).onclick = async (e) => {  // native: pick where the zip goes; browser: normal download
+    e.preventDefault();
+    try {
+      const path = await saveAs({ defaultName: "braindump-markdown.zip", ext: "zip", label: "Markdown export (zip)", endpoint: "/export/markdown/save",
+        body: { wikilinks: $("#md-wiki", body).checked }, downloadUrl: e.currentTarget.href });
+      if (path) toast("Saved to " + path);
+    } catch (err) { toast("Couldn't save: " + (err.message || err), true); }
+  };
   $("#md-import", body).onchange = async (e) => {
     const files = [...e.target.files]; if (!files.length) return;
     const fd = new FormData(); files.forEach((f) => fd.append("files", f));
@@ -337,7 +345,7 @@ async function paintData(body) {
   if ($("#lk-now", body)) $("#lk-now", body).onclick = () => lockNow();
   if ($("#startup-on", body)) $("#startup-on", body).onchange = (e) => setAutostart(e.target.checked);
   if ($("#streak-notify-on", body)) $("#streak-notify-on", body).onchange = async (e) => {
-    try { localStorage.setItem("bdl-streak-notify", e.target.checked ? "1" : "0"); } catch {}
+    setStreakNotify(e.target.checked);
     if (e.target.checked && native?.notification) {
       try { if (!(await native.notification.isPermissionGranted())) await native.notification.requestPermission(); } catch {}
     }

@@ -93,3 +93,56 @@ def test_base_node_kinds_can_be_renamed_recolored_and_reset(data):
         assert client.delete("/api/graph/types/task").status_code == 400
     finally:
         db.execute("DELETE FROM settings WHERE key=?", (graph.BASE_KEY,))
+
+
+# ── Concept grouping: "internships" vs "internship applications" (real case) ──
+
+@pytest.fixture
+def internships():
+    create_app()
+    _dump("gi1", "Balancing hobbies and work", concepts=["home lab", "internship applications", "exam"])
+    _dump("gi2", "Mixed progress and gratitude", concepts=["Internships", "finances", "home lab"])
+    _dump("gi3", "Unrelated", concepts=["cooking"])
+    yield
+    db.execute("DELETE FROM dumps WHERE id IN ('gi1','gi2','gi3')")
+
+
+def test_similar_concept_names_fold_into_one_group(internships):
+    cmap = graph.canonical_map("concepts")
+    assert cmap["internship applications"] == cmap["internships"] == "Internships"
+    assert cmap["cooking"] == "cooking"           # unrelated names stay themselves
+    tally = {c["name"]: c["count"] for c in graph.concepts()}
+    assert tally["Internships"] == 2 and "internship applications" not in tally
+
+
+def test_grouped_concepts_share_a_node_and_browse_together(internships):
+    g = graph.build()
+    concept_nodes = [n for n in g["nodes"] if n["type"] == "concept" and "internship" in n["label"].lower()]
+    assert len(concept_nodes) == 1
+    mentions = {e["source"] for e in g["edges"] if e["target"] == concept_nodes[0]["id"]}
+    assert mentions == {"gi1", "gi2"}
+    # either spelling opens the same group
+    assert {d["id"] for d in graph.for_concept("internship applications")} == {"gi1", "gi2"}
+    assert {d["id"] for d in graph.for_concept("Internships")} == {"gi1", "gi2"}
+    via = graph.backlinks("gi1")["via_concepts"]
+    assert [v["name"] for v in via if "ntern" in v["name"]] == ["Internships"]
+
+
+def test_short_and_unrelated_names_do_not_fold():
+    create_app()
+    _dump("gs1", "a", concepts=["ai", "ai safety"])
+    _dump("gs2", "b", concepts=["game design", "game night"])
+    try:
+        cmap = graph.canonical_map("concepts")
+        assert cmap["ai safety"] == "ai safety"       # "ai" is too short to absorb anything
+        assert cmap["game design"] == "game design" and cmap["game night"] == "game night"
+    finally:
+        db.execute("DELETE FROM dumps WHERE id IN ('gs1','gs2')")
+
+
+def test_known_concepts_hint_lists_existing_names(internships):
+    from app import pipeline
+    hint = pipeline._known_concepts_hint("some-new-dump")
+    low = hint.lower()
+    assert "home lab" in low and "internships" in low and "internship applications" in low
+    assert pipeline._known_concepts_hint("gi1").count("Internships") == 1

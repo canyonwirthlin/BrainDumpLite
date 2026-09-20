@@ -4,6 +4,18 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.18.0 — 2026-09-20
+- Edit anything the AI produced: rename a dump, edit each extracted item's text / first step / type, and add, rename or remove concepts and people. Add or remove links between dumps. Works right after a dump and from History.
+- Dump pages now show the cleaned transcript first, with the key-point bullets underneath it.
+- "Export .md" (and Settings → "Export all as markdown") opens a Save-as window so you choose where the file goes.
+- Capture modes look and feel different: each has its own colour, headline and a short explainer that appears when you pick it. Brainstorm and Therapy are now a chat window (with AI on); Execution is a ruled checklist. Text you type before "Start talking" now becomes your first message instead of being dropped.
+- History moved above Today in the left rail.
+- Tasks opens on a new "All" tab (every open task, nothing from Done), then Overdue / Today / Upcoming / Someday / Done.
+- Graph: a Spacing slider above the graph controls how far apart nodes sit.
+- Topics that come up in several dumps now connect: similar concept names ("internships" / "internship applications") are grouped in the graph, concept pages and "Also about", and the AI is told your existing concept names so it reuses them.
+- The tutorial is now an interactive replica of the app — click through every tab and try demo versions of capture, history editing, tasks, the graph and more. Nothing you do in it is saved. Replay it from Settings → About.
+- Streak reminders are on by default (opt out during setup or in Settings → Data). The "Skip tutorial" button is now in the window corner.
+
 ## 0.17.1 — 2026-09-20
 - Your current streak now shows right on the Capture screen too, not just Statistics — click it to jump to the full breakdown. Warns you when today's still open.
 

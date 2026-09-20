@@ -179,9 +179,36 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .ob-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 20px; }
 .ob-foot .btn { min-width: 110px; }
 .ob-tour { justify-content: center; position: relative; }
-.ob-skip { position: absolute; top: 0; right: 24px; }
+.ob-skip { position: fixed; top: 16px; right: 20px; z-index: 2; }  /* window corner, not the middle of the 640px column */
 .ob-slide { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 0; }
 .ob-slide h1 { margin: 0 0 10px; } .ob-slide .sub { max-width: 420px; }
 .ob-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 8px; }
 .ob-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
 .ob-dots i.on { background: var(--accent); width: 18px; border-radius: 4px; }
+
+
+/* ── Interactive tour: a replica of the app, built from the real classes (see js/tour.js) ── */
+.tour { max-width: 1040px; margin: 0 auto; padding: 28px 24px 22px; min-height: 100%; display: flex; flex-direction: column; }
+.tour-head { text-align: center; margin-bottom: 14px; }
+.tour-head h1 { margin: 0 0 6px; }
+.tour-head .sub { max-width: 640px; margin: 0 auto; }
+.tour-app { display: flex; height: clamp(400px, calc(100vh - 300px), 660px); flex: none; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg); box-shadow: var(--shadow); }
+.tour-rail { width: 76px; flex: none; background: var(--rail); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 6px 0; overflow: auto; }
+.tour-rail a { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; color: var(--dim); font-size: 10px; transition: color var(--ease), background var(--ease); }
+.tour-rail a svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.tour-rail a:hover { color: var(--text); }
+.tour-rail a.active { color: var(--accent); background: var(--accent-soft); }
+.tour-view { flex: 1; min-width: 0; overflow: auto; padding: 16px 18px; }
+.tour-tip { text-align: center; color: var(--accent); font-size: 13px; margin: 12px 0 4px; }
+.t-split { display: flex; height: 100%; margin: -16px -18px; min-height: 0; }
+.t-split > .master { width: 210px; flex: none; border-right: 1px solid var(--line); overflow: auto; }
+.t-split > .detail { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px; }
+.t-demo { margin: 10px 0 0; font-size: 11.5px; color: var(--dim); font-style: italic; }
+.t-graph { width: 100%; height: 250px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; display: block; }
+.t-graph-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.t-node { cursor: pointer; transition: opacity .15s; }
+.t-info { margin-top: 10px; padding: 10px 14px; }
+.t-search { width: 100%; margin-bottom: 12px; }
+.t-inline { padding: 2px 8px; font-size: inherit; width: min(420px, 100%); }
+.tour mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+.tour .iconbtn.edit { opacity: 1; }

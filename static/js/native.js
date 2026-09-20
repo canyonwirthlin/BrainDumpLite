@@ -34,6 +34,21 @@ export function openExternal(url) {
   else window.open(url, "_blank", "noopener");
 }
 
+// "Save as…": the OS Save dialog (Tauri shell), then the backend writes the file to the
+// chosen path — the shell has no fs plugin, and the backend already holds the data.
+// A plain browser has no native dialog, so it gets an ordinary download instead.
+// Resolves to the saved path, or null if cancelled / downloaded.
+export async function saveAs({ defaultName, ext, label, endpoint, body = {}, downloadUrl }) {
+  if (!(native && native.dialog && native.dialog.save)) {
+    const a = Object.assign(document.createElement("a"), { href: downloadUrl, download: defaultName });
+    document.body.appendChild(a); a.click(); a.remove();
+    return null;
+  }
+  const path = await native.dialog.save({ title: `Save ${label}`, defaultPath: defaultName, filters: [{ name: label, extensions: [ext] }] });
+  if (!path) return null;
+  return (await api.post(endpoint, { ...body, path })).path;
+}
+
 let pendingUpdate = null;
 
 export async function checkForUpdates({ silent = true } = {}) {
@@ -127,6 +142,14 @@ export function initNative() {
 // Data). Stays quiet once a dump lands, and outside a reasonable waking window.
 const STREAK_CHECK_MS = 2 * 60 * 60 * 1000;
 
+// On unless the user switched it off (onboarding or Settings → Data both write "0"/"1").
+export function streakNotifyOn() {
+  try { return localStorage.getItem("bdl-streak-notify") !== "0"; } catch { return true; }
+}
+export function setStreakNotify(on) {
+  try { localStorage.setItem("bdl-streak-notify", on ? "1" : "0"); } catch {}
+}
+
 export function startStreakReminders() {
   checkStreakReminder();
   setInterval(checkStreakReminder, STREAK_CHECK_MS);
@@ -134,9 +157,7 @@ export function startStreakReminders() {
 
 async function checkStreakReminder() {
   if (!native?.notification) return;
-  let on = false;
-  try { on = localStorage.getItem("bdl-streak-notify") === "1"; } catch {}
-  if (!on) return;
+  if (!streakNotifyOn()) return;
   const hour = new Date().getHours();
   if (hour < 9 || hour >= 22) return;  // no 3 a.m. buzzing
   let s;

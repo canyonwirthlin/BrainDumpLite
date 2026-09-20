@@ -24,6 +24,11 @@ function graphColors() {
   return { colors, text: v("--text", "#e6e9f2"), edge: v("--dim", "#8b93a8"), dump: colors.dump || v("--accent", "#8b7cf6") };
 }
 
+// Node spacing (the slider above the graph): scales repulsion and edge length together.
+const SPACING_KEY = "bdl-graph-spacing";
+let spacing = 1, reheat = null;   // reheat(): set by the running simulation so the slider can wake it up
+try { const v = parseFloat(localStorage.getItem(SPACING_KEY)); if (v >= 0.5 && v <= 3) spacing = v; } catch {}
+
 const hidden = new Set();  // node types toggled off in the legend (persisted per device)
 let lastData = null, focus = false, hiddenLoaded = false;
 
@@ -95,8 +100,19 @@ export async function render(ctx) {
   ctx.setTitle("Brain map", legendHtml());
   ctx.setLayout("full");
   $("#view").innerHTML = `<div class="wide">
-    <p class="sub" style="margin-bottom:10px">Every dump, concept, and person you've mentioned. Drag nodes, scroll to zoom, click to explore.</p>
+    <div class="graph-bar">
+      <p class="sub">Every dump, concept, and person you've mentioned. Drag nodes, scroll to zoom, click to explore.</p>
+      <label class="graph-spacing" title="How far apart the nodes sit"><span>Spacing</span>
+        <input type="range" id="graph-spacing" min="0.5" max="3" step="0.05" value="${spacing}" aria-label="Node spacing">
+        <output id="spacing-val">${spacing.toFixed(1)}×</output></label>
+    </div>
     <div class="graph-wrap" id="graph-wrap"></div></div>`;
+  $("#graph-spacing").oninput = (e) => {
+    spacing = parseFloat(e.target.value);
+    $("#spacing-val").textContent = spacing.toFixed(1) + "×";
+    try { localStorage.setItem(SPACING_KEY, String(spacing)); } catch {}
+    reheat?.();
+  };
   bindLegendEditors(ctx);
   $$(".topbar-slot .chip[data-type]").forEach((b) => b.onclick = () => toggleType(ctx, b));
   $("#graph-focus").onclick = () => { focus = !focus; $("#graph-focus").classList.toggle("on", focus); mount(); };
@@ -150,6 +166,7 @@ function mountForceGraph(canvas, data) {
   // Window-level listeners are removed when the graph view unmounts.
   const ac = new AbortController();
   const sig = { signal: ac.signal };
+  reheat = () => { alpha = 1; needsDraw = true; };
 
   function resize() {
     const dpr = window.devicePixelRatio || 1;
@@ -183,7 +200,7 @@ function mountForceGraph(canvas, data) {
           const a = nodes[i], b = nodes[j];
           const dx = a.x - b.x, dy = a.y - b.y;
           const d2 = Math.max(dx * dx + dy * dy, 4);
-          const f = (2200 / d2) * k;
+          const f = (2200 * spacing * spacing / d2) * k;
           const d = Math.sqrt(d2);
           const fx = (dx / d) * f, fy = (dy / d) * f;
           a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
@@ -193,7 +210,7 @@ function mountForceGraph(canvas, data) {
         const a = byId[e.source], b = byId[e.target];
         const dx = b.x - a.x, dy = b.y - a.y;
         const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
-        const target = e.type === "similar" ? 150 : 95;
+        const target = (e.type === "similar" ? 150 : 95) * spacing;
         const f = (d - target) * 0.02 * k;
         const fx = (dx / d) * f, fy = (dy / d) * f;
         a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;

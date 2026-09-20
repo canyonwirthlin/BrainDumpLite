@@ -1,5 +1,5 @@
 // Capture stage, processing progress and voice recording.
-import { $, $$, esc, toast, md, MODES, STAGES, kindBadge, toneChip } from "../ui.js";
+import { $, $$, esc, toast, md, MODES, modeOf, STAGES, kindBadge, toneChip } from "../ui.js";
 import { go } from "../router.js";
 import { attach as attachWikilinks } from "../wikilinks.js";
 import { api } from "../api.js";
@@ -9,47 +9,75 @@ import { renderReview } from "./review.js";
 export function render(ctx) {
   ctx.setTitle("Capture");
   $("#view").innerHTML = `
-    <div class="glow"></div>
-    <h1 class="hero">What's on your mind?</h1>
-    <p class="sub">Dump it all — tasks, worries, ideas. The AI sorts it out.</p>
-    <a href="#stats" class="streak-badge" id="streak-badge" hidden></a>
-    ${state.status.ai ? "" : `<div class="banner">AI is off — dumps are saved raw without processing.
-      <a href="#settings">Connect a key in Settings</a> to unlock the magic.</div>`}
-    <div class="modes">${MODES.map((m) => `
-      <button class="mode-chip ${m.id === state.curMode ? "active" : ""}" data-mode="${m.id}">
-        ${m.icon} ${m.label}</button>`).join("")}
-    </div>
-    <textarea id="dump-text" class="editor" placeholder="Type, paste, or hit the mic and just talk…">${esc(state.draft)}</textarea>
+    <div class="glow" id="cap-glow"></div>
+    <div class="capture" id="cap">
+      <h1 class="hero" id="cap-hero"></h1>
+      <p class="sub" id="cap-sub"></p>
+      <a href="#stats" class="streak-badge" id="streak-badge" hidden></a>
+      ${state.status.ai ? "" : `<div class="banner">AI is off — dumps are saved raw without processing.
+        <a href="#settings">Connect a key in Settings</a> to unlock the magic.</div>`}
+      <div class="modes" role="tablist">${MODES.map((m) => `
+        <button class="mode-chip" role="tab" data-mode="${m.id}" style="--mode:${m.color}">${m.icon} ${m.label}</button>`).join("")}
+      </div>
+      <div class="mode-info" id="mode-info" aria-live="polite"></div>
+      <div id="cap-body"></div>
+    </div>`;
+  $$(".mode-chip").forEach((b) => b.onclick = () => { state.curMode = b.dataset.mode; paintMode(); });
+  paintMode();
+  paintStreakBadge();
+}
+
+// Everything that changes with the mode: colour, headline, the explainer, and the input itself.
+// Brainstorm and Therapy are conversations, so (with AI on) they get a chat window instead of
+// a blank page; Freeform and Execution stay one-shot editors, Execution styled as a checklist.
+function paintMode() {
+  const m = modeOf(state.curMode);
+  const chat = m.chat && state.status.ai;
+  const cap = $("#cap");
+  cap.dataset.mode = m.id;
+  cap.style.setProperty("--mode", m.color);
+  $("#cap-glow").style.setProperty("--mode", m.color);
+  $$(".mode-chip").forEach((b) => { const on = b.dataset.mode === m.id; b.classList.toggle("active", on); b.setAttribute("aria-selected", on); });
+  $("#cap-hero").textContent = m.hero;
+  $("#cap-sub").textContent = m.sub;
+  $("#mode-info").innerHTML = `<div class="mi-art">${m.art}</div>
+    <div><b>${m.icon} ${esc(m.label)}</b><p>${esc(m.about)}</p>
+      <span class="mi-how">${esc(chat || !m.chat ? m.how : "Chat needs AI — saved as a one-shot dump for now")}</span></div>`;
+
+  $("#cap-body").innerHTML = `${chat ? `<div class="chatbox">
+      <div class="cb-thread"><div class="bubble assistant">${esc(m.opener)}</div></div>
+      <div class="cb-composer">` : ""}
+    <textarea id="dump-text" class="editor ${m.id === "execution" ? "tasklist" : ""} ${chat ? "chat-input" : ""}" placeholder="${esc(m.placeholder)}">${esc(state.draft)}</textarea>
     <div class="row">
       ${state.status.whisper ? `<button class="mic" id="mic" title="Record voice">🎙️</button>
         <span class="muted small" id="rec-status"></span>` : ""}
       <div class="grow"></div>
-      <button class="btn ghost" id="talk-btn" title="Have a live conversation instead of a one-shot dump" ${["therapy", "brainstorm"].includes(state.curMode) ? "" : "hidden"}>Talk it through →</button>
-      <button class="btn" id="dump-btn">Dump it →</button>
+      ${chat ? `<button class="btn ghost" id="dump-btn" title="Skip the conversation and save this as a one-shot dump">Just save it</button>
+        <button class="btn" id="talk-btn">Start talking →</button>`
+             : `<button class="btn" id="dump-btn">Dump it →</button>`}
     </div>
-    <div class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to dump</div>`;
-  $$(".mode-chip").forEach((b) => b.onclick = () => {
-    state.curMode = b.dataset.mode;
-    $$(".mode-chip").forEach((x) => x.classList.toggle("active", x === b));
-    $("#talk-btn").hidden = !["therapy", "brainstorm"].includes(state.curMode);
-  });
-  $("#talk-btn").onclick = async () => {
-    if (!state.status.ai) { toast("Turn on an AI provider in Settings to have a conversation.", true); return; }
-    try {
-      const s = await api.post("/sessions", { mode: state.curMode });
-      const text = $("#dump-text").value.trim();
-      if (text) sessionStorage.setItem("bdl-session-opener", text);
-      go("session/" + s.id);
-    } catch (e) { toast(e.message, true); }
-  };
-  $("#dump-text").oninput = (e) => { state.draft = e.target.value; };
-  attachWikilinks($("#dump-text"));
-  $("#dump-text").onkeydown = (e) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitDump(); }
+    ${chat ? "</div></div>" : ""}
+    <div class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to ${chat ? "start the conversation" : "dump"}${m.id === "execution" ? " · one task per line works best" : ""}</div>`;
+
+  const ta = $("#dump-text");
+  ta.oninput = (e) => { state.draft = e.target.value; };
+  attachWikilinks(ta);
+  ta.onkeydown = (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); chat ? startTalk() : submitDump(); }
   };
   $("#dump-btn").onclick = submitDump;
+  if ($("#talk-btn")) $("#talk-btn").onclick = startTalk;
   if ($("#mic")) $("#mic").onclick = () => toggleRecording();
-  paintStreakBadge();
+}
+
+async function startTalk() {
+  try {
+    const s = await api.post("/sessions", { mode: state.curMode });
+    const text = $("#dump-text").value.trim();
+    if (text) sessionStorage.setItem("bdl-session-opener", text);
+    state.draft = "";
+    go("session/" + s.id);
+  } catch (e) { toast(e.message, true); }
 }
 
 async function paintStreakBadge() {

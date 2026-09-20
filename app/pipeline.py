@@ -262,6 +262,28 @@ def _fts_terms(text: str, n: int = 8) -> list[str]:
     return out
 
 
+def _known_concepts_hint(dump_id: str, limit: int = 30) -> str:
+    """The user's most-used concept names so far. Small models invent a fresh spelling every
+    time ("internships" / "internship applications"), which fragments the knowledge graph;
+    nudging them to reuse an existing name keeps recurring topics in one place."""
+    counts: dict[str, list] = {}
+    for r in db.query("SELECT concepts FROM dumps WHERE concepts IS NOT NULL AND status='ready' AND id != ?", (dump_id,)):
+        try:
+            names = json.loads(r["concepts"] or "[]")
+        except (ValueError, TypeError):
+            continue
+        for n in names:
+            n = str(n).strip()
+            if n:
+                counts.setdefault(n.lower(), [n, 0])[1] += 1
+    if not counts:
+        return ""
+    top = [v[0] for v in sorted(counts.values(), key=lambda v: (-v[1], v[0].lower()))[:limit]]
+    return ("\n\nConcepts this user already has: " + ", ".join(top) +
+            ". When this dump is about one of these, use that exact name instead of a new variant "
+            "(e.g. reuse \"internships\", don't write \"internship applications\"). Still add genuinely new concepts.")
+
+
 def _link(dump_id: str, emb: list[float] | None, title: str, text: str) -> None:
     db.execute("DELETE FROM links WHERE dump_id=?", (dump_id,))
     if emb:
@@ -321,7 +343,7 @@ def run_pipeline(dump_id: str) -> None:
         if use_ai:
             try:
                 with instrument.timed(dump_id, "classify"):
-                    data = ai.chat_json(_classify_system() + "\n\n" + _date_table(), clean,
+                    data = ai.chat_json(_classify_system() + _known_concepts_hint(dump_id) + "\n\n" + _date_table(), clean,
                                         schema=_classify_schema())
                 tone = _parse_tone(data)
                 title = preset_title or (str(data.get("title") or title)).strip()[:80]
