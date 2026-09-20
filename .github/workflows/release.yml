@@ -149,6 +149,12 @@ jobs:
         # that opens to a blank window. On failure the backend's own log is put in the error
         # annotation so it can be read without downloading job logs.
         run: |
+          # Trace to a file; if ANY command fails, the trace + backend output go into the annotation.
+          exec 3>&1 2> "$RUNNER_TEMP/trace.txt"
+          set -x
+          trap 'rc=$?; if [ $rc -ne 0 ]; then echo "::error title=smoke-test rc=$rc::$(tail -c 2500 "$RUNNER_TEMP/trace.txt" | tr "
+" "||") ## backend.out: $(tail -c 1500 "$RUNNER_TEMP/backend.out" 2>/dev/null | tr "
+" "||")" >&3; fi' EXIT
           export BRAINDUMP_LITE_SIDECAR=1 BRAINDUMP_LITE_PORT=8761 BRAINDUMP_LITE_DATA="$RUNNER_TEMP/bdl-smoke"
           src-tauri/backend/braindump-backend > "$RUNNER_TEMP/backend.out" 2>&1 &
           PID=$!
