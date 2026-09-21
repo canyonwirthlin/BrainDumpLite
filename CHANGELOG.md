@@ -4,6 +4,9 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.19.2 — 2026-09-21
+- Removed the Today tab. It only re-listed what you'd already dumped; Capture, History and Tasks cover it. The tutorial no longer shows it either.
+
 ## 0.19.1 — 2026-09-20
 - BrainDump Lite can only be open once now. Launching it again (Start Menu, a double-click, the startup item) brings the window that's already running to the front instead of starting a second copy that fights over your vault.
 - New setting: Settings → Data → "Quit when I close the window". Off (the default) keeps the current behaviour — the close button sends the app to the tray. On, the close button quits it for real. Streak reminders only fire while the app is running, so they stop when you quit.

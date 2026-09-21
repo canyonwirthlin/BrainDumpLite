@@ -14,7 +14,6 @@ import * as search from "./views/search.js";
 import * as reflect from "./views/reflect.js";
 import * as settings from "./views/settings.js";
 import * as session from "./views/session.js";
-import * as today from "./views/today.js";
 import * as inbox from "./views/inbox.js";
 import * as stats from "./views/stats.js";
 
@@ -26,7 +25,6 @@ register("search", search.render);
 register("reflect", reflect.render);
 register("settings", settings.render);
 register("session", session.render);
-register("today", today.render);
 register("inbox", inbox.render);
 register("stats", stats.render);
 

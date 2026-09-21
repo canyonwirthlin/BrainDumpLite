@@ -64,7 +64,7 @@ function bindLegendEditors(ctx) {
 
 async function refresh(ctx) {
   try { TYPES = await api.get("/graph/types"); } catch { /* keep the current list on a transient failure */ }
-  await loadTypes();  // item-type edits from the legend also affect kindBadge() elsewhere (Today, Review)
+  await loadTypes();  // item-type edits from the legend also affect kindBadge() elsewhere (Review)
   ctx.setTitle("Brain map", legendHtml());
   bindLegendEditors(ctx);
   $$(".topbar-slot .chip[data-type]").forEach((b) => b.onclick = () => toggleType(ctx, b));

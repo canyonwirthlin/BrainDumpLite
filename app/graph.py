@@ -1,5 +1,5 @@
 """Knowledge-graph queries (Phase 5): node types, nodes/edges, concept and
-people browsers, backlinks, the Today stream and "on this day" resurfacing.
+people browsers, backlinks, and "on this day" resurfacing.
 Everything is computed from existing tables; nothing is stored except the
 per-day resurface choice (settings key "resurface:<date>")."""
 from __future__ import annotations

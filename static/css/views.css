@@ -321,11 +321,6 @@ a.iconbtn.cal { text-decoration: none; }
 .backlinks .bl { display: block; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .backlinks .bl:last-child { border-bottom: 0; }
 .backlinks .sec a { color: var(--accent); text-transform: none; letter-spacing: 0; font-size: 12px; }
-.today-card .mono { font-family: var(--mono); font-size: 11.5px; }
-.today-items { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-.today-items .mi { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
-.today-items .mi.done span { text-decoration: line-through; color: var(--dim); }
-.card.quick .editor { min-height: 56px; box-shadow: none; }
 .resurface { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
 
 

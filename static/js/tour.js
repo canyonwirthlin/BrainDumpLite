@@ -164,20 +164,6 @@ const SCENES = {
     },
   },
 
-  today: {
-    title: "Today — the day at a glance",
-    blurb: "Today lines up what you dumped so far, with a quick-capture box on top for a fast thought between other things.",
-    tip: "Tick an item off. Quick thoughts here are saved like any other dump — but not in this demo.",
-    mount(view, t) {
-      view.innerHTML = `<div class="card quick"><textarea class="editor" rows="2" placeholder="Quick thought… (Ctrl+Enter to save)"></textarea>
-        <div class="row" style="margin-top:8px"><span class="small muted">Saved as a normal dump and processed like any other.</span><div class="grow"></div><button class="btn small" id="t-save">Save</button></div></div>
-        <div class="card today-card"><div class="row" style="margin:0 0 6px"><span class="small muted mono">9:12 AM</span><b>Career pivot anxiety</b><span class="tag">🫂 Therapy</span></div>
-          <div class="today-items">${DUMPS[0].items.map(([k, c]) => `<label class="mi">${kindBadge(k)} <input type="checkbox" class="t-chk"> <span>${esc(c)}</span></label>`).join("")}</div></div>${demoNote("Demo only — nothing is saved.")}`;
-      $$(".t-chk", view).forEach((c) => c.onchange = () => c.closest(".mi").classList.toggle("done", c.checked));
-      $("#t-save", view).onclick = () => { const b = $("#t-save", view); b.textContent = "Saved (demo)"; t.later(() => { b.textContent = "Save"; }, 1400); };
-    },
-  },
-
   tasks: {
     title: "Tasks — everything you've committed to",
     blurb: "Tasks collects every task from every dump. All shows what's still open; the other tabs slice it by due date, and Done keeps what you've finished.",
