@@ -2,6 +2,7 @@
 //! process. Deliberately tiny - all product logic lives in Python and JS.
 
 mod backend;
+mod prefs;
 mod tray;
 
 use std::sync::Mutex;
@@ -11,6 +12,15 @@ use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
+        // Must be first. A second launch (Start Menu, a double-click, the OS
+        // login item) never gets as far as starting a second backend: it hands
+        // its args to this callback in the running instance and exits. Bring
+        // the window forward, unless the OS itself launched it at login.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if !args.iter().any(|a| a == "--minimized") {
+                tray::show_main(app);
+            }
+        }))
         .plugin(tauri_plugin_opener::init()) // web UI opens links in the default browser
         .plugin(tauri_plugin_updater::Builder::new().build()) // JS: __TAURI__.updater.check()
         .plugin(tauri_plugin_process::init()) // JS: __TAURI__.process.relaunch()
@@ -24,7 +34,10 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized".into()]),
         ))
+        .invoke_handler(tauri::generate_handler![prefs::get_quit_on_close, prefs::set_quit_on_close])
         .setup(|app| {
+            app.manage(prefs::Prefs::load(app.handle()));
+
             // 1. Start the backend on a port we choose, so we know where to navigate.
             let port = backend::pick_port(8756);
             let child = backend::spawn(app.handle(), port)?;
@@ -58,11 +71,17 @@ pub fn run() {
             tray::setup(app.handle())?;
             Ok(())
         })
-        // Close button = hide to tray. Tray -> Quit is the real exit.
+        // Close button = hide to tray (tray -> Quit is the real exit), unless
+        // Settings -> "Quit when I close the window" is on: then it just quits.
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
-                api.prevent_close();
+                let app = window.app_handle();
+                if app.try_state::<prefs::Prefs>().is_some_and(|p| p.quit_on_close()) {
+                    app.exit(0);
+                } else {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
             }
         })
         .build(tauri::generate_context!())

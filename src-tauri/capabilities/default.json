@@ -19,6 +19,8 @@
     "dialog:allow-save",
     "notification:default",
     "autostart:default",
+    "allow-get-quit-on-close",
+    "allow-set-quit-on-close",
     "core:window:allow-start-dragging",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",

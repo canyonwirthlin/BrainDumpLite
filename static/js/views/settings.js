@@ -3,7 +3,7 @@
 import { $, $$, esc, toast, modal, colorCss } from "../ui.js";
 import { api } from "../api.js";
 import { state, clearPoll, refreshStatus, loadTypes } from "../state.js";
-import { native, openExternal, showWhatsNew, checkForUpdates, isAutostartEnabled, setAutostart, saveAs, streakNotifyOn, setStreakNotify } from "../native.js";
+import { native, openExternal, showWhatsNew, checkForUpdates, isAutostartEnabled, setAutostart, getQuitOnClose, setQuitOnClose, saveAs, streakNotifyOn, setStreakNotify } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
 import { openThemeEditor } from "../themeeditor.js";
 import { resolveHex, isHex6 } from "../color.js";
@@ -243,6 +243,7 @@ async function paintData(body) {
   try { v = await api.get("/vault"); } catch (e) { body.innerHTML = `<div class="center">Couldn't read vault info: ${esc(e.message)}</div>`; return; }
   const mb = (v.size_bytes / 1048576).toFixed(1);
   const autostartOn = await isAutostartEnabled();
+  const quitOnClose = await getQuitOnClose();
   body.innerHTML = `
     <div class="card">
       <h2>Vault</h2>
@@ -307,8 +308,9 @@ async function paintData(body) {
       </div>
     </div>
     ${native ? `<div class="card">
-      <h2>Startup &amp; notifications</h2>
+      <h2>Startup, tray &amp; notifications</h2>
       <label class="sw" style="font-size:13.5px;color:var(--text);margin-bottom:10px"><input type="checkbox" id="startup-on" ${autostartOn ? "checked" : ""}><i></i> Open BrainDump Lite when my computer starts</label>
+      <label class="sw" style="font-size:13.5px;color:var(--text);margin-bottom:10px"><input type="checkbox" id="quit-on-close" ${quitOnClose ? "checked" : ""}><i></i> Quit when I close the window (instead of staying in the tray)</label>
       <label class="sw" style="font-size:13.5px;color:var(--text)"><input type="checkbox" id="streak-notify-on" ${streakNotifyOn() ? "checked" : ""}><i></i> Remind me about today's dump / streak, every couple hours</label>
     </div>` : ""}`;
   const msg = (m, bad) => { const el = $("#data-msg", body); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
@@ -374,6 +376,7 @@ async function paintData(body) {
   };
   if ($("#lk-now", body)) $("#lk-now", body).onclick = () => lockNow();
   if ($("#startup-on", body)) $("#startup-on", body).onchange = (e) => setAutostart(e.target.checked);
+  if ($("#quit-on-close", body)) $("#quit-on-close", body).onchange = (e) => setQuitOnClose(e.target.checked);
   if ($("#streak-notify-on", body)) $("#streak-notify-on", body).onchange = async (e) => {
     setStreakNotify(e.target.checked);
     if (e.target.checked && native?.notification) {

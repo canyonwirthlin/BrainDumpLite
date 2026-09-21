@@ -4,6 +4,10 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.19.1 — 2026-09-20
+- BrainDump Lite can only be open once now. Launching it again (Start Menu, a double-click, the startup item) brings the window that's already running to the front instead of starting a second copy that fights over your vault.
+- New setting: Settings → Data → "Quit when I close the window". Off (the default) keeps the current behaviour — the close button sends the app to the tray. On, the close button quits it for real. Streak reminders only fire while the app is running, so they stop when you quit.
+
 ## 0.19.0 — 2026-09-20
 - BrainDump Lite now runs on macOS, for both Apple Silicon and Intel Macs. Download the .dmg from the releases page; the app is not notarized yet, so the first launch needs right-click → Open (the friends guide has the steps). It uses the normal Mac title bar and ⌘ shortcuts, sits in the menu bar, comes back when you click the Dock icon, and updates itself like the Windows app. Your data lives in ~/Library/Application Support/BrainDumpLite.
 - On a Mac, pick Gemini (free), Claude, OpenAI or your own server for the AI. The built-in local AI is Windows-only for now, so it isn't offered on Mac.

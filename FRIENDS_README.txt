@@ -16,6 +16,8 @@ HOW TO INSTALL IT
 3. It installs in a few seconds and opens. There's a Start Menu entry and
    a tray icon (bottom-right, near the clock). Closing the window keeps it
    running in the tray; right-click the tray icon -> Quit to fully exit.
+   (Prefer it to just quit? Settings -> Data -> "Quit when I close the window".)
+   The app only opens once - launching it again brings the open window forward.
 
 ON A MAC
 1. Download the .dmg from the same page: "BrainDump Lite_x.y.z_aarch64.dmg" for

@@ -29,6 +29,18 @@ export async function setAutostart(on) {
   try { await native.autostart[on ? "enable" : "disable"](); } catch (e) { console.warn("autostart toggle failed", e); }
 }
 
+// "Quit when I close the window" (Settings → Data). Lives in the Rust shell because the
+// close button is handled there; off = hide to the tray. No-op in a browser.
+export async function getQuitOnClose() {
+  if (!native) return false;
+  try { return !!(await native.core.invoke("get_quit_on_close")); } catch { return false; }
+}
+
+export async function setQuitOnClose(on) {
+  if (!native) return;
+  try { await native.core.invoke("set_quit_on_close", { enabled: on }); } catch (e) { console.warn("close-behaviour toggle failed", e); }
+}
+
 export function openExternal(url) {
   if (native) native.opener.openUrl(url).catch((e) => toast("Couldn't open link: " + (e.message || e), true));
   else window.open(url, "_blank", "noopener");
