@@ -123,7 +123,17 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 /* ── Modal, toast ─────────────────────────────────────────────────────────── */
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
 .modal { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); max-width: 560px; width: 100%; max-height: 80vh; overflow: auto; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+.modal.wide { max-width: 640px; }
 .modal h2 { margin-top: 0; } .modal .md { margin-bottom: 16px; }
+/* What's New: one section per version, oldest-shown collapsed under a toggle
+   so scrolling further back is opt-in, not a wall of text by default. */
+.wn-entry { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--line); }
+.wn-entry:first-child { padding-top: 0; margin-top: 0; border-top: 0; }
+.wn-entry h3 { margin: 0 0 8px; font-size: 14px; }
+.wn-older { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.wn-older summary { cursor: pointer; color: var(--dim); font-size: 13px; user-select: none; }
+.wn-older[open] summary { margin-bottom: 8px; }
+.wn-older .wn-entry:first-of-type { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line); }
 .progress { height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; margin: 12px 0; }
 .progress > i { display: block; height: 100%; width: 0; transition: width .2s; background: var(--accent); }
 .progress.indet i { animation: indet 1.2s infinite; } @keyframes indet { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }

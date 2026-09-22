@@ -118,18 +118,30 @@ export function maybeShowWhatsNew() {
   let seen = null;
   try { seen = localStorage.getItem("bdl-seen-version"); } catch {}
   try { localStorage.setItem("bdl-seen-version", cur); } catch {}
-  if (seen && seen !== cur) showWhatsNew(cur);   // first-ever run: store silently
+  if (seen && seen !== cur) showWhatsNew(cur, seen);   // first-ever run: store silently
 }
 
-export async function showWhatsNew(version) {
+// `sinceVersion` is the version this install last showed notes for (from
+// localStorage) — everything newer than it, down through `version`, is
+// "what's new"; anything older is full history you can dig into if you want,
+// collapsed by default so it doesn't bury the actual news. Both come from the
+// same CHANGELOG.md the app ships with, so history only reaches as far back
+// as this build's file does — nothing to fetch, nothing to go stale.
+export async function showWhatsNew(version, sinceVersion) {
   let entries = [];
   try { entries = (await api.get("/changelog")).entries; } catch {}
-  const e = entries.find((x) => x.version === version) || entries[0];
+  const curIdx = Math.max(0, entries.findIndex((x) => x.version === version));
+  const sinceIdx = sinceVersion ? entries.findIndex((x) => x.version === sinceVersion) : -1;
+  const olderFrom = sinceIdx > curIdx ? sinceIdx : curIdx + 1;
+  const fresh = entries.slice(curIdx, olderFrom);
+  const older = entries.slice(olderFrom);
+  const entryHtml = (e) => `<div class="wn-entry"><h3>v${esc(e.version)}${e.date ? ` <span class="small muted">— ${esc(e.date)}</span>` : ""}</h3>${md(e.body)}</div>`;
   const bg = document.createElement("div");
   bg.className = "modal-bg";
-  bg.innerHTML = `<div class="modal">
+  bg.innerHTML = `<div class="modal wide">
     <h2>What's new in v${esc(version)}</h2>
-    ${e ? md(e.body) : `<p class="muted">No notes for this version.</p>`}
+    ${fresh.length ? fresh.map(entryHtml).join("") : `<p class="muted">No notes for this version.</p>`}
+    ${older.length ? `<details class="wn-older"><summary>Older releases (${older.length})</summary>${older.map(entryHtml).join("")}</details>` : ""}
     <div class="row"><button class="btn" id="wn-ok">Nice</button></div></div>`;
   document.body.appendChild(bg);
   $("#wn-ok", bg).onclick = () => bg.remove();
