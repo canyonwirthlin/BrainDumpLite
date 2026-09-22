@@ -4,6 +4,10 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.19.3 — 2026-09-21
+- Cleaned dumps now read like a proper journal entry: reorganized into paragraphs so related thoughts sit together, grammatically correct, in an order that makes sense rather than the order you happened to say things — nothing is added, removed, or reworded in meaning.
+- Settings → AI: the Delete button on a downloaded model now shows even when it's your only one (or the one currently in use) — it turns built-in AI off until you pick another. Clicking Start/Use this/Get now immediately shows "Starting…" instead of sitting there looking unresponsive while it loads.
+
 ## 0.19.2 — 2026-09-21
 - Removed the Today tab. It only re-listed what you'd already dumped; Capture, History and Tasks cover it. The tutorial no longer shows it either.
 

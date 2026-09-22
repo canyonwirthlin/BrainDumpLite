@@ -474,7 +474,7 @@ export async function paintEnginePanel() {
           ${spill}${caveats}
         </div>
         ${btn}
-        ${m.downloaded && !m.active ? `<button class="iconbtn no" title="Delete downloaded file" data-del="${m.id}">🗑</button>` : ""}
+        ${m.downloaded ? `<button class="iconbtn no" title="Delete downloaded file" data-del="${m.id}" ${busy ? "disabled" : ""}>🗑</button>` : ""}
       </div>`;
   }).join("");
 
@@ -511,12 +511,17 @@ export async function paintEnginePanel() {
     catch (e) { toast("Couldn't refresh the catalog: " + e.message, true); }
   };
   $$("[data-em]", box).forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    b.textContent = "Starting…";
     try { await api.post("/engine/setup", { model: b.dataset.em }); }
-    catch (e) { toast(e.message, true); return; }
+    catch (e) { toast(e.message, true); paintEnginePanel(); return; }
     paintEnginePanel();
   });
   $$("[data-del]", box).forEach((b) => b.onclick = async () => {
-    if (!confirm("Delete this downloaded model file?")) return;
+    const model = shown.find((m) => m.id === b.dataset.del);
+    const warn = model?.active ? " It's the model in use — built-in AI will turn off until you pick another." : "";
+    if (!confirm(`Delete this downloaded model file?${warn}`)) return;
+    b.disabled = true;
     try { await api.del("/engine/models/" + b.dataset.del); }
     catch (e) { toast(e.message, true); }
     paintEnginePanel();

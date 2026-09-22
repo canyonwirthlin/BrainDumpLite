@@ -40,13 +40,22 @@ def _has_time_ref(text: str) -> bool:
     return bool(_TEMPORAL_RE.search(text or ""))
 
 _CLEANUP_SYSTEM = """
-You are a transcript cleaning assistant. The user voice-dictated or typed raw thoughts.
-Fix speech disfluencies, repeated words, filler words (um, uh, like), and obvious errors.
+You are a transcript cleaning assistant. The user voice-dictated or typed raw thoughts, in
+whatever order they came out. Turn it into a proper journal entry: grammatically correct,
+reorganized so related thoughts sit together, and laid out in paragraphs — the way the user
+would have written it if they'd sat down and composed it themselves, not the order they
+happened to say it out loud.
 
 Rules:
-- NEVER add, remove, or change any ideas, facts, or meaning.
-- Preserve the user's vocabulary and tone.
-- Return ONLY the cleaned transcript. No preamble, no commentary.
+- Fix speech disfluencies, repeated words, filler words (um, uh, like), and grammar.
+- Reorganize freely: group related thoughts into the same paragraph, reorder paragraphs so
+  one idea leads into the next, break unrelated thoughts into their own paragraphs.
+- NEVER add, remove, or change any idea, fact, decision, or feeling. Every thought in the
+  raw transcript must still be present in the cleaned version, just better organized.
+- Preserve the user's own vocabulary, tone, and first-person voice. Don't make it sound
+  more formal or literary than the user actually is.
+- Return ONLY the cleaned entry, as plain text paragraphs separated by blank lines. No
+  headings, no bullet points, no preamble, no commentary.
 """.strip()
 
 _CLASSIFY_TEMPLATE = """
