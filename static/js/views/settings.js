@@ -147,10 +147,24 @@ function sectionAI(box, s) {
       </div>
       <div id="test-out"></div>` : ""}
     </div>
+    ${cur !== "off" ? `<div class="card">
+      <div class="row" style="margin:0">
+        <div class="grow"><b>Have AI clean up my dumps</b>
+          <div class="small muted">Tidies each dump into a readable, journal-style entry (paragraphs, grammar, order) before
+            it's sorted. Turn off to keep your exact words as the transcript — dumps also process a little faster.</div></div>
+        <label class="sw"><input type="checkbox" id="cleanup-on" ${s.cleanup_enabled !== false ? "checked" : ""}><i></i></label>
+      </div></div>` : ""}
     ${on ? `<div class="sec">Extraction types</div>
     <p class="small muted" style="margin-bottom:10px">What the AI looks for in every dump. Add your own, rename, recolor; built-ins can't be removed.</p>
     <div class="card" id="types-editor"></div>` : ""}`;
   if (on) paintTypesEditor($("#types-editor", body));
+  if ($("#cleanup-on", body)) $("#cleanup-on", body).onchange = async (e) => {
+    const want = e.target.checked;
+    try {
+      Object.assign(s, await api.put("/settings", { cleanup_enabled: want }));
+      toast(want ? "The AI will clean up new dumps" : "New dumps keep your exact words");
+    } catch (err) { e.target.checked = !want; toast("Couldn't save: " + err.message, true); }
+  };
   $$(".provider", body).forEach((b) => b.onclick = async () => {
     clearPoll();
     s.provider = b.dataset.p;

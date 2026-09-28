@@ -49,7 +49,7 @@ export function runOnboarding() {
           : "No dedicated GPU was detected, so local models would run slowly on the CPU — Gemini's free cloud tier is recommended instead.";
       }
     } catch { /* status endpoint unreachable — keep the Gemini default */ }
-    ob = { s, provider: null, recommended, hwNote, gpuInfo, startupOn: true, notifyOn: streakNotifyOn(), resolve };
+    ob = { s, provider: null, recommended, hwNote, gpuInfo, startupOn: true, notifyOn: streakNotifyOn(), cleanupOn: s.cleanup_enabled !== false, resolve };
     const el = document.createElement("div");
     el.id = "onboarding";
     document.body.appendChild(el);
@@ -78,6 +78,7 @@ function paintAi() {
       }).join("")}</div>
       ${ob.hwNote ? `<p class="small muted ob-hwnote">${ob.hwNote}</p>` : ""}
       <div id="ob-detail"></div>
+      <div id="ob-cleanup"></div>
       <div class="ob-foot">
         <button class="btn" id="ob-continue" disabled>Continue</button>
       </div>
@@ -86,7 +87,21 @@ function paintAi() {
   paintDetail();
 }
 
+// "Have AI clean up my dumps" — shown once a real AI provider is picked (with AI off there's nothing to clean).
+function paintCleanup() {
+  const box = $("#ob-cleanup");
+  if (!ob.provider || ob.provider === "off") { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="card">
+    <label class="row" style="margin:0;justify-content:space-between;gap:14px">
+      <span style="flex:1;min-width:0">Have AI clean up my dumps
+        <span class="muted small" style="display:block">Tidies each dump into a readable journal-style entry before it's sorted. Off keeps your exact words. Change it anytime in Settings → AI.</span></span>
+      <label class="sw" style="flex:none"><input type="checkbox" id="ob-cleanup-on" ${ob.cleanupOn ? "checked" : ""}><i></i></label>
+    </label></div>`;
+  $("#ob-cleanup-on", box).onchange = (e) => { ob.cleanupOn = e.target.checked; };
+}
+
 function paintDetail() {
+  paintCleanup();
   const box = $("#ob-detail");
   const cont = $("#ob-continue");
   if (!ob.provider) { box.innerHTML = ""; cont.disabled = true; return; }
@@ -241,6 +256,9 @@ async function continueWith(fields) {
 }
 
 async function complete() {
+  if (ob.provider !== "off") {
+    try { await api.put("/settings", { cleanup_enabled: ob.cleanupOn }); } catch {}
+  }
   try { await api.post("/onboarding/complete"); } catch {}
   await refreshStatus();
   paintStartup();

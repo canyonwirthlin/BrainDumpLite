@@ -346,7 +346,8 @@ def run_pipeline(dump_id: str) -> None:
         _set(dump_id, status="processing", stage="cleanup", error=None, provider=provider,
              captured_local=row["captured_local"] or datetime.now().astimezone().isoformat(timespec="seconds"))
         clean = raw
-        if use_ai:
+        # Settings → AI "Have AI clean up my dumps": off keeps the user's own words as the transcript.
+        if use_ai and db.get_setting("cleanup_enabled", True):
             try:
                 with instrument.timed(dump_id, "cleanup"):
                     clean = ai.chat(_CLEANUP_SYSTEM, raw,

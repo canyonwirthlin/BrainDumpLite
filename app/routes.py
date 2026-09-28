@@ -62,6 +62,7 @@ class SettingsIn(BaseModel):
     embed_model: str | None = None
     whisper_model: str | None = None
     tools_in_chat: bool | None = None
+    cleanup_enabled: bool | None = None  # the AI "tidy the transcript" pass; on unless switched off
 
 
 class ReflectIn(BaseModel):
@@ -1278,6 +1279,7 @@ def get_settings():
     c = ai.config()
     return {**c, "whisper_model": db.get_setting("whisper_model", "base"),
             "tools_in_chat": bool(db.get_setting("tools_in_chat", False)),
+            "cleanup_enabled": bool(db.get_setting("cleanup_enabled", True)),
             "defaults": ai.DEFAULTS}
 
 
@@ -1285,6 +1287,8 @@ def get_settings():
 def put_settings(body: SettingsIn):
     if body.tools_in_chat is not None:
         db.set_setting("tools_in_chat", bool(body.tools_in_chat))
+    if body.cleanup_enabled is not None:
+        db.set_setting("cleanup_enabled", bool(body.cleanup_enabled))
     if body.provider is not None:
         if body.provider not in ("builtin", "anthropic", "openai", "gemini", "local", "off"):
             raise HTTPException(400, "Bad provider")

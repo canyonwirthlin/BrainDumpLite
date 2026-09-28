@@ -88,3 +88,26 @@ def test_no_ai_marks_provider_off(monkeypatch):
     assert d["status"] == "ready" and d["provider"] == "off"
     assert db.query_one("SELECT COUNT(*) AS n FROM runs WHERE dump_id=?", (did,))["n"] == 0
     db.execute("DELETE FROM dumps WHERE id=?", (did,))
+
+
+def test_cleanup_off_keeps_raw_text_and_skips_the_stage(fake_ai, monkeypatch):
+    db.set_setting("cleanup_enabled", False)
+    try:
+        did = _new_dump("book the dentist by friday, work is a fog")
+        pipeline.run_pipeline(did)
+        d = db.query_one("SELECT * FROM dumps WHERE id=?", (did,))
+        assert d["status"] == "ready" and d["clean_text"] == "book the dentist by friday, work is a fog"
+        stages = {r["stage"] for r in db.query("SELECT stage FROM runs WHERE dump_id=?", (did,))}
+        assert "cleanup" not in stages and "classify" in stages  # items are still extracted
+        db.execute("DELETE FROM dumps WHERE id=?", (did,))
+    finally:
+        db.set_setting("cleanup_enabled", True)
+
+
+def test_cleanup_setting_defaults_on_and_round_trips(fake_ai):
+    from fastapi.testclient import TestClient
+    c = TestClient(create_app())
+    assert c.get("/api/settings").json()["cleanup_enabled"] is True
+    assert c.put("/api/settings", json={"cleanup_enabled": False}).json()["cleanup_enabled"] is False
+    assert c.get("/api/settings").json()["cleanup_enabled"] is False
+    assert c.put("/api/settings", json={"cleanup_enabled": True}).json()["cleanup_enabled"] is True
