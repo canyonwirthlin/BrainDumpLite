@@ -4,6 +4,10 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.19.5 — 2026-09-27
+- New setting: "Have AI clean up my dumps". It's offered during first-run setup and lives in Settings → AI. On (the default) tidies each dump into a readable journal-style entry before it's sorted; off keeps your exact words as the transcript, and dumps process a little faster.
+- Fixed the Brain map's node-type buttons (People, Task, Goal…) spilling over the graph when the window is narrow. The top bar now grows to fit them instead.
+
 ## 0.19.4 — 2026-09-22
 - "What's new" now shows every version between the one you had before and this one, not just this one — so updating across a few skipped releases doesn't lose their notes. Older releases are listed too, collapsed under "Older releases (N)" if you want to scroll back through the full history.
 
