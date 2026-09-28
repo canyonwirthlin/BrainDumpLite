@@ -3,7 +3,8 @@
 #   macOS:   .dmg for Apple Silicon + Intel (job "build-mac", runs AFTER Windows and one arch
 #            at a time, because every job merges its platform into the shared latest.json)
 # All of it lands on one GitHub Release. The updater in every installed app reads latest.json
-# from /releases/latest.
+# from /releases/latest. A last job (stable-names) adds version-free copies of the 3 installers
+# so the README can link to /releases/latest/download/<name>.
 #
 # Pushing the branch "mac-ci" runs ONLY the macOS jobs as a dry run: nothing is published, the
 # .dmg files are attached to the workflow run instead. Use it to check macOS changes without
@@ -204,3 +205,28 @@ jobs:
         with:
           name: BrainDump-Lite-macos-${{ matrix.arch }}
           path: src-tauri/target/release/bundle/dmg/*.dmg
+
+  stable-names:
+    # The installers Tauri builds carry the version in their file name, so a README link to one
+    # would go stale every release. Attach copies under fixed names; the README links to
+    # /releases/latest/download/<fixed name>, which always resolves to the newest release.
+    # The versioned files stay: latest.json (the updater) points at them.
+    needs: [build, build-mac]
+    if: startsWith(github.ref, 'refs/tags/') && needs.build.result == 'success' && needs.build-mac.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Copy installers to version-free names
+        shell: bash
+        run: |
+          mkdir dl && cd dl
+          fetch() {   # <pattern> <fixed name>
+            gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern "$1" --output "$2"
+          }
+          fetch '*_x64-setup.exe' BrainDumpLite-Windows-setup.exe
+          fetch '*_aarch64.dmg'   BrainDumpLite-macOS-AppleSilicon.dmg
+          fetch '*_x64.dmg'       BrainDumpLite-macOS-Intel.dmg
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber BrainDumpLite-*

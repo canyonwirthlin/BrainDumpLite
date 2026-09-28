@@ -6,6 +6,20 @@ I had a distrust of cloud AI and commercially available journaling tools with my
 
 **BrainDump Lite is the single-app version of BrainDump.** It is a desktop app for Windows and macOS that you install with one installer. There is no Docker, no database server and no separate AI program to set up.
 
+## Download
+
+| Your computer | Download |
+|---|---|
+| Windows | [BrainDumpLite-Windows-setup.exe](https://github.com/canyonwirthlin/BrainDumpLite/releases/latest/download/BrainDumpLite-Windows-setup.exe) |
+| Mac with Apple Silicon (M1 or newer) | [BrainDumpLite-macOS-AppleSilicon.dmg](https://github.com/canyonwirthlin/BrainDumpLite/releases/latest/download/BrainDumpLite-macOS-AppleSilicon.dmg) |
+| Mac with an Intel chip | [BrainDumpLite-macOS-Intel.dmg](https://github.com/canyonwirthlin/BrainDumpLite/releases/latest/download/BrainDumpLite-macOS-Intel.dmg) |
+
+Not sure which Mac you have? Apple menu -> About This Mac: "Chip: Apple M…" is Apple Silicon.
+
+The installers aren't code-signed yet, so Windows SmartScreen or antivirus may warn about them ("More info" -> "Run anyway"), and on a Mac the first launch needs right-click -> Open. After that the app updates itself.
+
+The other files on the [Releases](https://github.com/canyonwirthlin/BrainDumpLite/releases) page (`.sig`, `.tar.gz`, `latest.json`) are what the auto-updater reads. You never need to download them.
+
 ## How I built it
 
 As a computer science major in my junior year, I had limited experience developing ambitious projects like this one. I combined the concepts I've learned in school with what I found online to develop a rough tech stack. After designing the architecture, the data model and making the product decisions, I built the app through AI-assisted development rather than writing each line by hand.
@@ -172,8 +186,10 @@ Data dir override for testing: set `BRAINDUMP_LITE_DATA=<path>`.
    release notes on GitHub and the "What's New" panel in the app.
 2. `.\release.ps1 [patch|minor|major|X.Y.Z]` — bumps every version file,
    commits, tags, pushes.
-3. GitHub Actions builds the installer and publishes the release. Installed
-   apps see it on next launch and offer "Install and restart".
+3. GitHub Actions builds the installers and publishes the release. Installed
+   apps see it on next launch and offer "Install and restart". A final job
+   attaches version-free copies of the three installers (the README's Download
+   links point at those; the versioned files stay because `latest.json` uses them).
 
 The updater only needs a static `latest.json` URL (`src-tauri/tauri.conf.json`
 → `plugins.updater.endpoints`); GitHub Releases hosts it today. Update
