@@ -2,7 +2,7 @@
 
 One night, when sitting in my room, I realized that all of my systems for journaling were scattered and messy. What I needed was a way to just dump my brain in an unorganized fashion and get back something that gives me intuitive information about myself and my day-to-day.
 
-I had a distrust of cloud AI and commercially available journaling tools with my private and personal information. That's why I built BrainDump: a local-first "second brain" app where you type or speak an entire dump of whatever is on your mind, and an AI pipeline extracts tasks, events, goals, ideas, concerns, people, concepts and more. It can optionally push to Google Calendar or Todoist, and it runs on your own machine. Nothing leaves it unless you connect a cloud AI or an outside service yourself.
+I had a distrust of cloud AI and commercially available journaling tools with my private and personal information. That's why I built BrainDump: a local-first "second brain" app where you type or speak an entire dump of whatever is on your mind, and an AI pipeline extracts tasks, events, goals, ideas, concerns, people, concepts, and more. After extracting, like-ideas are connected and plotted on a visual graph, making it easier to understand how your own thoughts connect. It can optionally push to Google Calendar or Todoist, and it runs on your own machine. Nothing leaves it unless you connect a cloud AI or an outside service yourself.
 
 **BrainDump Lite is the single-app version of BrainDump.** It is a desktop app for Windows and macOS that you install with one installer. There is no Docker, no database server and no separate AI program to set up.
 
