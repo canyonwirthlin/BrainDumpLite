@@ -27,6 +27,17 @@ def static_dir() -> Path:
     return base / "static"
 
 
+class _Static(StaticFiles):
+    """Static files that the webview must revalidate on every load (ETag makes that a cheap 304).
+    Without this the embedded browser keeps serving an old copy of the UI's JS after an update,
+    because its module imports aren't versioned and Last-Modified alone lets it cache for hours."""
+
+    async def get_response(self, path, scope):
+        r = await super().get_response(path, scope)
+        r.headers["Cache-Control"] = "no-cache"
+        return r
+
+
 def create_app() -> FastAPI:
     db.init_db()
     item_types.seed()
@@ -44,5 +55,5 @@ def create_app() -> FastAPI:
 
     app.include_router(router, prefix="/api")
     app.include_router(oauth_router)
-    app.mount("/", StaticFiles(directory=static_dir(), html=True), name="static")
+    app.mount("/", _Static(directory=static_dir(), html=True), name="static")
     return app

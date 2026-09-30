@@ -217,3 +217,8 @@ def test_auto_made_dump_links_are_dropped_once_but_hand_links_stay():
     assert [(r["dump_id"], r["related_id"]) for r in db.query("SELECT * FROM links")] == [("l1", "l3")]
     db.init_db()                                                 # runs only once
     assert db.query_one("SELECT COUNT(*) AS n FROM links")["n"] == 1
+
+
+def test_static_files_are_revalidated_so_updates_show_up():
+    r = TestClient(create_app()).get("/js/main.js")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"

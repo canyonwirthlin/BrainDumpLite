@@ -4,6 +4,10 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.20.2 — 2026-09-30
+- Fixes updates sometimes showing the old screens: the app now makes its window re-check the interface files every time it opens, so a new version is what you actually see. (If 0.20.0/0.20.1 looked unchanged after updating, fully quit the app from the tray and reopen it after installing this.)
+- Settings → AI → Extraction types now lists People and Concepts at the top as built-in types — rename or recolor them there, and see what the AI looks for. They were always extracted; they just weren't shown alongside the other types.
+
 ## 0.20.1 — 2026-09-30
 - Dumps are no longer automatically linked to each other. The Brain map now connects them through what they share — people and concepts — which keeps it far less tangled. The dump-to-dump links the app made on its own in earlier versions are removed on first launch; links you added by hand are kept, and you can still add more from a dump's page.
 - The Brain map no longer turns into a hairball as your dumps pile up. Nodes now start spread out and push each other apart across the whole map (with hubs kept from being crushed and no overlapping), the view zooms to fit everything on open — there's also a Fit button — lines fade as their number grows, and labels show only on the busiest hubs until you zoom in.

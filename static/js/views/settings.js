@@ -573,7 +573,20 @@ async function paintTypesEditor(box) {
   if (!box) return;
   await loadTypes();
   const hex = (c) => resolveHex(c, "#8b93a8");
-  const rows = state.types.map((t) => `
+  let base = [];
+  try { base = (await api.get("/graph/types")).filter((t) => t.id === "person" || t.id === "concept"); } catch {}
+  const BASE_RULE = { person: "Names of real people (first names, Mom, Dr. Kim) — not companies or places. Each becomes a node on the Brain map and an entry under Search → Browse.",
+    concept: "Specific topics, projects and recurring themes. Each becomes a node on the Brain map and an entry under Search → Browse." };
+  const baseRows = base.map((t) => `
+    <div class="type-row" data-base="${t.id}">
+      <span class="te-color" style="gap:4px"><input type="color" class="t-color" title="Color" value="${hex(t.color)}"><input type="text" class="t-hex" value="${hex(t.color)}" maxlength="7" spellcheck="false"></span>
+      <span class="kind" style="--kc:${colorCss(t.color)}">${t.id === "person" ? "🧑" : "💡"} ${esc(t.label)}</span>
+      <input class="t-label" value="${esc(t.label)}" placeholder="Label" maxlength="30">
+      <div class="small muted grow">${BASE_RULE[t.id]}</div>
+      <label class="sw" title="Always on"><input type="checkbox" checked disabled><i></i></label>
+      <span class="small muted" style="width:52px;text-align:center">built-in</span>
+    </div>`).join("");
+  const rows = baseRows + state.types.map((t) => `
     <div class="type-row ${t.enabled ? "" : "off"}" data-id="${t.id}">
       <span class="te-color" style="gap:4px"><input type="color" class="t-color" title="Color" value="${hex(t.color)}"><input type="text" class="t-hex" value="${hex(t.color)}" maxlength="7" spellcheck="false"></span>
       <span class="kind" style="--kc:${colorCss(t.color)}">${t.icon ? t.icon + " " : ""}${esc(t.label)}</span>
@@ -595,6 +608,21 @@ async function paintTypesEditor(box) {
     try { await api.put("/item-types/" + row.dataset.id, fields); await paintTypesEditor(box); }
     catch (e) { msg(e.message, true); }
   };
+  $$(".type-row[data-base]", box).forEach((row) => {
+    const colorEl = $(".t-color", row), hexEl = $(".t-hex", row);
+    const saveBase = async (fields) => {
+      try { await api.put("/graph/types/" + row.dataset.base, fields); await paintTypesEditor(box); }
+      catch (e) { msg(e.message, true); }
+    };
+    colorEl.oninput = () => { hexEl.value = colorEl.value; };
+    colorEl.onchange = () => saveBase({ color: colorEl.value });
+    hexEl.onchange = () => {
+      const v = hexEl.value.trim().startsWith("#") ? hexEl.value.trim() : "#" + hexEl.value.trim();
+      if (!/^#[0-9a-f]{6}$/i.test(v)) { msg("Color must be #rrggbb.", true); return; }
+      saveBase({ color: v });
+    };
+    $(".t-label", row).onchange = (e) => saveBase({ label: e.target.value });
+  });
   $$(".type-row[data-id]", box).forEach((row) => {
     const colorEl = $(".t-color", row), hexEl = $(".t-hex", row);
     colorEl.oninput = () => { hexEl.value = colorEl.value; };
