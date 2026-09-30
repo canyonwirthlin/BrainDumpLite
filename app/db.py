@@ -253,6 +253,11 @@ def _migrate() -> None:
                      ("tone", "TEXT"), ("provider", "TEXT")):
         if col not in cols:
             conn().execute(f"ALTER TABLE dumps ADD COLUMN {col} {typ}")
+    # 0.20.1: dumps are no longer auto-linked to each other (people and concepts do the connecting).
+    # Drop the links the old pipeline made (score < 1); links added by hand are stored with score 1.0.
+    if get_setting("auto_links_removed") is None:
+        conn().execute("DELETE FROM links WHERE score < 1.0")
+        set_setting("auto_links_removed", True)
     # A vault that already had a provider configured before onboarding existed
     # skips the wizard — only a brand-new vault (no provider ever set) sees it.
     if get_setting("onboarded") is None:

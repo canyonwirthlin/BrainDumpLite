@@ -123,34 +123,12 @@ def test_variants_share_a_node_and_browse_together(internships):
     assert {d["id"] for d in graph.for_concept("home lab")} == {"gi1", "gi2"}
 
 
-def test_shared_word_links_related_dumps_without_touching_concepts(internships):
-    from app import pipeline
-    _dump("gi-new", "New one", concepts=["internship search", "finance tips"])
-    pipeline._link_shared_topics("gi-new")
-    linked = {r["related_id"] for r in db.query("SELECT related_id FROM links WHERE dump_id='gi-new'")}
-    assert {"gi1", "gi2", "gi3"} >= linked and {"gi1", "gi2"} <= linked   # both share "internship" / "finance"
-    assert json.loads(db.query_one("SELECT concepts FROM dumps WHERE id='gi-new'")["concepts"]) == ["internship search", "finance tips"]
-    pipeline._link_shared_topics("gi-new")                                            # idempotent
-    assert db.query_one("SELECT COUNT(*) AS n FROM links WHERE dump_id='gi-new'")["n"] == len(linked)
-
-
-def test_shared_word_ignored_when_too_common():
-    from app import pipeline
-    create_app()
-    ids = [f"gc{i}" for i in range(10)]
-    for i in ids:
-        _dump(i, "t" + i, concepts=["planning stuff", f"unique{i}topic"])
-    _dump("gc-new", "new", concepts=["planning ahead", "brandnewword"])
-    try:
-        pipeline._link_shared_topics("gc-new")
-        # "planning" appears in all 10 others (> 15% of them) so it says nothing about topic
-        assert db.query_one("SELECT COUNT(*) AS n FROM links WHERE dump_id='gc-new'")["n"] == 0
-    finally:
-        db.execute("DELETE FROM links")
-        db.execute("DELETE FROM dumps WHERE id LIKE 'gc%'")
-
-
 def test_links_capped_and_pipeline_prompt_has_no_concept_list(internships):
     from app import pipeline
     assert not hasattr(pipeline, "_known_concepts_hint")                # nothing grows with the concept count
     assert "internship" not in pipeline._classify_system().lower()
+
+
+def test_pipeline_no_longer_auto_links_dumps(internships):
+    from app import pipeline
+    assert not hasattr(pipeline, "_link") and not hasattr(pipeline, "_link_shared_topics")

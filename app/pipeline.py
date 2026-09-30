@@ -316,81 +316,6 @@ def _add_mentioned_people(text: str, people: list[str], known: list[str]) -> lis
     return out
 
 
-def _fts_terms(text: str, n: int = 8) -> list[str]:
-    words = re.findall(r"[a-zA-Z]{4,}", text.lower())
-    seen, out = set(), []
-    for w in words:
-        if w not in seen:
-            seen.add(w)
-            out.append(w)
-        if len(out) >= n:
-            break
-    return out
-
-
-def _link_shared_topics(dump_id: str, max_links: int = 3) -> None:
-    """Soft-link this dump to earlier ones whose concepts share a distinctive word
-    ("internship applications" ~ "internships"), without changing any concept name.
-    Deterministic and adds nothing to the model prompt. A word used by many dumps
-    (over ~15% of them, min 3) says nothing about topic, so it is ignored. Links are
-    suggestions: the user can remove any from the dump page."""
-    def words(raw) -> set[str]:
-        try:
-            return graph.topic_words(json.loads(raw or "[]"))
-        except (ValueError, TypeError):
-            return set()
-
-    me = db.query_one("SELECT concepts FROM dumps WHERE id=?", (dump_id,))
-    mine = words(me["concepts"]) if me else set()
-    if not mine:
-        return
-    others = {r["id"]: (words(r["concepts"]), r["created_at"]) for r in db.query(
-        "SELECT id, concepts, created_at FROM dumps WHERE status='ready' AND concepts IS NOT NULL AND id != ?", (dump_id,))}
-    df: dict[str, int] = {}
-    for ws, _ in others.values():
-        for w in ws:
-            df[w] = df.get(w, 0) + 1
-    cap = max(3, int(len(others) * 0.15))
-    scored = []
-    for oid, (ws, created) in others.items():
-        shared = {w for w in mine & ws if df[w] <= cap}
-        if shared:
-            scored.append((len(shared), created, oid))
-    scored.sort(reverse=True)
-    for _, _, oid in scored[:max_links]:
-        if not db.query_one("SELECT 1 FROM links WHERE (dump_id=? AND related_id=?) OR (dump_id=? AND related_id=?)",
-                            (dump_id, oid, oid, dump_id)):
-            db.execute("INSERT INTO links VALUES (?,?,?)", (dump_id, oid, 0.5))
-
-
-def _link(dump_id: str, emb: list[float] | None, title: str, text: str) -> None:
-    db.execute("DELETE FROM links WHERE dump_id=?", (dump_id,))
-    if emb:
-        rows = db.query(
-            "SELECT id, embedding FROM dumps WHERE id != ? AND embedding IS NOT NULL", (dump_id,))
-        scored = sorted(
-            ((r["id"], ai.cosine(emb, json.loads(r["embedding"]))) for r in rows),
-            key=lambda t: -t[1])
-        for rid, score in scored[:3]:
-            if score >= 0.55:
-                db.execute("INSERT OR REPLACE INTO links VALUES (?,?,?)", (dump_id, rid, round(score, 3)))
-        if any(s >= 0.55 for _, s in scored[:3]):
-            return
-    # Keyword fallback (also used when embeddings found nothing)
-    terms = _fts_terms(f"{title} {text}")
-    if not terms:
-        return
-    match = " OR ".join(f'"{t}"' for t in terms)
-    try:
-        rows = db.query(
-            "SELECT id FROM dumps_fts WHERE dumps_fts MATCH ? AND id != ? "
-            "ORDER BY bm25(dumps_fts) LIMIT 3", (match, dump_id))
-        for r in rows:
-            db.execute("INSERT OR REPLACE INTO links VALUES (?,?,?)", (dump_id, r["id"], 0.5))
-    except Exception:
-        pass  # FTS syntax edge case — links are a nice-to-have
-
-
 def run_pipeline(dump_id: str) -> None:
     row = db.query_one("SELECT * FROM dumps WHERE id=?", (dump_id,))
     if not row:
@@ -462,14 +387,14 @@ def run_pipeline(dump_id: str) -> None:
         if use_ai:
             with instrument.timed(dump_id, "embed"):
                 emb = ai.embed(f"{title}\n{summary}\n{clean}")
-        _set(dump_id, embedding=json.dumps(emb) if emb else None, stage="link")
+        _set(dump_id, embedding=json.dumps(emb) if emb else None, stage="index")
 
-        # 4 · index + link ----------------------------------------------------
+        # 4 · index ------------------------------------------------------------
+        # Dumps are deliberately NOT auto-linked to each other: what connects them is the people and
+        # concepts they share (see graph.py). Only links the user adds by hand exist.
         db.execute("DELETE FROM dumps_fts WHERE id=?", (dump_id,))
         db.execute("INSERT INTO dumps_fts (id, body) VALUES (?,?)",
                    (dump_id, f"{title}\n{summary}\n{clean}"))
-        _link(dump_id, emb, title, clean)
-        _link_shared_topics(dump_id)
 
         _set(dump_id, status="ready", stage=None)
 

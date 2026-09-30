@@ -21,13 +21,17 @@ function graphColors() {
   const v = (n, fb) => (cs.getPropertyValue(n) || fb).trim();
   const colors = {};
   for (const t of TYPES) colors[t.id] = resolveColor(t.color);
-  return { colors, text: v("--text", "#e6e9f2"), edge: v("--dim", "#8b93a8"), dump: colors.dump || v("--accent", "#8b7cf6") };
+  return { colors, bg: v("--bg", "#0b0e14"), text: v("--text", "#e6e9f2"), edge: v("--dim", "#8b93a8"), dump: colors.dump || v("--accent", "#8b7cf6") };
 }
 
 // Node spacing (the slider above the graph): scales repulsion and edge length together.
 const SPACING_KEY = "bdl-graph-spacing";
-let spacing = 1, reheat = null;   // reheat(): set by the running simulation so the slider can wake it up
+let spacing = 1, reheat = null, refit = null;   // reheat(): set by the running simulation so the slider can wake it up
 try { const v = parseFloat(localStorage.getItem(SPACING_KEY)); if (v >= 0.5 && v <= 3) spacing = v; } catch {}
+
+const LAYOUT_KEY = "bdl-graph-layout", MIN_ZOOM = 0.04;
+let layout = "organic";   // organic: force-directed clusters · galaxy: your history laid out as a time-ordered spiral
+try { const v = localStorage.getItem(LAYOUT_KEY); if (v === "organic" || v === "galaxy") layout = v; } catch {}
 
 const hidden = new Set();  // node types toggled off in the legend (persisted per device)
 let lastData = null, focus = false, hiddenLoaded = false;
@@ -102,6 +106,9 @@ export async function render(ctx) {
   $("#view").innerHTML = `<div class="wide">
     <div class="graph-bar">
       <p class="sub">Every dump, concept, and person you've mentioned. Drag nodes, scroll to zoom, click to explore.</p>
+      <label class="graph-spacing" title="Organic: clusters form around shared topics. Galaxy: every dump gets a slot on a spiral, oldest in the middle, newest on the rim."><span>Layout</span>
+        <select id="graph-layout" aria-label="Graph layout"><option value="organic" ${layout === "organic" ? "selected" : ""}>Organic</option><option value="galaxy" ${layout === "galaxy" ? "selected" : ""}>Galaxy (by time)</option></select></label>
+      <button class="chip" id="graph-fit" title="Zoom to show everything">⤢ Fit</button>
       <label class="graph-spacing" title="How far apart the nodes sit"><span>Spacing</span>
         <input type="range" id="graph-spacing" min="0.5" max="3" step="0.05" value="${spacing}" aria-label="Node spacing">
         <output id="spacing-val">${spacing.toFixed(1)}×</output></label>
@@ -113,6 +120,8 @@ export async function render(ctx) {
     try { localStorage.setItem(SPACING_KEY, String(spacing)); } catch {}
     reheat?.();
   };
+  $("#graph-layout").onchange = (e) => { layout = e.target.value; try { localStorage.setItem(LAYOUT_KEY, layout); } catch {} mount(); };
+  $("#graph-fit").onclick = () => refit?.();
   bindLegendEditors(ctx);
   $$(".topbar-slot .chip[data-type]").forEach((b) => b.onclick = () => toggleType(ctx, b));
   $("#graph-focus").onclick = () => { focus = !focus; $("#graph-focus").classList.toggle("on", focus); mount(); };
@@ -148,25 +157,59 @@ function mountForceGraph(canvas, data) {
   const degree = {};
   data.edges.forEach((e) => { degree[e.source] = (degree[e.source] || 0) + 1; degree[e.target] = (degree[e.target] || 0) + 1; });
 
-  const nodes = data.nodes.map((n, i) => {
-    const angle = (i / data.nodes.length) * Math.PI * 2;
-    return {
-      ...n, vx: 0, vy: 0, fx: null, fy: null,
-      x: W() / 2 + Math.cos(angle) * 120 + (Math.random() - 0.5) * 30,
-      y: H() / 2 + Math.sin(angle) * 120 + (Math.random() - 0.5) * 30,
-      r: (GRAPH_R[n.type] || ITEM_R) + Math.min(9, (degree[n.id] || 0) * (n.type in GRAPH_R ? 1.1 : 0.3)),
-    };
-  });
+  const nodes = data.nodes.map((n) => ({
+    ...n, vx: 0, vy: 0, fx: null, fy: null, x: 0, y: 0, tx: null, ty: null, deg: degree[n.id] || 0,
+    r: (GRAPH_R[n.type] || ITEM_R) + Math.min(9, (degree[n.id] || 0) * (n.type in GRAPH_R ? 1.1 : 0.3)),
+  }));
   const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
   const edges = data.edges.filter((e) => byId[e.source] && byId[e.target]);
+  const N = nodes.length;
+  const decay = Math.pow(0.001, 1 / (N > 400 ? 600 : N > 120 ? 450 : 320));   // bigger graphs cool slower so they finish untangling
+  const GOLDEN = 2.399963;
+  const hash01 = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10000) / 10000; };
+
+  // Starting positions. Never a random pile: a sunflower (phyllotaxis) spiral with the best-connected
+  // nodes in the middle, so the simulation begins already spread out and just has to relax.
+  // "Galaxy" goes further: every dump gets a fixed slot on a time-ordered sunflower (oldest at the
+  // centre, newest on the rim), concepts/people sit at the centre of the dumps that mention them,
+  // and items orbit their dump. The pattern you see is your own history.
+  function place() {
+    const cx = W() / 2, cy = H() / 2;
+    if (layout === "galaxy") {
+      const step = 30 * spacing;
+      const dumps = nodes.filter((n) => n.type === "dump").sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+      dumps.forEach((n, i) => { const r = step * Math.sqrt(i + 2), th = i * GOLDEN; n.tx = cx + r * Math.cos(th); n.ty = cy + r * Math.sin(th); });
+      const rim = step * Math.sqrt(dumps.length + 2);
+      const nbrs = {};
+      edges.forEach((e) => { (nbrs[e.source] ||= []).push(e.target); (nbrs[e.target] ||= []).push(e.source); });
+      nodes.filter((n) => n.type !== "dump" && !n.dump).forEach((n) => {   // hubs: concepts, people
+        const ds = (nbrs[n.id] || []).map((id) => byId[id]).filter((m) => m && m.type === "dump" && m.tx != null);
+        if (ds.length) { n.tx = ds.reduce((s, m) => s + m.tx, 0) / ds.length; n.ty = ds.reduce((s, m) => s + m.ty, 0) / ds.length; }
+        else { const a = hash01(n.id) * Math.PI * 2; n.tx = cx + Math.cos(a) * rim * 1.1; n.ty = cy + Math.sin(a) * rim * 1.1; }
+      });
+      nodes.filter((n) => n.dump).forEach((n) => {   // items orbit their dump
+        const d = byId[n.dump], a = hash01(n.id) * Math.PI * 2;
+        const bx = d && d.tx != null ? d.tx : cx, by = d && d.ty != null ? d.ty : cy;
+        n.tx = bx + Math.cos(a) * 16; n.ty = by + Math.sin(a) * 16;
+      });
+      nodes.forEach((n) => { n.x = n.tx + (Math.random() - 0.5) * 4; n.y = n.ty + (Math.random() - 0.5) * 4; });
+      return;
+    }
+    const c = 34 * spacing;
+    [...nodes].sort((a, b) => b.deg - a.deg).forEach((n, i) => {
+      const r = c * Math.sqrt(i + 0.5), th = i * GOLDEN;
+      n.x = cx + r * Math.cos(th); n.y = cy + r * Math.sin(th);
+    });
+  }
 
   let scale = 1, panX = 0, panY = 0, alpha = 1;
   let hoverId = null, selectedId = null;
-  let needsDraw = true;
+  let needsDraw = true, userMoved = false;
   // Window-level listeners are removed when the graph view unmounts.
   const ac = new AbortController();
   const sig = { signal: ac.signal };
-  reheat = () => { alpha = 1; needsDraw = true; };
+  reheat = () => { alpha = 1; userMoved = false; needsDraw = true; };
+  refit = () => { userMoved = false; fit(); };
 
   function resize() {
     const dpr = window.devicePixelRatio || 1;
@@ -180,6 +223,18 @@ function mountForceGraph(canvas, data) {
   resize();
   window.addEventListener("resize", resize, sig);
 
+  // Zoom/pan so every node is in view — the first thing a big graph needs.
+  function fit() {
+    if (!nodes.length) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    nodes.forEach((n) => { x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r); x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r); });
+    const pad = 50, bw = Math.max(x1 - x0, 60), bh = Math.max(y1 - y0, 60);
+    scale = Math.min(1.6, Math.max(MIN_ZOOM, Math.min((W() - pad * 2) / bw, (H() - pad * 2) / bh)));
+    panX = W() / 2 - scale * (x0 + x1) / 2;
+    panY = H() / 2 - scale * (y0 + y1) / 2;
+    needsDraw = true;
+  }
+
   function neighborsOf(id, hops = 1) {
     let s = new Set([id]);
     for (let h = 0; h < hops; h++) {
@@ -190,41 +245,80 @@ function mountForceGraph(canvas, data) {
     return s;
   }
 
-  function tick() {
-    // View switched away → stop the loop and drop window listeners.
-    if (!canvas.isConnected) { ac.abort(); return; }
-    if (alpha > 0.008) {
-      const k = alpha;
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i], b = nodes[j];
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d2 = Math.max(dx * dx + dy * dy, 4);
-          const f = (2200 * spacing * spacing / d2) * k;
+  // One physics step. Repulsion falls off as 1/distance (not 1/d²) and reaches across the map, so
+  // clusters push each other apart instead of collapsing into one blob; a spatial grid keeps it
+  // fast. Links are weaker on hubs (a hub with 40 links isn't crushed into a point), nodes can't
+  // overlap, and a gentle pull to the middle stops separate clusters drifting away.
+  const galaxy = () => layout === "galaxy";
+  function step() {
+    const k = alpha;
+    const reach = (galaxy() ? 60 : 380) * spacing, cell = reach;
+    const grid = new Map();
+    for (let i = 0; i < N; i++) {
+      const n = nodes[i];
+      const key = Math.floor(n.x / cell) * 100003 + Math.floor(n.y / cell);
+      (grid.get(key) || grid.set(key, []).get(key)).push(i);
+    }
+    const charge = 1500 * spacing * spacing * (N > 250 ? 1 + Math.log10(N / 250) : 1);
+    for (let i = 0; i < N; i++) {
+      const a = nodes[i];
+      const gx = Math.floor(a.x / cell), gy = Math.floor(a.y / cell);
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+        const bucket = grid.get((gx + ox) * 100003 + (gy + oy));
+        if (!bucket) continue;
+        for (const j of bucket) {
+          if (j <= i) continue;
+          const b = nodes[j];
+          let dx = a.x - b.x, dy = a.y - b.y;
+          let d2 = dx * dx + dy * dy;
+          if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = dx * dx + dy * dy + 0.01; }
           const d = Math.sqrt(d2);
+          if (d > reach) continue;
+          let f = galaxy() ? 0 : (charge / d) * k * 0.05;
+          const gap = a.r + b.r + 5;
+          if (d < gap) f += (gap - d) * 0.35;           // collision: overlapping nodes shove apart
+          if (!f) continue;
           const fx = (dx / d) * f, fy = (dy / d) * f;
           a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
         }
       }
-      edges.forEach((e) => {
-        const a = byId[e.source], b = byId[e.target];
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
-        const target = (e.type === "similar" ? 150 : 95) * spacing;
-        const f = (d - target) * 0.02 * k;
-        const fx = (dx / d) * f, fy = (dy / d) * f;
-        a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
-      });
-      nodes.forEach((n) => {
-        n.vx += (W() / 2 - n.x) * 0.0012 * k;
-        n.vy += (H() / 2 - n.y) * 0.0012 * k;
-      });
-      nodes.forEach((n) => {
-        if (n.fx != null) { n.x = n.fx; n.y = n.fy; n.vx = 0; n.vy = 0; return; }
-        n.vx *= 0.82; n.vy *= 0.82;
-        n.x += n.vx; n.y += n.vy;
-      });
-      alpha *= 0.985;
+    }
+    const pull = galaxy() ? 0.25 : 1;
+    edges.forEach((e) => {
+      const a = byId[e.source], b = byId[e.target];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01);
+      const target = (e.type === "similar" ? 130 : e.type === "in" ? 34 : 80) * spacing;
+      const strength = 1 / Math.sqrt(Math.max(1, Math.min(a.deg, b.deg)));
+      const f = (d - target) * 0.06 * strength * pull * k;
+      const fx = (dx / d) * f, fy = (dy / d) * f;
+      a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+    });
+    const gcx = W() / 2, gcy = H() / 2;
+    nodes.forEach((n) => {
+      if (galaxy() && n.tx != null) { const g = n.type === "dump" || n.dump ? 0.12 : 0.03; n.vx += (n.tx - n.x) * g; n.vy += (n.ty - n.y) * g; }   // hubs are held loosely so they fan out instead of stacking
+      else { n.vx += (gcx - n.x) * 0.007 * k; n.vy += (gcy - n.y) * 0.007 * k; }
+    });
+    nodes.forEach((n) => {
+      if (n.fx != null) { n.x = n.fx; n.y = n.fy; n.vx = 0; n.vy = 0; return; }
+      n.vx *= 0.72; n.vy *= 0.72;
+      n.x += Math.max(-40, Math.min(40, n.vx)); n.y += Math.max(-40, Math.min(40, n.vy));
+    });
+    alpha *= decay;
+  }
+
+  place();
+  // Settle most of the way before the first frame so the map opens already laid out, not exploding.
+  for (let i = 0; i < 260 && alpha > 0.12; i++) step();
+  fit();
+
+  let ticks = 0;
+  function tick() {
+    // View switched away → stop the loop and drop window listeners.
+    if (!canvas.isConnected) { ac.abort(); return; }
+    if (alpha > 0.01) {
+      step();
+      if (!userMoved && ++ticks % 6 === 0) fit();   // keep everything framed until the user takes over
       needsDraw = true;
     }
     // Once the physics settle, redraw only on interaction — idle cost ~0.
@@ -232,6 +326,7 @@ function mountForceGraph(canvas, data) {
     requestAnimationFrame(tick);
   }
 
+  const labelled = new Set([...nodes].sort((a, b) => b.deg - a.deg).slice(0, Math.max(6, Math.min(30, Math.ceil(N * 0.06)))).map((n) => n.id));
   function draw() {
     ctx.clearRect(0, 0, W(), H());
     ctx.save();
@@ -239,13 +334,14 @@ function mountForceGraph(canvas, data) {
     ctx.scale(scale, scale);
     const activeId = hoverId || selectedId;
     const hood = activeId ? neighborsOf(activeId, focus && selectedId ? 2 : 1) : null;
+    const thin = Math.min(1, Math.max(0.35, 220 / (edges.length + 1)));   // many edges -> fainter lines, so a dense map stays readable
     edges.forEach((e) => {
       const a = byId[e.source], b = byId[e.target];
       const dim = hood && !(hood.has(e.source) && hood.has(e.target));
       const similar = e.type === "similar";
       ctx.strokeStyle = similar ? GC.dump : e.type === "in" ? (GC.colors[byId[e.source].type] || GC.edge) : GC.edge;
-      ctx.globalAlpha = similar ? (dim ? 0.06 : 0.5) : (dim ? 0.05 : 0.25);
-      ctx.lineWidth = similar ? Math.max(0.6, (e.score || 0.5) * 2) : 1;
+      ctx.globalAlpha = (similar ? (dim ? 0.06 : 0.5) : (dim ? 0.05 : 0.25)) * (dim ? 1 : thin);
+      ctx.lineWidth = (similar ? Math.max(0.6, (e.score || 0.5) * 2) : 1) / Math.max(1, scale);
       ctx.setLineDash(similar ? [4, 3] : []);
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     });
@@ -261,10 +357,14 @@ function mountForceGraph(canvas, data) {
       ctx.fill();
       ctx.shadowBlur = 0;  // glow on the hovered node only — cheap for one arc
       if (n.id === selectedId) { ctx.lineWidth = 2; ctx.strokeStyle = GC.text; ctx.stroke(); }
-      if (!dim && (n.r > 8 || hood)) {
+      // Labels: the busiest hubs always, more as you zoom in, always for hover/selection neighbours.
+      if (!dim && (hood || labelled.has(n.id) || n.r * scale > 9 || (scale > 1.3 && n.deg >= 2) || scale > 2.6)) {
+        const px = 12 / scale;   // constant on-screen size whatever the zoom
+        ctx.font = `${px}px sans-serif`;
+        ctx.lineWidth = 3 / scale; ctx.strokeStyle = GC.bg; ctx.lineJoin = "round";
+        ctx.strokeText(n.label.slice(0, 30), n.x + n.r + 4 / scale, n.y + 4 / scale);
         ctx.fillStyle = GC.text;
-        ctx.font = "11px sans-serif";
-        ctx.fillText(n.label.slice(0, 30), n.x + n.r + 4, n.y + 3);
+        ctx.fillText(n.label.slice(0, 30), n.x + n.r + 4 / scale, n.y + 4 / scale);
       }
       ctx.globalAlpha = 1;
     });
@@ -297,8 +397,8 @@ function mountForceGraph(canvas, data) {
     moved = false;
     const p = toWorld(e.clientX, e.clientY);
     const n = nodeAt(p.x, p.y);
-    if (n) { dragging = n; n.fx = n.x; n.fy = n.y; alpha = Math.max(alpha, 0.3); }
-    else { panning = true; lastPan = { x: e.clientX, y: e.clientY }; }
+    if (n) { dragging = n; n.fx = n.x; n.fy = n.y; alpha = Math.max(alpha, 0.3); userMoved = true; }
+    else { panning = true; userMoved = true; lastPan = { x: e.clientX, y: e.clientY }; }
   });
   window.addEventListener("mousemove", (e) => {
     moved = true;
@@ -341,7 +441,8 @@ function mountForceGraph(canvas, data) {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
-    const next = Math.min(4, Math.max(0.25, scale * factor));
+    userMoved = true;
+    const next = Math.min(4, Math.max(MIN_ZOOM, scale * factor));
     panX = mx - (mx - panX) * (next / scale);
     panY = my - (my - panY) * (next / scale);
     scale = next;

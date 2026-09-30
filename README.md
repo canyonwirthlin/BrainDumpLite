@@ -71,7 +71,7 @@ BrainDump runs it through an AI pipeline and gives you back:
 - **Extracted items**: typed and prioritized: tasks ("go to grocery store"), goals ("hit xyz pounds in gym"), ideas, concerns, and any extra types you define yourself, each with an effort estimate, an urgency marker and the time phrase it came from.
 - **A tone, people and concepts**: every dump gets a tone (calm, anxious, excited...) and the people and topics it mentions, so you can click "Eric" or "gym" and see every dump that mentions them.
 - **A mode-aware response**: execution mode gives you the smallest first step and the procrastination trap; therapy mode reflects the feeling back and digs deeper; brainstorm mode helps you expand your ideas. Therapy and Brainstorm can also run as a live conversation that is saved as one dump when you end it.
-- **A thought graph**: each dump is linked to past dumps with similar meaning, so you can see that you've mentioned gym consistency seven times this month.
+- **A thought graph**: dumps are connected through the people and concepts they share (you can also link two dumps by hand), so you can see that you've mentioned gym consistency seven times this month.
 - **Send to Calendar / Todoist**: any task can be pushed with the ⇪ button, and nothing is sent until you press it. "Plan my day" fits your open tasks into the free gaps around your real calendar.
 
 Everything stays local unless you connect a cloud AI or an external service.
@@ -115,7 +115,7 @@ Processing runs in a background thread after a dump is saved. Every stage degrad
 | **Classify** | One structured call extracts a title, summary, typed items (priority, effort, urgency, time hints), tone, people and concepts |
 | **Expand** | A mode-specific prompt (execution / brainstorm / therapy / freeform) writes the response |
 | **Embed** | The embedding model turns the dump into a vector |
-| **Index and link** | Adds it to the FTS5 index and links it to the most similar past dumps (cosine similarity, with a keyword fallback) |
+| **Index** | Adds it to the FTS5 index (dumps are connected through shared people and concepts, not auto-linked to each other) |
 | **Notify** | Plugins are told a dump finished |
 
 How long it takes depends heavily on the model and the hardware.

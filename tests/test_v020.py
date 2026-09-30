@@ -204,3 +204,16 @@ def test_old_plain_fts_indexes_are_rebuilt_with_stemming():
     sql = db.query_one("SELECT sql FROM sqlite_master WHERE name='dumps_fts'")["sql"]
     assert "porter" in sql
     assert [r["id"] for r in search_mod.search("run")["results"]] == ["m1"]           # re-indexed from the dumps table
+
+
+def test_auto_made_dump_links_are_dropped_once_but_hand_links_stay():
+    _clean()
+    _dump("l1", "A", "x"); _dump("l2", "B", "x"); _dump("l3", "C", "x")
+    db.execute("DELETE FROM links")
+    db.execute("INSERT INTO links VALUES ('l1','l2',0.5)")      # what the old pipeline wrote
+    db.execute("INSERT INTO links VALUES ('l1','l3',1.0)")      # what "add link" writes
+    db.execute("DELETE FROM settings WHERE key='auto_links_removed'")
+    db.init_db()
+    assert [(r["dump_id"], r["related_id"]) for r in db.query("SELECT * FROM links")] == [("l1", "l3")]
+    db.init_db()                                                 # runs only once
+    assert db.query_one("SELECT COUNT(*) AS n FROM links")["n"] == 1

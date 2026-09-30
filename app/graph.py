@@ -73,7 +73,7 @@ def _names(raw) -> list[str]:
 # Only spelling variants merge (case, plural, word order). Anything that needs judgement
 # ("home" vs "home lab", "internships" vs "internship applications") stays separate: no word
 # rule can tell those apart from "home" vs "home lab", and a wrong merge silently rewrites
-# what the user sees. Related-but-different concepts are connected by dump links instead
+# what the user sees. Related-but-different concepts are connected through the dumps that mention both
 # (pipeline._link_shared_topics). People stay exact — "Sam" and "Samuel" may differ.
 _STOP_TOK = {"a", "an", "the", "and", "of", "for", "to", "in", "on", "at", "my", "with", "your", "our"}
 
