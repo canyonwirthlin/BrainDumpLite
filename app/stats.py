@@ -11,7 +11,7 @@ from . import catalog, db
 def sample_daily() -> None:
     today = date.today().isoformat()
     try:
-        dumps = db.query_one("SELECT COUNT(*) AS n FROM dumps")["n"]
+        dumps = db.query_one("SELECT COUNT(*) AS n FROM dumps WHERE status != 'manual'")["n"]
         size = db.db_path().stat().st_size if db.db_path().exists() else 0
         db.execute("INSERT OR REPLACE INTO stats_daily (date, dumps, db_bytes) VALUES (?,?,?)", (today, dumps, size))
     except Exception as e:  # never block boot
@@ -55,7 +55,7 @@ def summary(days: int = 30) -> dict:
                           "success_rate": round(pv["ok"] / pv["calls"], 3), "median_ms": int(median(pv["ms"])),
                           "local": pv["provider"] in ("builtin", "local"), "est_cost_usd": cost})
     per_day: dict[str, int] = {}
-    for r in db.query("SELECT created_at FROM dumps WHERE created_at >= ?", (since,)):
+    for r in db.query("SELECT created_at FROM dumps WHERE status != 'manual' AND created_at >= ?", (since,)):
         try:
             d = datetime.fromisoformat(r["created_at"])
             if d.tzinfo is None:
@@ -68,5 +68,5 @@ def summary(days: int = 30) -> dict:
     return {"days": days, "calls": len(runs), "success_rate": round(sum(r["ok"] for r in runs) / len(runs), 3) if runs else None,
             "stages": sorted(stages, key=lambda s: s["stage"]), "providers": sorted(providers, key=lambda p: -p["calls"]),
             "dumps_per_day": [{"date": k, "dumps": v} for k, v in sorted(per_day.items())],
-            "growth": growth, "total_dumps": db.query_one("SELECT COUNT(*) AS n FROM dumps")["n"],
+            "growth": growth, "total_dumps": db.query_one("SELECT COUNT(*) AS n FROM dumps WHERE status != 'manual'")["n"],
             "db_bytes": db.db_path().stat().st_size if db.db_path().exists() else 0}

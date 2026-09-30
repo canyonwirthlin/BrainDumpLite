@@ -74,10 +74,7 @@ def test_enable_hooks_actions_and_readonly_db(tmp_path):
 
     db.execute("INSERT INTO dumps (id, created_at, mode, raw_text, status) VALUES ('plug-d1', ?, 'freeform', 'x', 'ready')", (db.now_iso(),))
     plugins.on_dump("plug-d1")
-    s = suggestions.pending()[0]
-    assert s["kind"] == "plugin_action" and s["source"] == "plugin:shouty" and s["payload"]["plugin"] == "shouty"
-    done = suggestions.accept(s["id"])
-    assert done["status"] == "accepted" and done["result"]["said"] == "PLUG-D1"
+    assert suggestions.pending() == []          # propose() is a logged no-op now that the Inbox is gone
 
     plugins.set_enabled("shouty", False)
     assert plugins.all_actions() == []

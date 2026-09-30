@@ -435,7 +435,7 @@ a.iconbtn.cal { text-decoration: none; }
 .title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .title-row .title-input { flex: 1; min-width: 200px; font-size: 20px; font-weight: 600; }
 .iconbtn.edit { opacity: 0; transition: opacity var(--ease); }
-.title-row:hover .iconbtn.edit, .item:hover .iconbtn.edit, .iconbtn.edit:focus-visible { opacity: 1; }
+.title-row:hover .iconbtn.edit, .item:hover .iconbtn.edit, .task-row:hover .iconbtn.edit, .iconbtn.edit:focus-visible { opacity: 1; }
 .ed-form { display: flex; flex-direction: column; gap: 8px; }
 .ed-form textarea { min-height: 0; resize: vertical; width: 100%; }
 .ed-form input, .ed-form select { width: 100%; }
@@ -460,3 +460,34 @@ a.iconbtn.cal { text-decoration: none; }
 .graph-spacing { display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--dim); }
 .graph-spacing input[type=range] { width: 160px; padding: 0; border: 0; background: transparent; accent-color: var(--accent); cursor: pointer; }
 .graph-spacing output { min-width: 32px; font-family: var(--mono); font-size: 11.5px; color: var(--text); }
+
+/* ── 0.20: journal prompt, add-task bar, browse-by-type ────────────────────── */
+.jprompt { margin: 0 0 16px; text-align: left; padding: 14px 18px 12px; border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--mode, var(--accent)) 8%, var(--panel)); border: 1px solid color-mix(in srgb, var(--mode, var(--accent)) 30%, var(--line)); }
+.jprompt[hidden] { display: none; }
+.jp-label { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--mode, var(--accent)); margin-bottom: 6px; }
+.jp-text { font-size: 17px; line-height: 1.45; font-weight: 500; letter-spacing: -.005em; }
+.jp-actions { display: flex; gap: 8px; margin-top: 10px; }
+.wip-chip { display: inline-flex; align-items: center; gap: 5px; vertical-align: middle; margin-left: 10px; font-size: 11.5px; font-weight: 600; letter-spacing: 0;
+  padding: 3px 10px; border-radius: 999px; color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); background: color-mix(in srgb, var(--amber) 10%, transparent); }
+.wip-chip svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.glist-sep { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); padding: 14px 12px 4px; }
+.add-task { display: flex; gap: 8px; margin: 0 0 14px; }
+.add-task input[type=text], .add-content { flex: 1; min-width: 0; }
+.kglyph { width: 17px; text-align: center; margin-top: 1px; font-size: 14px; }
+.task-row .btn.small { padding: 3px 9px; font-size: 11.5px; white-space: nowrap; }
+.ent-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.chip.ent { cursor: pointer; color: var(--text); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.chip.ent:hover { background: var(--accent-soft); }
+.names { padding: 4px 6px; }
+.name-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; color: var(--text); }
+.name-row:hover { background: var(--panel-2, var(--accent-soft)); }
+.name-row .times { font-family: var(--mono); font-size: 13px; color: var(--accent); font-weight: 600; }
+.dump-card { display: block; color: var(--text); }
+#search > .master { width: 220px; }
+@media (max-width: 959px) {
+  #search { flex-direction: column; }
+  #search > .master { width: 100%; height: auto; border-right: 0; border-bottom: 1px solid var(--line); display: block !important; }
+  #search > .detail { display: block !important; }
+  #search .glist { flex-direction: row; flex-wrap: wrap; }
+}

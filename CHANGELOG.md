@@ -4,6 +4,17 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.20.0 — 2026-09-30
+- **Journal prompt on the Capture screen.** A different, thought-provoking question above the writing box every time — hand-written ones like "What are you pretending not to know?", and some built from your own dumps ("'Book a personal trainer' has been on your list for 19 days. What's the real reason it hasn't happened?"). Nothing repeats until you've seen them all. "Write about this" starts your dump with the question; "Another" swaps it. Switch it off in Settings → Appearance.
+- **Search is much smarter.** It forgives typos ("dentst" finds "dentist") and word endings ("run" finds "running"), finds half-typed words, ranks dumps that match every word first, and finds people and topics by name — search "Bella" and every dump she's in comes up, with her name as a chip you can click.
+- **Browse by type, inside Search.** The left column lists every type (People, Concepts, Tasks, Goals, Ideas…) with how many entries each has. Open People and each person shows how many dumps they appear in — click Bella (2×) to read the two dumps. Goals, ideas and the rest list the items themselves.
+- **Tasks vs goals vs ideas.** "Get stronger at the gym" is a goal, not a chore you can tick off. The AI is now told the difference, and a backstop files habit- and aspiration-style tasks as goals. The Tasks tab keeps real, finishable tasks in the backlog and moves Goals and Ideas to their own tabs, with "→ Task" to promote one once it has a concrete next step.
+- **Edit and add your own tasks.** Every task has a pencil (text, first step, type, priority, plus the date chip), and the box at the top of the Tasks tab adds your own — no dump needed.
+- **People** you've mentioned before are now picked up again even when the AI misses their name.
+- Removed the **Inbox** tab. Sending a task to Google Calendar or Todoist still works from the ⇪ button on any task, and "Plan my day" now blocks time straight onto your calendar. Plugins can no longer queue proposals (`api.propose` is now a no-op; use `api.action`).
+- Reflect now carries a work-in-progress mark, since it's still being built.
+- Under the hood: the search index was rebuilt on first launch to support stemming (automatic), and `dev.ps1` now runs against a sandbox vault by default — see DEVELOPING.md.
+
 ## 0.19.5 — 2026-09-27
 - New setting: "Have AI clean up my dumps". It's offered during first-run setup and lives in Settings → AI. On (the default) tidies each dump into a readable journal-style entry before it's sorted; off keeps your exact words as the transcript, and dumps process a little faster.
 - Fixed the Brain map's node-type buttons (People, Task, Goal…) spilling over the graph when the window is narrow. The top bar now grows to fit them instead.

@@ -20,6 +20,8 @@ $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
 if (git status --porcelain) { throw "Working tree is not clean. Commit or stash first." }
+$branch = (git rev-parse --abbrev-ref HEAD).Trim()
+if ($branch -ne "master") { throw "Releases are cut from master, you are on '$branch'. Merge your work into master first (see DEVELOPING.md)." }
 
 $verFile = "app\version.py"
 $cur = (Select-String -Path $verFile -Pattern '"(\d+)\.(\d+)\.(\d+)"').Matches[0]

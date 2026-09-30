@@ -16,6 +16,7 @@ export function render(ctx) {
       <a href="#stats" class="streak-badge" id="streak-badge" hidden></a>
       ${state.status.ai ? "" : `<div class="banner">AI is off — dumps are saved raw without processing.
         <a href="#settings">Connect a key in Settings</a> to unlock the magic.</div>`}
+      <div class="jprompt" id="jprompt" hidden></div>
       <div class="modes" role="tablist">${MODES.map((m) => `
         <button class="mode-chip" role="tab" data-mode="${m.id}" style="--mode:${m.color}">${m.icon} ${m.label}</button>`).join("")}
       </div>
@@ -25,6 +26,33 @@ export function render(ctx) {
   $$(".mode-chip").forEach((b) => b.onclick = () => { state.curMode = b.dataset.mode; paintMode(); });
   paintMode();
   paintStreakBadge();
+  loadPrompt();
+}
+
+// A different question every time (Settings → Appearance turns it off). "Write about this"
+// starts the dump with the question so the answer has its context.
+async function loadPrompt() {
+  const box = $("#jprompt");
+  if (!box) return;
+  let p;
+  try { p = await api.get("/journal-prompt"); } catch { return; }
+  if (!$("#jprompt") || !p.enabled) return;   // navigated away, or switched off
+  box.hidden = false;
+  box.innerHTML = `<div class="jp-label">${p.personal ? "From your own dumps" : "Something to think about"}</div>
+    <div class="jp-text">${esc(p.text)}</div>
+    <div class="jp-actions"><button class="btn ghost small" id="jp-use">Write about this</button>
+      <button class="btn ghost small" id="jp-new" title="A different question">↻ Another</button></div>`;
+  $("#jp-new").onclick = loadPrompt;
+  $("#jp-use").onclick = () => {
+    const ta = $("#dump-text");
+    if (!ta) return;
+    const quoted = `“${p.text}”
+
+`;
+    if (!ta.value.startsWith(quoted)) ta.value = quoted + ta.value;
+    state.draft = ta.value;
+    ta.focus(); ta.setSelectionRange(quoted.length, quoted.length);
+  };
 }
 
 // Everything that changes with the mode: colour, headline, the explainer, and the input itself.

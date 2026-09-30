@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS reflections (
   content    TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
-CREATE VIRTUAL TABLE IF NOT EXISTS dumps_fts USING fts5(id UNINDEXED, body);
+CREATE VIRTUAL TABLE IF NOT EXISTS dumps_fts USING fts5(id UNINDEXED, body, tokenize='porter unicode61 remove_diacritics 2');
 CREATE TABLE IF NOT EXISTS item_types (
   id      TEXT PRIMARY KEY,
   label   TEXT NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS runs (                -- one row per model call (Phas
   started_at TEXT NOT NULL, ms INTEGER NOT NULL, prompt_tokens INTEGER, completion_tokens INTEGER,
   ok INTEGER NOT NULL, error TEXT
 );
-CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(item_id UNINDEXED, dump_id UNINDEXED, body);
+CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(item_id UNINDEXED, dump_id UNINDEXED, body, tokenize='porter unicode61 remove_diacritics 2');
 CREATE TABLE IF NOT EXISTS sessions (          -- Phase 4 conversational capture
   id         TEXT PRIMARY KEY,
   mode       TEXT NOT NULL,                    -- therapy|brainstorm
@@ -218,8 +218,36 @@ def backfill_items_fts() -> None:
             c.commit()
 
 
+MANUAL_DUMP_ID = "manual-tasks"   # hidden holder for tasks typed in by hand (status 'manual' keeps it out of every listing)
+
+
+def manual_dump() -> str:
+    """The id of the hidden dump that owns hand-written tasks (items.dump_id is NOT NULL)."""
+    with _lock:
+        if not query_one("SELECT 1 FROM dumps WHERE id=?", (MANUAL_DUMP_ID,)):
+            execute("INSERT INTO dumps (id, created_at, mode, raw_text, title, status) VALUES (?,?,?,?,?,'manual')",
+                    (MANUAL_DUMP_ID, "1970-01-01T00:00:00+00:00", "freeform", "", "Added by hand"))
+    return MANUAL_DUMP_ID
+
+
+def _upgrade_fts() -> None:
+    """Search indexes made before 0.20 used the plain tokenizer; rebuild them with porter
+    stemming so "run" finds "running". Idempotent: only rebuilds an index that lacks it."""
+    c = conn()
+    for name, cols in (("dumps_fts", "id UNINDEXED, body"), ("items_fts", "item_id UNINDEXED, dump_id UNINDEXED, body")):
+        row = c.execute("SELECT sql FROM sqlite_master WHERE name=?", (name,)).fetchone()
+        if row and "porter" not in (row["sql"] or ""):
+            c.execute(f"DROP TABLE {name}")
+            c.execute(f"CREATE VIRTUAL TABLE {name} USING fts5({cols}, tokenize='porter unicode61 remove_diacritics 2')")
+            if name == "dumps_fts":
+                for r in c.execute("SELECT id, title, summary, clean_text, raw_text FROM dumps WHERE status='ready'").fetchall():
+                    c.execute("INSERT INTO dumps_fts (id, body) VALUES (?,?)",
+                              (r["id"], "\n".join([r["title"] or "", r["summary"] or "", r["clean_text"] or r["raw_text"] or ""])))
+
+
 def _migrate() -> None:
     """Additive column migrations for dbs created before a schema addition."""
+    _upgrade_fts()
     cols = {r["name"] for r in conn().execute("PRAGMA table_info(dumps)")}
     for col, typ in (("people", "TEXT"), ("concepts", "TEXT"), ("captured_local", "TEXT"),
                      ("tone", "TEXT"), ("provider", "TEXT")):

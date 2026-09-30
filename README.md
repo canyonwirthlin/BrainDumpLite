@@ -72,7 +72,7 @@ BrainDump runs it through an AI pipeline and gives you back:
 - **A tone, people and concepts**: every dump gets a tone (calm, anxious, excited...) and the people and topics it mentions, so you can click "Eric" or "gym" and see every dump that mentions them.
 - **A mode-aware response**: execution mode gives you the smallest first step and the procrastination trap; therapy mode reflects the feeling back and digs deeper; brainstorm mode helps you expand your ideas. Therapy and Brainstorm can also run as a live conversation that is saved as one dump when you end it.
 - **A thought graph**: each dump is linked to past dumps with similar meaning, so you can see that you've mentioned gym consistency seven times this month.
-- **Inbox suggestions**: dated tasks and events are proposed for Google Calendar or Todoist, and nothing is sent until you press the button. "Plan my day" fits your open tasks into the free gaps around your real calendar.
+- **Send to Calendar / Todoist**: any task can be pushed with the ⇪ button, and nothing is sent until you press it. "Plan my day" fits your open tasks into the free gaps around your real calendar.
 
 Everything stays local unless you connect a cloud AI or an external service.
 
@@ -89,7 +89,7 @@ FastAPI sidecar on 127.0.0.1 (PyInstaller bundle)
     ├── llama.cpp (built-in) ── chat model + a CPU-only embedding model (nomic)
     │      or Claude / OpenAI / Gemini / any OpenAI-compatible server
     ├── faster-whisper ─────── local voice transcription
-    └── MCP servers, plugins ── optional, gated through the Inbox
+    └── MCP servers, plugins ── optional, nothing runs without a press
 ```
 
 ### Choosing how the AI runs
@@ -116,7 +116,7 @@ Processing runs in a background thread after a dump is saved. Every stage degrad
 | **Expand** | A mode-specific prompt (execution / brainstorm / therapy / freeform) writes the response |
 | **Embed** | The embedding model turns the dump into a vector |
 | **Index and link** | Adds it to the FTS5 index and links it to the most similar past dumps (cosine similarity, with a keyword fallback) |
-| **Propose** | Dated items become suggestions in the Inbox; plugins are notified |
+| **Notify** | Plugins are told a dump finished |
 
 How long it takes depends heavily on the model and the hardware.
 
@@ -124,7 +124,7 @@ How long it takes depends heavily on the model and the hardware.
 
 **Small models need guardrails.** The built-in models are small, so the app doesn't trust them. The classify call uses a JSON *schema* that llama.cpp compiles into a grammar, so the output is always valid and correctly shaped. Small models love inventing due dates, so a date is kept only if the item's own text contains a time word, and a literal weekday-to-date table is handed to the model instead of asking it to do date arithmetic. If classification fails entirely, a heuristic fallback still saves the dump.
 
-**Nothing leaves without a human press.** Every extracted item starts as *suggested*. Everything that would touch the outside world (Calendar, Todoist, a plugin, an MCP tool) lands in the Inbox first, where you can edit it or reject it.
+**Nothing leaves without a human press.** Every extracted item starts as *suggested*. Everything that would touch the outside world (Calendar, Todoist, a plugin, an MCP tool) only happens when you press its button.
 
 **Local vs cloud, always visible.** Every dump carries an on-device or cloud badge showing where its text went. On Windows, tokens for connected services are encrypted with DPAPI; on macOS they are stored unencrypted in your data folder (Settings says so).
 
@@ -136,7 +136,7 @@ How long it takes depends heavily on the model and the hardware.
 
 - **MCP**: Settings -> Plugins & MCP takes the same `mcpServers` block other desktop clients use. Each tool is hidden from the AI, proposed-and-confirmed, or free to run. Tool output is treated as data, never as instructions.
 - **Plugins**: a folder with `plugin.json` plus a Python entry module in `%LOCALAPPDATA%\BrainDumpLite\plugins\`. They run unsandboxed, in-process, and only after you enable them. See `docs/plugins.md` and `examples/plugins/daily-digest/`.
-- Anything either one proposes lands in the Inbox and runs only when you press the button.
+- Nothing either one offers runs until you press its button.
 
 ## Tech stack
 
@@ -150,7 +150,8 @@ How long it takes depends heavily on the model and the hardware.
 ## Dev
 
 ```powershell
-.\dev.ps1                 # backend + UI in your browser (fastest loop, no Rust needed)
+.\dev.ps1                 # backend + UI in your browser against a sandbox vault (fastest loop, no Rust needed)
+.\dev.ps1 -Clone          # ...starting from a copy of your real vault
 .\build-backend.ps1       # freeze the backend into src-tauri\backend\ (needed by the two below)
 npm run tauri dev         # the real native window + tray, debug build
 npm run tauri build       # local installer: src-tauri\target\release\bundle\nsis\
@@ -159,6 +160,7 @@ cd src-tauri; cargo test                   # Rust tests
 ```
 
 One-time: Rust (`rustup`, MSVC Build Tools with the C++ workload) and `npm install`.
+Trying changes before they go public (sandbox vault, `dev` branch, release rules): see [DEVELOPING.md](DEVELOPING.md).
 
 ### macOS
 
@@ -229,7 +231,7 @@ app/                  # FastAPI backend
   routes.py           # every API route
   launch.py           # sidecar helpers: port, log file, parent watchdog
   changelog.py        # CHANGELOG.md parser -> /api/changelog
-  suggestions.py      # the Inbox: every proposed action waits here for a human press
+  suggestions.py      # internal action log for sends to Calendar / Todoist
   secrets.py          # DPAPI-protected tokens in the settings table
   google_cal.py       # Calendar OAuth (PKCE, loopback) + event push
   todoist.py          # Todoist API v1 push

@@ -14,7 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, catalog, changelog, db, engine, export_md, gemini, gitsync, google_cal, graph, import_md, item_types, lock, mcp_client, pipeline, planner, plugins, profiles, secrets, sessions, stats, streaks, suggestions, themes, todoist, transcribe, vault
+from . import ai, catalog, changelog, db, engine, export_md, gemini, gitsync, google_cal, graph, import_md, item_types, lock, mcp_client, pipeline, planner, plugins, profiles, prompts, search as search_mod, secrets, sessions, stats, streaks, suggestions, themes, todoist, transcribe, vault
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -52,6 +52,16 @@ class ItemPatch(BaseModel):
     # client actually sends the key (see model_fields_set) — so null means
     # "clear" while an absent key means "leave unchanged".
     due_date: str | None = None
+    priority: int | None = None     # 1-5; 0 clears
+    est_minutes: int | None = None  # 0 clears
+
+
+class TaskIn(BaseModel):
+    content: str
+    detail: str | None = None
+    due_date: str | None = None
+    priority: int | None = None
+    kind: str = "task"              # task | goal | idea
 
 
 class SettingsIn(BaseModel):
@@ -63,6 +73,7 @@ class SettingsIn(BaseModel):
     whisper_model: str | None = None
     tools_in_chat: bool | None = None
     cleanup_enabled: bool | None = None  # the AI "tidy the transcript" pass; on unless switched off
+    journal_prompt_enabled: bool | None = None  # the question on the Capture screen; on unless switched off
 
 
 class ReflectIn(BaseModel):
@@ -86,7 +97,6 @@ def status():
         "locked": lock.locked(),
         "lock_set": lock.is_set(),
         "last_dump_at": (db.query_one("SELECT MAX(created_at) AS m FROM dumps") or {"m": None})["m"],
-        "inbox_pending": suggestions.count_pending(),
         "onboarded": bool(db.get_setting("onboarded", False)),
         "platform": {"win32": "windows", "darwin": "macos"}.get(sys.platform, "linux"),
         "builtin_ai": engine.SUPPORTED,
@@ -631,16 +641,23 @@ class PlanPushIn(BaseModel):
 
 @router.post("/plan/push")
 def plan_push(body: PlanPushIn):
-    """Turn chosen plan slots into calendar_push suggestions (pending, so the user still confirms)."""
-    made = []
-    for s in body.slots:
-        it = db.query_one("SELECT * FROM items WHERE id=?", (s.get("task_id"),))
-        if not it or not s.get("start"):
+    """Put the chosen plan slots on Google Calendar (each one is a slot you ticked, so no second confirmation)."""
+    if not google_cal.connected():
+        raise HTTPException(400, "Google Calendar is not connected")
+    made, failed = [], 0
+    for sl in body.slots:
+        it = db.query_one("SELECT * FROM items WHERE id=?", (sl.get("task_id"),))
+        if not it or not sl.get("start"):
             continue
-        made.append(suggestions.create("calendar_push", f"Block time: {it['content'][:80]}",
-                                       {"title": it["content"], "due": f"{body.day}T{s['start']}", "description": s.get("reason") or ""},
-                                       "planner", it["id"], it["dump_id"]))
-    return {"created": len(made), "suggestions": made}
+        s_ = suggestions.create("calendar_push", f"Block time: {it['content'][:80]}",
+                                {"title": it["content"], "due": f"{body.day}T{sl['start']}", "description": sl.get("reason") or ""},
+                                "planner", it["id"], it["dump_id"])
+        done = suggestions.accept(s_["id"])
+        if done["status"] == "accepted":
+            made.append(done)
+        else:
+            failed += 1
+    return {"created": len(made), "failed": failed}
 
 
 # ── MCP servers + plugins (Phase 9) ──────────────────────────────────────────
@@ -887,7 +904,7 @@ def create_dump(body: DumpIn, bg: BackgroundTasks):
 def list_dumps(limit: int = 100):
     rows = db.query(
         "SELECT d.*, (SELECT COUNT(*) FROM items i WHERE i.dump_id = d.id) AS item_count "
-        "FROM dumps d ORDER BY d.created_at DESC LIMIT ?", (limit,))
+        "FROM dumps d WHERE d.status != 'manual' ORDER BY d.created_at DESC LIMIT ?", (limit,))
     return [{**_dump_out(r), "item_count": r["item_count"]} for r in rows]
 
 
@@ -1000,6 +1017,14 @@ def patch_item(item_id: str, body: ItemPatch):
         if body.kind not in item_types.enum():
             raise HTTPException(400, "Unknown or disabled item type")
         db.execute("UPDATE items SET kind=? WHERE id=?", (body.kind, item_id))
+    if body.priority is not None:
+        if not 0 <= body.priority <= 5:
+            raise HTTPException(400, "priority must be 1-5")
+        db.execute("UPDATE items SET priority=? WHERE id=?", (body.priority or None, item_id))
+    if body.est_minutes is not None:
+        if body.est_minutes < 0:
+            raise HTTPException(400, "est_minutes can't be negative")
+        db.execute("UPDATE items SET est_minutes=? WHERE id=?", (body.est_minutes or None, item_id))
     if "due_date" in body.model_fields_set:
         dd = body.due_date
         if dd is not None:
@@ -1014,12 +1039,37 @@ def patch_item(item_id: str, body: ItemPatch):
 
 @router.get("/tasks")
 def list_tasks():
+    """The backlog. Tasks are things you can finish; goals and ideas ride along (flagged by kind)
+    so the Tasks tab can show them apart instead of pretending "get stronger" can be ticked off."""
     rows = db.query(
-        "SELECT i.*, d.title AS dump_title FROM items i JOIN dumps d ON d.id = i.dump_id "
-        "WHERE i.kind IN ('task','goal') AND i.status != 'rejected' "
+        "SELECT i.*, d.title AS dump_title, (d.status = 'manual') AS manual FROM items i JOIN dumps d ON d.id = i.dump_id "
+        "WHERE i.kind IN ('task','goal','idea') AND i.status != 'rejected' AND d.status IN ('ready','manual') "
         "ORDER BY i.done, CASE WHEN i.due_date IS NULL THEN 1 ELSE 0 END, "
         "i.due_date, COALESCE(i.priority, 0) DESC, i.created_at DESC")
-    return [dict(r) for r in rows]
+    return [{**dict(r), "manual": bool(r["manual"])} for r in rows]
+
+
+@router.post("/tasks")
+def create_task(body: TaskIn):
+    """A task (or goal / idea) typed in by hand — no dump needed."""
+    content = body.content.strip()[:500]
+    if not content:
+        raise HTTPException(400, "A task needs some text")
+    if body.kind not in ("task", "goal", "idea"):
+        raise HTTPException(400, "kind must be task, goal or idea")
+    due = (body.due_date or "").strip() or None
+    if due and not re.fullmatch(r"\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?", due):
+        raise HTTPException(400, "due_date must be YYYY-MM-DD or YYYY-MM-DDTHH:MM")
+    if body.priority is not None and not 1 <= body.priority <= 5:
+        raise HTTPException(400, "priority must be 1-5")
+    iid = db.new_id()
+    detail = (body.detail or "").strip()[:500] or None
+    db.execute("INSERT INTO items (id, dump_id, kind, content, detail, priority, due_date, status, done, created_at) "
+               "VALUES (?,?,?,?,?,?,?, 'approved', 0, ?)",
+               (iid, db.manual_dump(), body.kind, content, detail, body.priority, due, db.now_iso()))
+    db.execute("INSERT INTO items_fts (item_id, dump_id, body) VALUES (?,?,?)",
+               (iid, db.MANUAL_DUMP_ID, f"{content} {detail or ''}"))
+    return {**dict(db.query_one("SELECT * FROM items WHERE id=?", (iid,))), "dump_title": "Added by hand", "manual": True}
 
 
 # ── Graph ────────────────────────────────────────────────────────────────────
@@ -1141,60 +1191,26 @@ def item_ics(item_id: str):
 
 @router.get("/search")
 def search(q: str):
-    q = q.strip()
-    if not q:
-        return []
-    results: dict[str, dict] = {}
+    return search_mod.search(q)
 
-    terms = re.findall(r"\w+", q.lower())
-    if terms:
-        match = " OR ".join(f'"{t}"' for t in terms)
-        try:
-            for r in db.query(
-                    "SELECT d.id, d.title, d.created_at, "
-                    "snippet(dumps_fts, 1, '「', '」', '…', 14) AS snip "
-                    "FROM dumps_fts JOIN dumps d ON d.id = dumps_fts.id "
-                    "WHERE dumps_fts MATCH ? ORDER BY bm25(dumps_fts) LIMIT 12", (match,)):
-                results[r["id"]] = {"id": r["id"], "title": r["title"],
-                                    "created_at": r["created_at"],
-                                    "snippet": r["snip"], "via": "keyword"}
-        except Exception:
-            pass
 
-    # Items: "search everything" — a task/idea/… whose text matches surfaces its dump.
-    if terms:
-        try:
-            for r in db.query(
-                    "SELECT f.item_id, f.dump_id, i.kind, i.content, d.title, d.created_at, d.summary "
-                    "FROM items_fts f JOIN items i ON i.id = f.item_id JOIN dumps d ON d.id = f.dump_id "
-                    "WHERE items_fts MATCH ? ORDER BY bm25(items_fts) LIMIT 30", (match,)):
-                entry = results.get(r["dump_id"])
-                if not entry:
-                    entry = results[r["dump_id"]] = {"id": r["dump_id"], "title": r["title"],
-                                                     "created_at": r["created_at"],
-                                                     "snippet": (r["summary"] or "")[:160], "via": "items"}
-                entry.setdefault("matched_items", []).append(
-                    {"id": r["item_id"], "kind": r["kind"], "content": r["content"][:160]})
-        except Exception:
-            pass
+@router.get("/browse")
+def browse_types():
+    """Every node type with how many entries it has (Search tab's left column)."""
+    return graph.browse()
 
-    emb = ai.embed(q) if ai.available() else None
-    if emb:
-        rows = db.query("SELECT id, title, created_at, summary, embedding "
-                        "FROM dumps WHERE embedding IS NOT NULL")
-        scored = sorted(((r, ai.cosine(emb, json.loads(r["embedding"]))) for r in rows),
-                        key=lambda t: -t[1])
-        for r, score in scored[:8]:
-            if score < 0.45:
-                break
-            if r["id"] in results:
-                results[r["id"]]["via"] = "both"
-            else:
-                results[r["id"]] = {"id": r["id"], "title": r["title"],
-                                    "created_at": r["created_at"],
-                                    "snippet": (r["summary"] or "")[:160],
-                                    "via": "semantic"}
-    return list(results.values())
+
+@router.get("/browse/items/{kind}")
+def browse_items(kind: str):
+    return graph.items_of_kind(kind)
+
+
+@router.get("/journal-prompt")
+def journal_prompt():
+    """A fresh question for the Capture screen (each call advances the no-repeat rotation)."""
+    if not prompts.enabled():
+        return {"enabled": False}
+    return {"enabled": True, **prompts.next_prompt()}
 
 
 # ── Reflect ──────────────────────────────────────────────────────────────────
@@ -1280,6 +1296,7 @@ def get_settings():
     return {**c, "whisper_model": db.get_setting("whisper_model", "base"),
             "tools_in_chat": bool(db.get_setting("tools_in_chat", False)),
             "cleanup_enabled": bool(db.get_setting("cleanup_enabled", True)),
+            "journal_prompt_enabled": prompts.enabled(),
             "defaults": ai.DEFAULTS}
 
 
@@ -1289,6 +1306,8 @@ def put_settings(body: SettingsIn):
         db.set_setting("tools_in_chat", bool(body.tools_in_chat))
     if body.cleanup_enabled is not None:
         db.set_setting("cleanup_enabled", bool(body.cleanup_enabled))
+    if body.journal_prompt_enabled is not None:
+        db.set_setting("journal_prompt_enabled", bool(body.journal_prompt_enabled))
     if body.provider is not None:
         if body.provider not in ("builtin", "anthropic", "openai", "gemini", "local", "off"):
             raise HTTPException(400, "Bad provider")

@@ -9,7 +9,7 @@ import { native, currentWindow, minimizeWindow, toggleMaximizeWindow, closeWindo
 export const NAV = [
   { id: "capture", label: "Capture" }, { id: "graph", label: "Graph" }, { id: "search", label: "Search" },
   { id: "history", label: "History" }, { id: "tasks", label: "Tasks" },
-  { id: "inbox", label: "Inbox" }, { id: "reflect", label: "Reflect" }, { id: "stats", label: "Statistics" },
+  { id: "reflect", label: "Reflect", wip: true }, { id: "stats", label: "Statistics" },
 ];
 
 export function mountShell() {
@@ -17,7 +17,7 @@ export function mountShell() {
   if (isMac) macKeys();
   $("#rail").innerHTML = `
     <a class="brain" href="#capture" title="BrainDump Lite">${ICONS.brain}</a>
-    ${NAV.map((n) => `<a class="nav" data-v="${n.id}" href="#${n.id}" title="${n.label}">${ICONS[n.id]}<span>${n.label}</span>${n.id === "inbox" ? `<i class="nbadge" id="inbox-badge" hidden></i>` : ""}</a>`).join("")}
+    ${NAV.map((n) => `<a class="nav" data-v="${n.id}" href="#${n.id}" title="${n.label}${n.wip ? " — work in progress" : ""}">${ICONS[n.id]}<span>${n.label}</span>${n.wip ? `<i class="wip" title="Work in progress">${ICONS.wip}</i>` : ""}</a>`).join("")}
     <div class="grow"></div>
     <span class="ai-dot" id="ai-dot" title="AI off"></span>
     <a class="nav" data-v="settings" href="#settings" title="Settings">${ICONS.settings}<span>Settings</span><i class="badge" id="rail-badge" hidden></i></a>`;
@@ -78,8 +78,6 @@ export function setTitle(title, slotHtml = "") {
 }
 
 function paintStatus(status) {
-  const nb = $("#inbox-badge");
-  if (nb) { const n = status.inbox_pending || 0; nb.hidden = !n; nb.textContent = n > 99 ? "99+" : n; }
   const pill = $("#ai-pill"), dot = $("#ai-dot");
   if (!pill || !dot) return;
   if (status.ai) {

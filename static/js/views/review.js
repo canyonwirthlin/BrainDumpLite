@@ -105,15 +105,18 @@ export function itemRow(it) {
     </div>`;
 }
 
-// Swap an item row's text for a small form: text, first step / note, and type.
-function editItem(el, it, reload) {
-  const types = state.types.some((t) => t.id === it.kind) ? state.types : [...state.types, { id: it.kind, label: it.kind, icon: "" }];
+// Swap an item row's text for a small form: text, first step / note, type (and priority for
+// tasks). `kinds` narrows the type list (the Tasks tab only offers task / goal / idea).
+export function editItem(el, it, reload, { kinds } = {}) {
+  let types = state.types.some((t) => t.id === it.kind) ? state.types : [...state.types, { id: it.kind, label: it.kind, icon: "" }];
+  if (kinds) types = types.filter((t) => kinds.includes(t.id));
   const body = $(".body", el);
   body.innerHTML = `<div class="ed-form">
     <textarea class="ed-content" rows="2" maxlength="500" aria-label="Item text">${esc(it.content)}</textarea>
     <input type="text" class="ed-detail" maxlength="500" placeholder="First step or note (optional)" value="${esc(it.detail || "")}" aria-label="First step or note">
     <div class="row" style="margin:0">
       <select class="ed-kind" aria-label="Type">${types.map((t) => `<option value="${esc(t.id)}" ${t.id === it.kind ? "selected" : ""}>${esc((t.icon ? t.icon + " " : "") + t.label)}</option>`).join("")}</select>
+      ${kinds ? `<select class="ed-prio" aria-label="Priority"><option value="0">No priority</option>${[[5, "P5 · today"], [4, "P4 · this week"], [3, "P3 · moderate"], [2, "P2 · nice to have"], [1, "P1 · someday"]].map(([n, l]) => `<option value="${n}" ${n === it.priority ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}
       <div class="grow"></div>
       <button class="btn small" data-save>Save</button><button class="btn ghost small" data-cancel>Cancel</button></div></div>`;
   const content = $(".ed-content", body);
@@ -124,6 +127,8 @@ function editItem(el, it, reload) {
     const patch = { content: text, detail: $(".ed-detail", body).value.trim() || null };
     const kind = $(".ed-kind", body).value;
     if (kind !== it.kind) patch.kind = kind;
+    const prio = $(".ed-prio", body);
+    if (prio && +prio.value !== (it.priority || 0)) patch.priority = +prio.value;
     try { await api.patch("/items/" + it.id, patch); reload?.(); }
     catch (e) { toast("Couldn't save: " + e.message, true); }
   };
@@ -221,13 +226,13 @@ document.addEventListener("click", async (e) => {
       ${opt("calendar", "📅", "Google Calendar" + (i?.google?.account ? ` (${esc(i.google.account)})` : ""), i?.google?.connected)}
       ${opt("todoist", "✅", "Todoist", i?.todoist?.connected)}
     </div>
-    <p class="small muted" style="margin:14px 0 0">Sends right away. Suggested sends from new dumps land in the <a href="#inbox">Inbox</a> first.</p>`);
+    <p class="small muted" style="margin:14px 0 0">Sends right away — nothing is ever sent to them without you pressing this.</p>`);
   $$("[data-target]", m.el).forEach((o) => o.onclick = async () => {
     o.disabled = true;
     try {
       const r = await api.post(`/items/${id}/send`, { target: o.dataset.target });
       if (r.status === "failed") toast("Couldn't send: " + (r.result?.error || "unknown error"), true);
-      else toast("Sent" + (r.result?.link ? " — open it from Inbox → Recently handled" : ""));
+      else toast("Sent");
     } catch (err) { toast(err.message, true); }
     m.close();
   });

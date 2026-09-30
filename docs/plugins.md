@@ -46,26 +46,18 @@ session and shows the traceback in Settings; the rest of the app keeps going.
 | Call | What it does |
 |---|---|
 | `api.on_dump(fn)` | `fn(dump)` after the pipeline finishes a dump (dict of the dumps row) |
-| `api.action(id, label, fn)` | registers `fn(args) -> dict`, runnable from the Inbox and the API |
-| `api.propose(kind, title, payload, item_id=None, dump_id=None)` | drops a suggestion in the Inbox |
+| `api.action(id, label, fn)` | registers `fn(args) -> dict`, runnable from Settings → Plugins & MCP and the API |
+| `api.propose(...)` | **removed in 0.20** (the Inbox is gone): logs a line and does nothing. Use `api.action` |
 | `api.setting(key, default)` / `api.set_setting(key, value)` | plugin-scoped settings |
 | `api.db_query(sql, params)` | one read-only `SELECT` against the vault |
 | `api.log(msg)` | appends to `logs/plugins.log` in your data folder |
 | `api.id`, `api.folder` | your plugin id and its folder as a `Path` |
 
-## Proposing an action
+## Actions
 
-Nothing a plugin proposes runs on its own. Use `kind="plugin_action"` with a
-payload naming one of your actions, and it appears in the Inbox for the user to
-press:
-
-```python
-api.propose("plugin_action", "Build today's digest",
-            {"action": "digest_now", "args": {"day": "2026-09-18"}})
-```
-
-The user can edit `args` before running it, and the result (or the error) is
-recorded in the Inbox's "Recently handled" list.
+Nothing a plugin does runs on its own. Register an action with `api.action` and
+the user presses it from the plugin's card in Settings → Plugins & MCP; the
+result (or the error) is shown right there.
 
 ## A working example
 

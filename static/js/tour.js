@@ -120,7 +120,7 @@ const SCENES = {
 
   search: {
     title: "Search — find it by words or meaning",
-    blurb: "Search looks through every dump and item. It also matches by meaning when the AI's embeddings are on, so you don't need the exact words.",
+    blurb: "Search looks through every dump and item, forgives typos and word endings, and finds people and topics by name. With embeddings on it matches by meaning too. Below the box, Browse lists every person, concept, goal and idea with how many times each appears.",
     tip: "Type a word — try “internship”, “dentist” or “garden”.",
     mount(view) {
       view.innerHTML = `<input type="text" id="t-q" class="t-search" placeholder="Search your dumps…" value="internship" autocomplete="off"><div id="t-res"></div>`;
@@ -166,7 +166,7 @@ const SCENES = {
 
   tasks: {
     title: "Tasks — everything you've committed to",
-    blurb: "Tasks collects every task from every dump. All shows what's still open; the other tabs slice it by due date, and Done keeps what you've finished.",
+    blurb: "Tasks are things you can finish. All shows what's still open and the other tabs slice it by due date; ongoing aims and speculative thoughts sit under Goals and Ideas instead of cluttering the list. Add your own with the box at the top and edit any task with the pencil.",
     tip: "Switch tabs, then tick a task to finish it.",
     mount(view) {
       const G = [["all", "All"], ["overdue", "Overdue"], ["today", "Today"], ["upcoming", "Upcoming"], ["someday", "Someday"], ["done", "Done"]];
@@ -186,21 +186,9 @@ const SCENES = {
     },
   },
 
-  inbox: {
-    title: "Inbox — the AI proposes, you decide",
-    blurb: "When a dump mentions something that belongs in your calendar or Todoist, it waits here as a suggestion. Nothing is pushed anywhere until you accept it.",
-    tip: "Accept one and dismiss the other.",
-    mount(view) {
-      const S = [["📅", "Add to Google Calendar", "Dentist cleaning — Fri 3:00 PM"], ["✅", "Add to Todoist", "Send the two internship applications — due Fri"]];
-      view.innerHTML = S.map(([ic, kind, title], i) => `<div class="card" data-s="${i}"><div class="row" style="margin:0"><span style="font-size:20px">${ic}</span><div class="grow"><b>${esc(title)}</b><div class="small muted">${kind} · from “${DUMPS[i].title}”</div></div>
-        <button class="btn ghost small" data-a="no">Dismiss</button><button class="btn small" data-a="ok">Accept</button></div></div>`).join("") + demoNote("Demo only — the real Inbox needs Google Calendar or Todoist connected in Settings.");
-      $$("[data-a]", view).forEach((b) => b.onclick = () => { const c = b.closest(".card"); c.innerHTML = `<span class="small muted">${b.dataset.a === "ok" ? "✓ Accepted — it would be sent now." : "Dismissed."}</span>`; });
-    },
-  },
-
   reflect: {
     title: "Reflect — a look back",
-    blurb: "Reflect reads your recent dumps and writes a short daily or weekly summary: what you kept coming back to, and how you were feeling.",
+    blurb: "Still a work in progress (that's the little warning mark on its tab). Reflect reads your recent dumps and writes a short daily or weekly summary: what you kept coming back to, and how you were feeling.",
     tip: "Generate the sample weekly reflection.",
     mount(view, t) {
       view.innerHTML = `<div class="card"><h2>This week</h2><div id="t-ref"><p class="small muted">Nothing generated yet.</p></div><div class="row"><button class="btn small" id="t-gen">Generate weekly reflection</button></div></div>${demoNote("Demo only — the real one is written by your AI from your actual dumps.")}`;
@@ -231,7 +219,7 @@ const SCENES = {
     mount(view) {
       const S = { AI: "Pick Gemini, the built-in local model, your own server, Claude or OpenAI — and add your own item types.", Voice: "Turn on the mic button and choose the speech model.",
         Data: "Vault location, backups, markdown export/import, Git mirror, app lock — plus opening at startup and streak reminders.",
-        Integrations: "Connect Google Calendar and Todoist so the Inbox can send things there.", Appearance: "Themes, density and motion — or design your own theme colour by colour.",
+        Integrations: "Connect Google Calendar and Todoist so any task can be sent there.", Appearance: "Themes, density and motion — or design your own theme colour by colour.",
         About: "Version, what's new, and “Replay tutorial” to see this tour again." };
       view.innerHTML = `<div class="t-split"><div class="master"><div class="glist">${Object.keys(S).map((k, i) => `<a href="#" class="grow-row ${i === 0 ? "on" : ""}" data-k="${k}"><span>${k}</span></a>`).join("")}</div></div>
         <div class="detail"><h1 class="page" id="t-sh">AI</h1><div class="card"><p id="t-sp2">${esc(S.AI)}</p></div></div></div>`;

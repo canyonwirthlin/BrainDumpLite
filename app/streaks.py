@@ -21,7 +21,7 @@ def _local_date(iso: str) -> date | None:
 
 def _dump_dates() -> set[date]:
     out = set()
-    for r in db.query("SELECT captured_local, created_at FROM dumps"):
+    for r in db.query("SELECT captured_local, created_at FROM dumps WHERE status != 'manual'"):
         d = _local_date(r["captured_local"] or r["created_at"])
         if d:
             out.add(d)
@@ -82,7 +82,7 @@ def word_stats() -> dict:
     month_start = today.replace(day=1)
     year_start = today.replace(month=1, day=1)
     week = month = year = alltime = 0
-    for r in db.query("SELECT captured_local, created_at, clean_text, raw_text FROM dumps"):
+    for r in db.query("SELECT captured_local, created_at, clean_text, raw_text FROM dumps WHERE status != 'manual'"):
         d = _local_date(r["captured_local"] or r["created_at"])
         if not d:
             continue

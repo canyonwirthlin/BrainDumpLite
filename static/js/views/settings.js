@@ -62,6 +62,12 @@ function sectionAppearance(box, s) {
       <span class="small muted" id="theme-msg"></span>
     </div>
     <div id="theme-editor-slot"></div>
+    <div class="sec">Capture screen</div>
+    <div class="card"><div class="row" style="margin:0">
+      <div class="grow"><b>Journal prompt</b>
+        <div class="small muted">A different, thought-provoking question above the writing box every time you open Capture — some drawn from your own dumps. Turn it off for a clean page.</div></div>
+      <label class="sw"><input type="checkbox" id="prompt-on" ${s.journal_prompt_enabled !== false ? "checked" : ""}><i></i></label>
+    </div></div>
     ${on ? `<div class="adv">
       <div class="sec" style="margin-top:0">Advanced</div>
       <div class="field"><label>Density</label>
@@ -86,6 +92,11 @@ function sectionAppearance(box, s) {
     catch (err) { $("#theme-msg", body).textContent = err.message; }
   };
   if ($("#theme-del", body)) $("#theme-del", body).onclick = async () => { await deleteTheme(state.activeTheme); await setActive("midnight"); repaint(); };
+  $("#prompt-on", body).onchange = async (e) => {
+    const want = e.target.checked;
+    try { Object.assign(s, await api.put("/settings", { journal_prompt_enabled: want })); toast(want ? "Journal prompt on" : "Journal prompt off"); }
+    catch (err) { e.target.checked = !want; toast("Couldn't save: " + err.message, true); }
+  };
   if ($("#f-density", body)) $("#f-density", body).onchange = (e) => setDensity(e.target.value);
   if ($("#f-motion", body)) $("#f-motion", body).onchange = (e) => setMotion(e.target.value);
 }
@@ -696,12 +707,12 @@ async function sectionIntegrations(box, s) {
   try { i = await api.get("/integrations"); } catch (e) { body.innerHTML = `<div class="center">${esc(e.message)}</div>`; return; }
   const g = i.google, t = i.todoist;
   body.innerHTML = `
-    <p class="small muted" style="margin-bottom:14px">Connected services only ever receive what you approve in the <a href="#inbox">Inbox</a> or send yourself.
+    <p class="small muted" style="margin-bottom:14px">Connected services only ever receive what you send yourself, with the ⇪ button on a task.
       Tokens are stored ${i.secrets === "dpapi" ? "encrypted with Windows DPAPI (tied to your Windows account)" : "<b>unencrypted</b> on this platform"}.</p>
     <div class="card">
       <div class="row" style="margin:0">
         <div class="grow"><b>📅 Google Calendar</b>
-          <div class="small muted">${g.connected ? `Connected${g.account ? " as " + esc(g.account) : ""}. New dated tasks and events show up in the Inbox; “Plan my day” uses your free time.` : "One-click sign-in. Push-only, plus reading your day for the planner."}</div></div>
+          <div class="small muted">${g.connected ? `Connected${g.account ? " as " + esc(g.account) : ""}. “Plan my day” uses your free time and can block it out on your calendar.` : "One-click sign-in. Push-only, plus reading your day for the planner."}</div></div>
         ${g.connected ? `<button class="btn ghost" id="g-off">Disconnect</button>`
           : `<button class="btn" id="g-on" ${g.client_id ? "" : `disabled title="Add a Google OAuth client id under Advanced first"`}>Sign in with Google</button>`}
       </div>
@@ -716,7 +727,7 @@ async function sectionIntegrations(box, s) {
     <div class="card">
       <div class="row" style="margin:0">
         <div class="grow"><b>✅ Todoist</b>
-          <div class="small muted">${t.connected ? "Connected. New tasks are proposed in the Inbox; “Send to…” pushes any task." : "Paste a personal API token from Todoist → Settings → Integrations → Developer."}</div></div>
+          <div class="small muted">${t.connected ? "Connected. “Send to…” on any task pushes it there." : "Paste a personal API token from Todoist → Settings → Integrations → Developer."}</div></div>
         ${t.connected ? `<button class="btn ghost" id="td-off">Disconnect</button>` : ""}
       </div>
       ${t.connected ? "" : `<div class="row" style="margin-top:8px">

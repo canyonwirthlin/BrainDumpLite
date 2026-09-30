@@ -1,5 +1,5 @@
 // Daily / weekly reflections.
-import { $, $$, md, esc, relTime, toneChip, toast, fmtTime } from "../ui.js";
+import { $, $$, md, esc, relTime, toneChip, toast, fmtTime, ICONS } from "../ui.js";
 import { api } from "../api.js";
 import { refreshStatus } from "../state.js";
 
@@ -7,7 +7,7 @@ export function render(ctx) {
   ctx.setTitle("Reflect");
   $("#view").innerHTML = `
     <div id="resurface"></div>
-    <h1>Reflect</h1>
+    <h1>Reflect <span class="wip-chip" title="Reflect is still being built — expect rough edges">${ICONS.wip} Work in progress</span></h1>
     <p class="sub">Your second brain reads everything back to you.</p>
     <div class="card" id="plan-card">
       <div class="row" style="margin:0 0 6px">
@@ -75,7 +75,7 @@ async function planDay() {
         ${s.reason ? `<span class="small muted">${esc(s.reason)}</span>` : ""}</label>`).join("")
       : `<div class="small muted">${p.backlog.length ? "No gaps left to fill." : "No open tasks to plan — approve some in a dump's review first."}</div>`}
     ${p.slots.length ? `<div class="row" style="margin-top:10px"><div class="grow"></div>
-        <button class="btn small" id="plan-push" ${p.calendar ? "" : "disabled title=\"Connect Google Calendar first\""}>Block on calendar → Inbox</button></div>` : ""}`;
+        <button class="btn small" id="plan-push" ${p.calendar ? "" : "disabled title=\"Connect Google Calendar first\""}>Block on calendar</button></div>` : ""}`;
   const push = $("#plan-push");
   if (push) push.onclick = async () => {
     const slots = $$("[data-slot]:checked", box).map((c) => p.slots[+c.dataset.slot]);
@@ -83,7 +83,7 @@ async function planDay() {
     push.disabled = true;
     try {
       const r = await api.post("/plan/push", { day: p.day, slots });
-      toast(`${r.created} time block${r.created === 1 ? "" : "s"} waiting in your Inbox`);
+      toast(r.failed ? `${r.created} blocked, ${r.failed} failed` : `${r.created} time block${r.created === 1 ? "" : "s"} added to your calendar`, !!r.failed && !r.created);
       await refreshStatus();
     } catch (e) { toast(e.message, true); push.disabled = false; }
   };

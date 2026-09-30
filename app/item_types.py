@@ -15,13 +15,21 @@ COLORS = ["accent", "green", "amber", "red", "blue", "dim"]  # token names; #hex
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 BUILTIN_SEED = [
-    ("task", "Task", "✅", "accent", "clear action verb (do, call, write, fix, send, build, schedule, buy, complete)"),
-    ("goal", "Goal", "🎯", "green", "desired outcome, aspiration, or self-improvement aim — even without action verbs"),
-    ("idea", "Idea", "💡", "amber", "creative or speculative thought, hypothetical plan, new concept to explore"),
+    ("task", "Task", "✅", "accent", "a concrete one-off action that can be finished and checked off (call, send, buy, book, fix, write, submit). If you can't say what DONE looks like, it is NOT a task"),
+    ("goal", "Goal", "🎯", "green", "an ongoing aim, habit or self-improvement direction with no single finish line (get stronger, save money, be more patient, learn Spanish) — even when phrased 'I need to' or 'I want to'. Never a task"),
+    ("idea", "Idea", "💡", "amber", "speculative or creative thought, 'what if', hypothetical plan, something to explore or maybe do someday — not yet a commitment"),
     ("concern", "Concern", "⚠️", "red", "worry, fear, anxiety, stress, or something weighing on the person"),
     ("event", "Event", "📅", "blue", "has explicit or implied date/time scheduling intent"),
     ("note", "Note", "📝", "dim", "purely factual reference info or context that is NOT aspirational"),
 ]
+
+# Hints written by earlier versions. seed() upgrades a built-in whose hint is still exactly one of
+# these (i.e. the user never edited it); a customised hint is left alone.
+_OLD_HINTS = {
+    "task": ["clear action verb (do, call, write, fix, send, build, schedule, buy, complete)"],
+    "goal": ["desired outcome, aspiration, or self-improvement aim — even without action verbs"],
+    "idea": ["creative or speculative thought, hypothetical plan, new concept to explore"],
+}
 
 
 def _row(r) -> dict:
@@ -35,6 +43,8 @@ def seed() -> None:
         db.execute(
             "INSERT OR IGNORE INTO item_types (id, label, icon, color, hint, builtin, enabled, sort) "
             "VALUES (?,?,?,?,?,1,1,?)", (tid, label, icon, color, hint, i))
+        for old in _OLD_HINTS.get(tid, []):
+            db.execute("UPDATE item_types SET hint=? WHERE id=? AND builtin=1 AND hint=?", (hint, tid, old))
 
 
 def all() -> list[dict]:

@@ -15,7 +15,7 @@ def test_search_matches_items_and_backfills_fts():
                (iid, did, "task", "call the dentist tomorrow", db.now_iso()))
     # No items_fts row yet → the backfill on init must index it.
     db.backfill_items_fts()
-    r = client.get("/api/search?q=dentist").json()
+    r = client.get("/api/search?q=dentist").json()["results"]
     hit = next((x for x in r if x["id"] == did), None)
     assert hit and hit["via"] in ("items", "both", "keyword")
     assert hit["matched_items"][0]["content"] == "call the dentist tomorrow"

@@ -22,6 +22,7 @@ export function route() {
   clearPoll();
   const { name, params } = parse();
   if (name === "dump" && params[0]) { location.replace("#history/" + params[0]); return; }  // legacy links
+  if (name === "inbox") { location.replace("#tasks"); return; }                             // the Inbox tab was removed in 0.20
   const render = routes[name] || routes.capture;
   emit("route", { name, params });
   const v = document.querySelector("#view");

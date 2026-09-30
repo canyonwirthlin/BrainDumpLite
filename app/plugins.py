@@ -92,10 +92,10 @@ class PluginAPI:
         return fn
 
     def propose(self, kind: str, title: str, payload: dict, item_id: str | None = None, dump_id: str | None = None):
-        from . import suggestions
-        if kind == "plugin_action":
-            payload = {**payload, "plugin": self.id}
-        return suggestions.create(kind, title, payload, source=f"plugin:{self.id}", item_id=item_id, dump_id=dump_id)
+        # The Inbox that used to show proposals was removed in 0.20, so a queued proposal could never
+        # be seen or run. Kept so existing plugins that call it still load; they should use api.action.
+        self.log(f"propose({kind!r}, {title!r}) ignored: the Inbox was removed in 0.20, use api.action")
+        return None
 
     def setting(self, key: str, default=None):
         return (db.get_setting(f"plugin:{self.id}", {}) or {}).get(key, default)

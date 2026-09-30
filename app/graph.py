@@ -297,3 +297,34 @@ def resurface() -> dict | None:
         return None
     db.set_setting(key, {"id": r["id"], "reason": reason})
     return {"dump": _dump_brief(r), "reason": reason}
+
+
+# ── Browse by type (Search tab) ──────────────────────────────────────────────
+
+def browse() -> list[dict]:
+    """Every node type with how many entries it has: people/concepts count distinct
+    names (each carries its own mention count); item types count live items."""
+    ov = {t["id"]: t for t in types()}
+    out = [
+        {"id": "person", "label": ov["person"]["label"], "color": ov["person"]["color"], "icon": "", "entries": "names",
+         "count": len(people())},
+        {"id": "concept", "label": ov["concept"]["label"], "color": ov["concept"]["color"], "icon": "", "entries": "names",
+         "count": len(concepts())},
+    ]
+    counts = {r["kind"]: r["n"] for r in db.query(
+        "SELECT i.kind, COUNT(*) AS n FROM items i JOIN dumps d ON d.id = i.dump_id "
+        "WHERE i.status != 'rejected' AND d.status IN ('ready','manual') GROUP BY i.kind")}
+    for t in item_types.enabled():
+        out.append({"id": t["id"], "label": t["label"], "color": t["color"], "icon": t["icon"], "entries": "items",
+                    "count": counts.get(t["id"], 0)})
+    return out
+
+
+def items_of_kind(kind: str) -> list[dict]:
+    """Live items of one type, newest first, each with the dump it came from."""
+    rows = db.query(
+        "SELECT i.id, i.kind, i.content, i.detail, i.done, i.due_date, i.created_at, i.dump_id, d.title AS dump_title, d.status AS dump_status "
+        "FROM items i JOIN dumps d ON d.id = i.dump_id "
+        "WHERE i.kind=? AND i.status != 'rejected' AND d.status IN ('ready','manual') ORDER BY i.created_at DESC", (kind,))
+    return [{**dict(r), "dump_id": None if r["dump_status"] == "manual" else r["dump_id"], "dump_title": None if r["dump_status"] == "manual" else r["dump_title"]}
+            for r in rows]

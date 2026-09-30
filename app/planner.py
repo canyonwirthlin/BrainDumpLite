@@ -33,7 +33,7 @@ def _hhmm(m: int) -> str:
 
 
 def backlog(limit: int = 15) -> list[dict]:
-    rows = db.query("SELECT id, content, est_minutes, urgency, due_date FROM items WHERE kind IN ('task','goal') "
+    rows = db.query("SELECT id, content, est_minutes, urgency, due_date FROM items WHERE kind='task' "
                     "AND status='approved' AND done=0 ORDER BY COALESCE(urgency,0) DESC, COALESCE(est_minutes, 60) ASC, created_at DESC LIMIT ?", (limit,))
     return [dict(r) for r in rows]
 

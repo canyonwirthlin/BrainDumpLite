@@ -1,9 +1,16 @@
-// Tasks as master/detail: "All" (open tasks, the default) plus due-date groups on the left, the group's tasks on the right.
-import { $, $$, esc, todayIso, timeChips } from "../ui.js";
+// Tasks as master/detail. Tasks are things you can finish ("call the dentist"); ongoing aims
+// ("get stronger") and speculative thoughts live under Goals and Ideas so they don't clutter the
+// backlog. Every row can be edited (✎), and the box at the top adds your own.
+import { $, $$, esc, todayIso, timeChips, toast } from "../ui.js";
 import { api } from "../api.js";
-import { dueWrap, bindDue, calBtns } from "./review.js";
+import { dueWrap, bindDue, calBtns, editItem } from "./review.js";
 
 const GROUPS = [["all", "All"], ["overdue", "Overdue"], ["today", "Today"], ["upcoming", "Upcoming"], ["someday", "Someday"], ["done", "Done"]];
+const KIND_GROUPS = [["goals", "Goals", "goal"], ["ideas", "Ideas", "idea"]];
+const BLURB = {
+  goals: "Ongoing aims — things you work toward but can't tick off in one go. When one has a concrete next step, turn it into a task.",
+  ideas: "Speculative thoughts, not commitments. Promote one to a task when you decide to do it.",
+};
 
 export async function render(ctx) {
   ctx.setTitle("Tasks");
@@ -11,12 +18,14 @@ export async function render(ctx) {
   $("#view").innerHTML = `<div class="split has-detail" id="tasks">
     <div class="master" id="task-groups"></div>
     <div class="detail" id="task-list"><div class="center">Loading…</div></div></div>`;
-  let tasks;
-  try { tasks = await api.get("/tasks"); }
+  let items;
+  try { items = await api.get("/tasks"); }
   catch (e) { $("#task-list").innerHTML = `<div class="center">Couldn't load tasks: ${esc(e.message)}</div>`; return; }
   const today = todayIso(), dayOf = (t) => (t.due_date || "").split("T")[0] || null;
-  const by = { all: [], overdue: [], today: [], upcoming: [], someday: [], done: [] };
-  for (const t of tasks) {
+  const by = { all: [], overdue: [], today: [], upcoming: [], someday: [], done: [], goals: [], ideas: [] };
+  for (const t of items) {
+    if (t.kind === "goal") { by.goals.push(t); continue; }
+    if (t.kind === "idea") { if (!t.done) by.ideas.push(t); continue; }
     const day = dayOf(t);
     if (t.done) { by.done.push(t); continue; }
     by.all.push(t);  // everything still open — Done is the only thing "All" leaves out
@@ -25,33 +34,74 @@ export async function render(ctx) {
     else if (day) by.upcoming.push(t);
     else by.someday.push(t);
   }
-  const group = GROUPS.some(([g]) => g === ctx.params[0]) ? ctx.params[0] : "all";
-  const label = GROUPS.find(([g]) => g === group)[1];
-  $("#task-groups").innerHTML = `<div class="glist">${GROUPS.map(([g, l]) => `
-      <a href="#tasks/${g}" class="grow-row ${g === group ? "on" : ""}"><span>${l}</span><span class="count">${by[g].length}</span></a>`).join("")}</div>
-    <div class="small muted" style="padding:12px 16px">${tasks.length} task${tasks.length === 1 ? "" : "s"} pulled from your dumps.</div>`;
+  const all = [...GROUPS, ...KIND_GROUPS];
+  const group = all.some(([g]) => g === ctx.params[0]) ? ctx.params[0] : "all";
+  const label = all.find(([g]) => g === group)[1];
+  const kindGroup = KIND_GROUPS.find(([g]) => g === group);
+  const row = ([g, l]) => `<a href="#tasks/${g}" class="grow-row ${g === group ? "on" : ""}"><span>${l}</span><span class="count">${by[g].filter((t) => !t.done || g === "done").length}</span></a>`;
+  $("#task-groups").innerHTML = `<div class="glist">${GROUPS.map(row).join("")}
+      <div class="glist-sep">Not tasks</div>${KIND_GROUPS.map(row).join("")}</div>
+    <div class="small muted" style="padding:12px 16px">Tasks are things you can finish. Ongoing aims and loose ideas are kept apart from them.</div>`;
+
   const list = by[group];
+  const kindOfNew = kindGroup ? kindGroup[2] : "task";
   $("#task-list").innerHTML = `<h1 class="page">${label}</h1>
-    ${list.length ? `<div class="card">${list.map((t) => `
-      <div class="task-row ${t.done ? "done" : ""}" data-id="${t.id}">
-        <input type="checkbox" ${t.done ? "checked" : ""}>
-        <div class="body grow">
-          <span class="content">${esc(t.content)}</span>
-          ${dueWrap(t)}
-          ${t.priority >= 4 ? `<span class="chip">P${t.priority}</span>` : ""}
-          ${timeChips(t)}
-          ${t.status === "suggested" ? `<span class="chip">unreviewed</span>` : ""}
-          <div class="detail small muted">from <a href="#history/${t.dump_id}">${esc(t.dump_title || "dump")}</a></div>
-        </div>
-        ${calBtns(t)}
-        <button class="iconbtn no" title="Reject">✕</button>
-      </div>`).join("")}</div>`
-    : `<div class="center"><div class="big">🧺</div>${group === "all" ? "No open tasks" : "Nothing in " + label.toLowerCase()}${tasks.length ? "" : " — tasks appear when your dumps contain them"}.</div>`}`;
+    ${BLURB[group] ? `<p class="sub">${BLURB[group]}</p>` : ""}
+    <form class="add-task" id="add-task">
+      <input type="text" id="add-content" maxlength="500" autocomplete="off" placeholder="${kindGroup ? `Add a ${kindGroup[2]}…` : "Add a task… (Enter)"}">
+      ${kindGroup ? "" : `<input type="date" id="add-due" value="${group === "today" ? today : ""}" title="Due date (optional)">`}
+      <button class="btn small" type="submit">Add</button>
+    </form>
+    ${list.length ? `<div class="card">${list.map((t) => rowHtml(t)).join("")}</div>`
+    : `<div class="center"><div class="big">🧺</div>${emptyText(group, label, items.length)}</div>`}`;
+
   const reload = () => render(ctx);
+  $("#add-task").onsubmit = async (e) => {
+    e.preventDefault();
+    const content = $("#add-content").value.trim();
+    if (!content) return;
+    try {
+      await api.post("/tasks", { content, kind: kindOfNew, due_date: $("#add-due")?.value || null });
+      reload();
+    } catch (err) { toast("Couldn't add: " + err.message, true); }
+  };
   bindDue($("#task-list"), reload);
   $$(".task-row").forEach((el) => {
-    const t = tasks.find((x) => x.id === el.dataset.id);
-    $("input", el).onchange = async (e) => { await api.patch("/items/" + t.id, { done: e.target.checked, status: "approved" }); reload(); };
+    const t = items.find((x) => x.id === el.dataset.id);
+    const cb = $("input[type=checkbox]", el);
+    if (cb) cb.onchange = async (e) => { await api.patch("/items/" + t.id, { done: e.target.checked, status: "approved" }); reload(); };
+    $(".edit", el).onclick = () => editItem(el, t, reload, { kinds: ["task", "goal", "idea"] });
     $(".no", el).onclick = async () => { await api.patch("/items/" + t.id, { status: "rejected" }); reload(); };
+    const promote = $(".promote", el);
+    if (promote) promote.onclick = async () => { await api.patch("/items/" + t.id, { kind: "task", status: "approved" }); toast("Now a task"); reload(); };
+    const achieved = $(".achieved", el);
+    if (achieved) achieved.onclick = async () => { await api.patch("/items/" + t.id, { done: !t.done, status: "approved" }); reload(); };
   });
+}
+
+function emptyText(group, label, total) {
+  if (group === "goals") return "No goals yet — ongoing aims from your dumps appear here, or add your own above.";
+  if (group === "ideas") return "No ideas yet — speculative thoughts from your dumps appear here, or jot one above.";
+  return (group === "all" ? "No open tasks" : "Nothing in " + label.toLowerCase()) + (total ? "" : " — add one above, or tasks appear when your dumps contain them") + ".";
+}
+
+function rowHtml(t) {
+  const isTask = t.kind === "task";
+  return `<div class="task-row ${t.done ? "done" : ""}" data-id="${t.id}">
+    ${isTask ? `<input type="checkbox" ${t.done ? "checked" : ""} aria-label="Done">` : `<span class="kglyph" title="${t.kind === "goal" ? "Goal — ongoing" : "Idea"}">${t.kind === "goal" ? "🎯" : "💡"}</span>`}
+    <div class="body grow">
+      <span class="content">${esc(t.content)}</span>
+      ${isTask ? dueWrap(t) : ""}
+      ${t.priority >= 4 ? `<span class="chip">P${t.priority}</span>` : ""}
+      ${timeChips(t)}
+      ${t.status === "suggested" ? `<span class="chip">unreviewed</span>` : ""}
+      ${t.detail ? `<div class="detail small">${t.kind === "task" ? "↳ first step:" : "↳ next step:"} ${esc(t.detail)}</div>` : ""}
+      <div class="detail small muted">${t.manual ? "added by you" : `from <a href="#history/${t.dump_id}">${esc(t.dump_title || "dump")}</a>`}</div>
+    </div>
+    ${t.kind === "goal" ? `<button class="btn ghost small achieved" title="Mark achieved / reopen">${t.done ? "Reopen" : "Achieved ✓"}</button>` : ""}
+    ${t.kind !== "task" && !t.done ? `<button class="btn ghost small promote" title="Turn into a task you can check off">→ Task</button>` : ""}
+    ${isTask ? calBtns(t) : ""}
+    <button class="iconbtn edit" title="Edit">✎</button>
+    <button class="iconbtn no" title="Remove">✕</button>
+  </div>`;
 }

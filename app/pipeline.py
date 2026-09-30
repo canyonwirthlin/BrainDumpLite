@@ -36,6 +36,25 @@ _TEMPORAL_RE = re.compile(r"""
 """, re.IGNORECASE | re.VERBOSE)
 
 
+# Aspirations and habits are goals, not chores you can tick off. Small models file "get stronger at
+# the gym" under task all the time, so as a backstop to the prompt a task phrased like an ongoing
+# aim is filed as a goal — unless it carries a date, which makes it a real commitment.
+_ONGOING_RE = re.compile(r"""
+    \b(get|become|be|feel|grow|stay|keep)\s+(much\s+|way\s+|a\s+lot\s+)?
+        (more|less|stronger|fitter|healthier|leaner|faster|smarter|happier|calmer|braver|
+         consistent|disciplined|organi[sz]ed|productive|motivated|confident|patient|present|active|in\s+shape|fit|better\s+(at|about|with))\b |
+    \bwork\s+on\s+being\b |
+    \b(build|develop|form)\s+(a\s+|the\s+)?(habit|routine|discipline|consistency)\b |
+    \b(lose|gain)\s+(\d+\s*)?(weight|pounds|lbs|kg|muscle|fat)\b |
+    \b(be|become)\s+a\s+(better|good|great)\s+(person|listener|friend|partner|parent|father|mother|dad|mom|leader|writer|speaker|version)\b |
+    \bwork\s*out\s+(more|regularly|every)\b | \b(exercise|eat\s+healthier|sleep\s+better)\b
+""", re.IGNORECASE | re.VERBOSE)
+
+
+def _is_ongoing(text: str) -> bool:
+    return bool(_ONGOING_RE.search(text or ""))
+
+
 def _has_time_ref(text: str) -> bool:
     return bool(_TEMPORAL_RE.search(text or ""))
 
@@ -85,6 +104,13 @@ Respond with valid JSON matching this exact schema — no markdown, no extra key
 
 Item type rules:
 {TYPE_RULES}
+
+Task vs goal vs idea — ask "can this be checked off as DONE?":
+- "call the dentist", "send Mom the photos" -> task (one action with a finish line)
+- "get stronger at the gym", "be more patient", "save more money" -> goal (ongoing, never finished
+  in one go; put a concrete first step that IS a task in first_tiny_step)
+- "maybe I should start a podcast" -> idea (speculative, not a commitment yet)
+When unsure whether something is a task, it is NOT a task.
 
 Priority (tasks only): 5=today, 4=this week, 3=moderate, 2=nice-to-have, 1=someday
 
@@ -235,6 +261,8 @@ def _parse_items(data: dict) -> list[dict]:
         # scheduled, so trust those.
         if due and kind != "event" and not _has_time_ref(f"{content} {detail or ''} {hint or ''}"):
             due = None
+        if kind == "task" and not due and "goal" in item_types.enum() and _is_ongoing(content):
+            kind = "goal"
         out.append({"kind": kind, "content": content[:500], "detail": detail, "priority": prio,
                     "due_date": due, "est_minutes": est, "urgency": urg, "time_hint": hint})
     return out
@@ -256,6 +284,35 @@ def _parse_names(data: dict, key: str, limit: int) -> list[str]:
         if n and n.lower() not in seen:
             seen.add(n.lower())
             out.append(n[:60])
+    return out
+
+
+def _known_people(exclude_dump_id: str) -> list[str]:
+    """Every person named in any OTHER dump, one spelling each (most common first)."""
+    counts: dict[str, list] = {}
+    for r in db.query("SELECT people FROM dumps WHERE people IS NOT NULL AND id != ?", (exclude_dump_id,)):
+        try:
+            names = json.loads(r["people"] or "[]")
+        except (ValueError, TypeError):
+            continue
+        for n in names:
+            n = str(n).strip()
+            if n:
+                counts.setdefault(n.lower(), [n, 0])[1] += 1
+    return [v[0] for v in sorted(counts.values(), key=lambda v: -v[1])]
+
+
+def _add_mentioned_people(text: str, people: list[str], known: list[str]) -> list[str]:
+    """Small models miss names. Anyone you've already told the app about who is named again in this
+    dump is added even if the model skipped them — whole-word, case-insensitive, 3+ letters."""
+    out = list(people)
+    have = {p.lower() for p in out}
+    for name in known:
+        if len(name) < 3 or name.lower() in have or len(out) >= 12:
+            continue
+        if re.search(r"(?<![\w])" + re.escape(name) + r"(?![\w])", text, re.IGNORECASE):
+            out.append(name)
+            have.add(name.lower())
     return out
 
 
@@ -382,9 +439,10 @@ def run_pipeline(dump_id: str) -> None:
             except ai.AIError as e:
                 print(f"[pipeline] classify fell back to heuristics: {e}", flush=True)
         # Explicit [[wikilinks]] in the text always count (Phase 6).
-        known = {n.lower() for r in db.query("SELECT people FROM dumps WHERE people IS NOT NULL AND id != ?", (dump_id,))
-                 for n in (json.loads(r["people"] or "[]") if r["people"] else [])}
+        known_names = _known_people(dump_id)
+        known = {n.lower() for n in known_names}
         people, concepts = wikilinks.merge(raw, people, concepts, known)
+        people = _add_mentioned_people(raw + "\n" + clean, people, known_names)
         db.execute("DELETE FROM items WHERE dump_id=?", (dump_id,))
         db.execute("DELETE FROM items_fts WHERE dump_id=?", (dump_id,))
         for it in items:
@@ -415,10 +473,9 @@ def run_pipeline(dump_id: str) -> None:
 
         _set(dump_id, status="ready", stage=None)
 
-        # 5 · propose pushes to connected integrations (never auto-executes) ----
+        # 5 · let plugins know ---------------------------------------------------
         try:
-            from . import plugins, suggestions
-            suggestions.from_dump(dump_id)
+            from . import plugins
             plugins.on_dump(dump_id)
         except Exception:
             traceback.print_exc()
