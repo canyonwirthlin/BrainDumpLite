@@ -222,3 +222,48 @@ def test_auto_made_dump_links_are_dropped_once_but_hand_links_stay():
 def test_static_files_are_revalidated_so_updates_show_up():
     r = TestClient(create_app()).get("/js/main.js")
     assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"
+
+
+# ── merging nodes ────────────────────────────────────────────────────────────
+
+def _names(did, col):
+    return json.loads(db.query_one(f"SELECT {col} FROM dumps WHERE id=?", (did,))[col])
+
+
+def test_merge_concepts_rewrites_dumps_and_remembers_aliases():
+    _clean()
+    db.execute("DELETE FROM settings WHERE key='name_aliases'")
+    _dump("m1", "A", "x", concepts=["internships", "gym"])
+    _dump("m2", "B", "x", concepts=["internship applications", "internships"])
+    _dump("m3", "C", "x", concepts=["career"])
+    c = TestClient(create_app())
+    r = c.post("/api/merge", json={"kind": "concept", "sources": ["internships", "internship applications"], "target": "Internships"}).json()
+    assert r == {"merged_dumps": 2, "name": "Internships"}
+    assert _names("m1", "concepts") == ["Internships", "gym"]
+    assert _names("m2", "concepts") == ["Internships"]                     # both spellings collapse to one
+    assert _names("m3", "concepts") == ["career"]
+    assert {c_["name"]: c_["count"] for c_ in c.get("/api/concepts").json()}["Internships"] == 2
+    # a later dump that says the old phrase is folded in too
+    assert graph.apply_aliases("concept", ["Internship Applications", "sleep"]) == ["Internships", "sleep"]
+
+
+def test_merge_people_and_alias_chains():
+    _clean()
+    db.execute("DELETE FROM settings WHERE key='name_aliases'")
+    _dump("p1", "A", "x", people=["Bela"]); _dump("p2", "B", "x", people=["Bella", "Bela"])
+    graph.merge_names("person", ["Bela"], "Bella")
+    assert _names("p1", "people") == ["Bella"] and _names("p2", "people") == ["Bella"]
+    graph.merge_names("person", ["Bella"], "Isabella")                     # merge again: old aliases follow the new target
+    assert graph.apply_aliases("person", ["Bela"]) == ["Isabella"]
+    assert _names("p2", "people") == ["Isabella"]
+
+
+def test_merge_rejects_nonsense_and_suggests_duplicates():
+    _clean()
+    _dump("s1", "A", "x", concepts=["internships", "home lab"]); _dump("s2", "B", "x", concepts=["internship applications", "garden"])
+    c = TestClient(create_app())
+    assert c.post("/api/merge", json={"kind": "thing", "sources": ["a"], "target": "b"}).status_code == 400
+    assert c.post("/api/merge", json={"kind": "concept", "sources": [], "target": "b"}).status_code == 400
+    assert c.post("/api/merge", json={"kind": "concept", "sources": ["a"], "target": "  "}).status_code == 400
+    groups = c.get("/api/merge/suggestions?kind=concept").json()
+    assert any({e["name"] for e in g} == {"internships", "internship applications"} for g in groups)

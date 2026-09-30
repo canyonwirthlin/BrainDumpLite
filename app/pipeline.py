@@ -368,6 +368,7 @@ def run_pipeline(dump_id: str) -> None:
         known = {n.lower() for n in known_names}
         people, concepts = wikilinks.merge(raw, people, concepts, known)
         people = _add_mentioned_people(raw + "\n" + clean, people, known_names)
+        people, concepts = graph.apply_aliases("person", people), graph.apply_aliases("concept", concepts)   # merged nodes stay merged
         db.execute("DELETE FROM items WHERE dump_id=?", (dump_id,))
         db.execute("DELETE FROM items_fts WHERE dump_id=?", (dump_id,))
         for it in items:

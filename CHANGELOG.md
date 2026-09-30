@@ -4,6 +4,9 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.20.4 — 2026-09-30
+- Merge nodes. See "internships" and "internship applications" as two topics, or "Bela" and "Bella" as two people? In Search → Browse → People or Concepts, tick the duplicates and press "Merge into one…" (or open one and use "Merge into another…"). Pick which name survives, or type a new one; every dump is updated, and future dumps that use the old wording land on the merged node instead of splitting it again. The app also flags likely duplicates at the top of the list for you.
+
 ## 0.20.3 — 2026-09-30
 - Brain map controls tidied: Layout, Spacing and a "Fit to screen" button now sit together in one row under the description instead of scattered across the top.
 

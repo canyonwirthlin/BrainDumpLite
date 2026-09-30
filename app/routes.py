@@ -1106,6 +1106,27 @@ def reset_graph_type(type_id: str):
         raise HTTPException(400, str(e))
 
 
+class MergeIn(BaseModel):
+    kind: str                # person | concept
+    sources: list[str]       # the nodes to fold in (may include the target itself)
+    target: str              # the name that survives
+
+
+@router.post("/merge")
+def merge_nodes(body: MergeIn):
+    try:
+        return graph.merge_names(body.kind, body.sources, body.target)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/merge/suggestions")
+def merge_suggestions(kind: str = "concept"):
+    if kind not in ("person", "concept"):
+        raise HTTPException(400, "kind must be person or concept")
+    return graph.duplicate_groups(kind)
+
+
 @router.get("/concepts")
 def list_concepts():
     return graph.concepts()

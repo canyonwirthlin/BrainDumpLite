@@ -1,7 +1,7 @@
 // Search + Browse. Left: every node type with how many entries it has (People, Concepts, then
 // Tasks, Goals, Ideas…). Right: search results, a type's entries, or one entry's dumps.
 // Routes: #search · #search/q/<text> · #search/type/<id> · #search/type/<id>/<name>
-import { $, $$, esc, fmtDate, relTime, kindBadge, colorCss } from "../ui.js";
+import { $, $$, esc, fmtDate, relTime, kindBadge, colorCss, modal, toast } from "../ui.js";
 import { api } from "../api.js";
 import { go } from "../router.js";
 import { state } from "../state.js";
@@ -65,26 +65,68 @@ async function paintResults(main, q) {
       : `<div class="center"><div class="big">🔍</div>No matches for “${esc(q)}”.<div class="small muted" style="margin-top:6px">Try fewer or shorter words — or browse by type on the left.</div></div>`}`;
 }
 
-// People / Concepts: every name with how many dumps it appears in.
+// People / Concepts: every name with how many dumps it appears in. Tick two or more (or accept a
+// "looks like duplicates" suggestion) and merge them into one node.
 async function paintNames(main, t) {
   main.innerHTML = `<div class="center">Loading…</div>`;
-  let rows;
+  let rows, dupes = [];
   try { rows = await api.get(t.id === "person" ? "/people" : "/concepts"); }
   catch (e) { main.innerHTML = `<div class="center">Couldn't load: ${esc(e.message)}</div>`; return; }
+  try { dupes = await api.get("/merge/suggestions?kind=" + t.id); } catch {}
+  const picked = new Set();
   const paint = (filter = "") => {
     const list = rows.filter((r) => r.name.toLowerCase().includes(filter.toLowerCase()));
     $("#names", main).innerHTML = list.length ? list.map((r) => `
-      <a class="name-row" href="#search/type/${t.id}/${encodeURIComponent(r.name)}">
-        <span class="grow"><b>${esc(r.name)}</b><span class="small muted"> · last ${relTime(r.last_at)}</span></span>
-        <span class="times" title="appears in ${r.count} dump${r.count === 1 ? "" : "s"}">${r.count}×</span></a>`).join("")
+      <div class="name-row">
+        <input type="checkbox" class="pick" data-name="${esc(r.name)}" ${picked.has(r.name) ? "checked" : ""} aria-label="Select ${esc(r.name)} to merge">
+        <a class="grow" href="#search/type/${t.id}/${encodeURIComponent(r.name)}"><b>${esc(r.name)}</b><span class="small muted"> · last ${relTime(r.last_at)}</span></a>
+        <span class="times" title="appears in ${r.count} dump${r.count === 1 ? "" : "s"}">${r.count}×</span></div>`).join("")
       : `<div class="center small">${rows.length ? "No match." : `No ${t.label.toLowerCase()} yet — they're picked up from your dumps.`}</div>`;
+    $$(".pick", main).forEach((c) => c.onchange = () => { c.checked ? picked.add(c.dataset.name) : picked.delete(c.dataset.name); bar(); });
+  };
+  const bar = () => {
+    $("#merge-bar", main).hidden = picked.size < 2;
+    $("#merge-count", main).textContent = picked.size;
   };
   main.innerHTML = `<h1 class="page">${esc(t.label)}</h1>
-    <p class="sub">${rows.length} ${rows.length === 1 ? "entry" : "entries"}. The number is how many dumps each appears in — pick one to read them.</p>
+    <p class="sub">${rows.length} ${rows.length === 1 ? "entry" : "entries"}. The number is how many dumps each appears in — pick one to read them. See the same thing twice? Tick both and merge.</p>
+    ${dupes.length ? `<div class="card dupes"><div class="small muted" style="margin-bottom:6px">Looks like duplicates</div>${dupes.map((g, i) => `
+      <div class="row" style="margin:4px 0"><span class="grow">${g.map((e) => `<b>${esc(e.name)}</b> <span class="small muted">${e.count}×</span>`).join(" &nbsp;+&nbsp; ")}</span>
+        <button class="btn ghost small" data-dupe="${i}">Merge…</button></div>`).join("")}</div>` : ""}
     ${rows.length > 8 ? `<input type="text" id="name-filter" class="add-content" placeholder="Filter…" autocomplete="off" style="margin-bottom:10px">` : ""}
-    <div class="card names" id="names"></div>`;
+    <div class="card names" id="names"></div>
+    <div class="merge-bar" id="merge-bar" hidden><span><b id="merge-count">0</b> selected</span>
+      <button class="btn small" id="merge-go">Merge into one…</button><button class="btn ghost small" id="merge-clear">Clear</button></div>`;
   paint();
   $("#name-filter", main)?.addEventListener("input", (e) => paint(e.target.value));
+  $("#merge-clear", main).onclick = () => { picked.clear(); paint($("#name-filter", main)?.value || ""); bar(); };
+  $("#merge-go", main).onclick = () => mergeDialog(t, [...picked].map((n) => rows.find((r) => r.name === n)).filter(Boolean), () => go("search/type/" + t.id));
+  $$("[data-dupe]", main).forEach((b) => b.onclick = () => mergeDialog(t, dupes[+b.dataset.dupe], () => go("search/type/" + t.id)));
+}
+
+// Choose which name survives (or type a new one), then fold the rest into it.
+function mergeDialog(t, group, done) {
+  const best = [...group].sort((a, b) => b.count - a.count || a.name.length - b.name.length)[0];
+  const m = modal(`<h2>Merge ${esc(t.label.toLowerCase())}</h2>
+    <p class="small muted" style="margin:0 0 10px">Every dump that mentions any of these will mention the one you keep instead, and new dumps that use the old wording land on it too.</p>
+    ${group.map((e) => `<label class="merge-opt"><input type="radio" name="keep" value="${esc(e.name)}" ${e === best ? "checked" : ""}> <b>${esc(e.name)}</b> <span class="small muted">${e.count}×</span></label>`).join("")}
+    <label class="merge-opt"><input type="radio" name="keep" value="" id="keep-new"> Or a new name:
+      <input type="text" id="new-name" maxlength="60" placeholder="type a name" style="margin-left:6px;flex:1"></label>
+    <div class="row" style="margin:14px 0 0"><div class="grow small bad" id="merge-err"></div>
+      <button class="btn ghost small" id="merge-cancel">Cancel</button><button class="btn small" id="merge-do">Merge</button></div>`);
+  $("#new-name", m.el).onfocus = () => { $("#keep-new", m.el).checked = true; };
+  $("#merge-cancel", m.el).onclick = m.close;
+  $("#merge-do", m.el).onclick = async () => {
+    const chosen = $("input[name=keep]:checked", m.el);
+    const target = chosen.value || $("#new-name", m.el).value.trim();
+    if (!target) { $("#merge-err", m.el).textContent = "Type the new name first."; return; }
+    try {
+      const r = await api.post("/merge", { kind: t.id, sources: group.map((e) => e.name), target });
+      m.close();
+      toast(`Merged into “${r.name}” — ${r.merged_dumps} dump${r.merged_dumps === 1 ? "" : "s"} updated`);
+      done();
+    } catch (e) { $("#merge-err", m.el).textContent = e.message; }
+  };
 }
 
 // One person or concept: every dump that mentions them.
@@ -93,7 +135,8 @@ async function paintEntry(main, t, name) {
   let dumps;
   try { dumps = await api.get(`/${t.id === "person" ? "people" : "concepts"}/${encodeURIComponent(name)}`); }
   catch (e) { main.innerHTML = `<div class="center">Couldn't load: ${esc(e.message)}</div>`; return; }
-  main.innerHTML = `<a class="btn ghost small" href="#search/type/${t.id}" style="margin-bottom:12px">← All ${esc(t.label.toLowerCase())}</a>
+  main.innerHTML = `<div class="row" style="margin:0 0 12px"><a class="btn ghost small" href="#search/type/${t.id}">← All ${esc(t.label.toLowerCase())}</a>
+      <div class="grow"></div><button class="btn ghost small" id="merge-into" title="This is the same as another ${esc(t.label.toLowerCase())} entry">Merge into another…</button></div>
     <h1 class="page">${GLYPH[t.id]} ${esc(name)}</h1>
     <p class="sub">Appears in ${dumps.length} dump${dumps.length === 1 ? "" : "s"}, newest first.</p>
     ${dumps.map((d) => `
@@ -101,6 +144,27 @@ async function paintEntry(main, t, name) {
         <b>${esc(d.title)}</b> <span class="small muted">${fmtDate(d.created_at)}</span>
         <p class="small" style="margin-top:6px">${esc(d.raw_text)}${d.raw_text.length >= 160 ? "…" : ""}</p>
       </a>`).join("") || `<div class="center">Nothing mentions this yet.</div>`}`;
+  $("#merge-into", main).onclick = async () => {
+    let all;
+    try { all = await api.get(t.id === "person" ? "/people" : "/concepts"); } catch { return; }
+    const others = all.filter((e) => e.name.toLowerCase() !== name.toLowerCase());
+    const m = modal(`<h2>Merge “${esc(name)}” into…</h2>
+      <input type="text" id="mi-filter" placeholder="Filter…" autocomplete="off" style="width:100%;margin-bottom:8px">
+      <div class="merge-list" id="mi-list"></div>`);
+    const paint = (f = "") => {
+      $("#mi-list", m.el).innerHTML = others.filter((e) => e.name.toLowerCase().includes(f.toLowerCase())).slice(0, 60).map((e) =>
+        `<button class="name-row" data-to="${esc(e.name)}"><span class="grow"><b>${esc(e.name)}</b></span><span class="times">${e.count}×</span></button>`).join("") || `<div class="small muted">No match.</div>`;
+      $$("[data-to]", m.el).forEach((b) => b.onclick = async () => {
+        try {
+          const r = await api.post("/merge", { kind: t.id, sources: [name], target: b.dataset.to });
+          m.close(); toast(`Merged into “${r.name}”`); go(`search/type/${t.id}/${encodeURIComponent(r.name)}`);
+        } catch (e) { toast(e.message, true); }
+      });
+    };
+    paint();
+    $("#mi-filter", m.el).oninput = (e) => paint(e.target.value);
+    $("#mi-filter", m.el).focus();
+  };
 }
 
 // Tasks / Goals / Ideas / Concerns / custom types: the items themselves.

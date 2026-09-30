@@ -494,3 +494,13 @@ a.iconbtn.cal { text-decoration: none; }
   #search > .detail { display: block !important; }
   #search .glist { flex-direction: row; flex-wrap: wrap; }
 }
+
+.name-row input.pick { width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+button.name-row { width: 100%; background: transparent; border: 0; text-align: left; cursor: pointer; font: inherit; }
+.dupes { border-color: color-mix(in srgb, var(--amber) 40%, var(--line)); }
+.merge-bar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 14px; border-radius: var(--radius-lg);
+  background: var(--panel); border: 1px solid var(--accent); box-shadow: var(--shadow); }
+.merge-bar[hidden] { display: none; }
+.merge-bar > span { flex: 1; }
+.merge-opt { display: flex; align-items: center; gap: 8px; padding: 7px 0; cursor: pointer; }
+.merge-list { max-height: 320px; overflow: auto; }

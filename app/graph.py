@@ -328,3 +328,110 @@ def items_of_kind(kind: str) -> list[dict]:
         "WHERE i.kind=? AND i.status != 'rejected' AND d.status IN ('ready','manual') ORDER BY i.created_at DESC", (kind,))
     return [{**dict(r), "dump_id": None if r["dump_status"] == "manual" else r["dump_id"], "dump_title": None if r["dump_status"] == "manual" else r["dump_title"]}
             for r in rows]
+
+
+# ── Merging nodes (0.20.4) ───────────────────────────────────────────────────
+# "internships" and "internship applications" are two nodes but one thing to the user. A merge
+# rewrites the name in every dump that has it, and remembers the old spellings as aliases so the
+# next dump that says "internship applications" lands on the merged node instead of splitting again.
+
+ALIAS_KEY = "name_aliases"          # settings: {"concept": {"old name lowercased": "Target"}, "person": {...}}
+_COLUMN = {"person": "people", "concept": "concepts"}
+
+
+def _aliases() -> dict:
+    d = db.get_setting(ALIAS_KEY, {})
+    return d if isinstance(d, dict) else {}
+
+
+def _clean_name(n: str) -> str:
+    return " ".join(str(n).replace("[[", "").replace("]]", "").split()).lstrip("@")[:60]
+
+
+def apply_aliases(kind: str, names: list[str]) -> list[str]:
+    """Rewrite freshly extracted names through the merge aliases (order kept, duplicates dropped)."""
+    al = _aliases().get(kind) or {}
+    out, seen = [], set()
+    for n in names:
+        n = al.get(str(n).strip().lower(), n)
+        if n and n.lower() not in seen:
+            seen.add(n.lower())
+            out.append(n)
+    return out
+
+
+def merge_names(kind: str, sources: list[str], target: str) -> dict:
+    """Fold every name in `sources` (and the spelling variants that go with them) into `target`."""
+    col = _COLUMN.get(kind)
+    if not col:
+        raise ValueError("kind must be person or concept")
+    target = _clean_name(target)
+    sources = [_clean_name(s) for s in sources if _clean_name(s)]
+    if not target:
+        raise ValueError("The merged node needs a name")
+    if not sources:
+        raise ValueError("Pick at least one node to merge")
+    with db.lock():
+        cmap = canonical_map(col)
+        keys = {_group_key(s, cmap) for s in sources} | {_group_key(target, cmap)}
+        if len(keys) < 2 and target.lower() in {s.lower() for s in sources} and len(sources) == 1:
+            raise ValueError("Nothing to merge — that's already one node")
+        changed = 0
+        for r in db.query(f"SELECT id, {col} FROM dumps WHERE {col} IS NOT NULL"):
+            names = _names(r[col])
+            if not any(_group_key(n, cmap) in keys or n.lower() == target.lower() for n in names):
+                continue
+            out, seen = [], set()
+            for n in names:
+                if _group_key(n, cmap) in keys:
+                    n = target
+                if n.lower() not in seen:
+                    seen.add(n.lower())
+                    out.append(n)
+            if out != names:
+                db.execute(f"UPDATE dumps SET {col}=? WHERE id=?", (json.dumps(out), r["id"]))
+                changed += 1
+        # Remember every stored spelling in the merged groups so future dumps follow along.
+        al = _aliases()
+        mine = al.setdefault(kind, {})
+        old = [k for k, v in cmap.items() if v.lower() in keys or k in {s.lower() for s in sources}]
+        for k in old:
+            if k != target.lower():
+                mine[k] = target
+        for k, v in list(mine.items()):
+            if v.lower() in {s.lower() for s in sources} or v.lower() in keys:
+                mine[k] = target
+        mine.pop(target.lower(), None)
+        db.set_setting(ALIAS_KEY, al)
+    return {"merged_dumps": changed, "name": target}
+
+
+def duplicate_groups(kind: str, limit: int = 6) -> list[list[dict]]:
+    """Names that probably are the same thing: spelling/typo neighbours ("Bela"/"Bella") or one
+    name's words fully inside another's ("internships" / "internship applications"). Suggestions
+    only — nothing merges until the user says so."""
+    import difflib
+    rows = people() if kind == "person" else concepts()
+    toks = {e["name"]: _tokset(e["name"]) for e in rows}
+    parent = {e["name"]: e["name"] for e in rows}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    names = [e["name"] for e in rows]
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            ta, tb = toks[a], toks[b]
+            close = difflib.SequenceMatcher(None, a.lower(), b.lower()).ratio() >= 0.86
+            subset = bool(ta and tb) and (ta < tb or tb < ta) and min(len(ta), len(tb)) >= 1 and kind == "concept"
+            if close or subset:
+                parent[find(a)] = find(b)
+    groups: dict[str, list[dict]] = {}
+    for e in rows:
+        groups.setdefault(find(e["name"]), []).append({"name": e["name"], "count": e["count"]})
+    out = [g for g in groups.values() if 2 <= len(g) <= 4]
+    out.sort(key=lambda g: -sum(x["count"] for x in g))
+    return out[:limit]
