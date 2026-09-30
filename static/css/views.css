@@ -455,7 +455,10 @@ a.iconbtn.cal { text-decoration: none; }
 
 
 /* ── Graph spacing slider ── */
-.graph-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+.graph-bar { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.graph-tools { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.graph-tools select { width: auto; padding: 5px 30px 5px 10px; font-size: 12.5px; }
+.graph-tools .btn { white-space: nowrap; }
 .graph-bar .sub { margin: 0; }
 .graph-spacing { display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--dim); }
 .graph-spacing input[type=range] { width: 160px; padding: 0; border: 0; background: transparent; accent-color: var(--accent); cursor: pointer; }

@@ -106,12 +106,14 @@ export async function render(ctx) {
   $("#view").innerHTML = `<div class="wide">
     <div class="graph-bar">
       <p class="sub">Every dump, concept, and person you've mentioned. Drag nodes, scroll to zoom, click to explore.</p>
-      <label class="graph-spacing" title="Organic: clusters form around shared topics. Galaxy: every dump gets a slot on a spiral, oldest in the middle, newest on the rim."><span>Layout</span>
-        <select id="graph-layout" aria-label="Graph layout"><option value="organic" ${layout === "organic" ? "selected" : ""}>Organic</option><option value="galaxy" ${layout === "galaxy" ? "selected" : ""}>Galaxy (by time)</option></select></label>
-      <button class="chip" id="graph-fit" title="Zoom to show everything">⤢ Fit</button>
-      <label class="graph-spacing" title="How far apart the nodes sit"><span>Spacing</span>
-        <input type="range" id="graph-spacing" min="0.5" max="3" step="0.05" value="${spacing}" aria-label="Node spacing">
-        <output id="spacing-val">${spacing.toFixed(1)}×</output></label>
+      <div class="graph-tools">
+        <label class="graph-spacing" title="Organic: clusters form around shared topics. Galaxy: every dump gets a slot on a spiral, oldest in the middle, newest on the rim."><span>Layout</span>
+          <select id="graph-layout" aria-label="Graph layout"><option value="organic" ${layout === "organic" ? "selected" : ""}>Organic</option><option value="galaxy" ${layout === "galaxy" ? "selected" : ""}>Galaxy (by time)</option></select></label>
+        <label class="graph-spacing" title="How far apart the nodes sit"><span>Spacing</span>
+          <input type="range" id="graph-spacing" min="0.5" max="3" step="0.05" value="${spacing}" aria-label="Node spacing">
+          <output id="spacing-val">${spacing.toFixed(1)}×</output></label>
+        <button class="btn ghost small" id="graph-fit" title="Zoom to show everything">⤢ Fit to screen</button>
+      </div>
     </div>
     <div class="graph-wrap" id="graph-wrap"></div></div>`;
   $("#graph-spacing").oninput = (e) => {

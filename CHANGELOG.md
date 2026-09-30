@@ -4,6 +4,9 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.20.3 — 2026-09-30
+- Brain map controls tidied: Layout, Spacing and a "Fit to screen" button now sit together in one row under the description instead of scattered across the top.
+
 ## 0.20.2 — 2026-09-30
 - Fixes updates sometimes showing the old screens: the app now makes its window re-check the interface files every time it opens, so a new version is what you actually see. (If 0.20.0/0.20.1 looked unchanged after updating, fully quit the app from the tray and reopen it after installing this.)
 - Settings → AI → Extraction types now lists People and Concepts at the top as built-in types — rename or recolor them there, and see what the AI looks for. They were always extracted; they just weren't shown alongside the other types.
