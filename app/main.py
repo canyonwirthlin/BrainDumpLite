@@ -19,6 +19,7 @@ from .routes_tasks import router as tasks_router
 from .routes_pipeline import router as pipeline_router
 from .routes_phone import router as phone_router
 from .routes_search import router as search_router
+from .routes_ask import router as ask_router
 
 
 def static_dir() -> Path:
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(tasks_router, prefix="/api")
     app.include_router(focus_router, prefix="/api")
     app.include_router(search_router, prefix="/api")
+    app.include_router(ask_router, prefix="/api")
     app.include_router(pipeline_router, prefix="/api")
     reprocess.start_watcher()  # processes dumps queued while no AI was on
     app.include_router(data_router, prefix="/api")

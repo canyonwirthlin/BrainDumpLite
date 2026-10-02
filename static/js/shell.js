@@ -7,7 +7,7 @@ import { setTitleHandler, go } from "./router.js";
 import { native, currentWindow, minimizeWindow, toggleMaximizeWindow, closeWindow } from "./native.js";
 
 export const NAV = [
-  { id: "capture", label: "Capture" }, { id: "graph", label: "Graph" }, { id: "search", label: "Search" },
+  { id: "capture", label: "Capture" }, { id: "graph", label: "Graph" }, { id: "search", label: "Search" }, { id: "ask", label: "Ask" },
   { id: "history", label: "History" }, { id: "tasks", label: "Tasks" },
   { id: "reflect", label: "Reflect", wip: true }, { id: "stats", label: "Statistics" },
 ];
