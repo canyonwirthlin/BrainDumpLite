@@ -8,13 +8,6 @@ import { state } from "../state.js";
 
 const GLYPH = { person: "🧑", concept: "💡" };
 
-// Recent + saved searches live in this browser/app only (localStorage); nothing leaves the device.
-const RECENT_KEY = "bdl-recent-searches", SAVED_KEY = "bdl-saved-searches";
-const readList = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || "[]"); return Array.isArray(v) ? v.filter((x) => typeof x === "string") : []; } catch { return []; } };
-const writeList = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-const rememberSearch = (q) => writeList(RECENT_KEY, [q, ...readList(RECENT_KEY).filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(0, 8));
-const isSaved = (q) => readList(SAVED_KEY).some((x) => x.toLowerCase() === q.toLowerCase());
-const toggleSaved = (q) => { const l = readList(SAVED_KEY); writeList(SAVED_KEY, isSaved(q) ? l.filter((x) => x.toLowerCase() !== q.toLowerCase()) : [q, ...l].slice(0, 20)); };
 const searchChips = (list, attr) => list.map((q) => `<a class="chip" href="#search/q/${encodeURIComponent(q)}" ${attr}="${esc(q)}">${esc(q)}</a>`).join("");
 const VIA = { keyword: "words", items: "in an item", semantic: "by meaning", both: "words + meaning", name: "by name" };
 
@@ -22,7 +15,7 @@ export async function render(ctx) {
   const [mode, a, b] = ctx.params;
   const query = mode === "q" ? a || "" : "";
   ctx.setTitle("Search", `<input type="text" id="q" class="topbar-input" list="recent-q" placeholder="a name, a topic, a half-remembered phrase…" value="${esc(query)}" autocomplete="off">
-    <datalist id="recent-q">${[...new Set([...readList(SAVED_KEY), ...readList(RECENT_KEY)])].map((q) => `<option value="${esc(q)}">`).join("")}</datalist>
+    <datalist id="recent-q">${[...new Set([...savedList(), ...recentList()])].map((q) => `<option value="${esc(q)}">`).join("")}</datalist>
     <button class="btn small" id="go">Search</button>`);
   ctx.setLayout("full");
   $("#view").innerHTML = `<div class="split has-detail" id="search">
@@ -58,7 +51,7 @@ export async function render(ctx) {
 
 // Saved searches (★, kept until you remove them) and the last few you ran, as one-click chips.
 function paintSaved() {
-  const saved = readList(SAVED_KEY), recent = readList(RECENT_KEY).filter((q) => !saved.some((x) => x.toLowerCase() === q.toLowerCase()));
+  const saved = savedList(), recent = recentList().filter((q) => !saved.some((x) => x.toLowerCase() === q.toLowerCase()));
   if (!saved.length && !recent.length) return "";
   return `<div class="card" id="saved-searches">
     ${saved.length ? `<div class="small muted" style="margin-bottom:6px">★ Saved searches</div><div class="ent-strip">${saved.map((q) => `<span class="chip"><a href="#search/q/${encodeURIComponent(q)}">${esc(q)}</a> <button class="legend-edit" data-unsave="${esc(q)}" title="Remove">✕</button></span>`).join("")}</div>` : ""}
@@ -67,9 +60,9 @@ function paintSaved() {
 }
 
 function bindSaved(main) {
-  $$("[data-unsave]", main).forEach((b) => b.onclick = () => { toggleSaved(b.dataset.unsave); b.closest("#saved-searches").outerHTML = paintSaved(); bindSaved(main); });
+  $$("[data-unsave]", main).forEach((b) => b.onclick = async () => { await toggleSaved(b.dataset.unsave); b.closest("#saved-searches").outerHTML = paintSaved(); bindSaved(main); });
   const clr = $("#clear-recent", main);
-  if (clr) clr.onclick = () => { writeList(RECENT_KEY, []); $("#saved-searches").outerHTML = paintSaved(); bindSaved(main); };
+  if (clr) clr.onclick = async () => { await clearRecent(); $("#saved-searches").outerHTML = paintSaved(); bindSaved(main); };
 }
 
 async function paintResults(main, q) {
@@ -93,7 +86,7 @@ async function paintResults(main, q) {
         ${(d.matched_items || []).length ? `<div class="matched">${d.matched_items.map((it) => `<div class="mi">${kindBadge(it.kind)} ${esc(it.content)}</div>`).join("")}</div>` : ""}
       </div>`).join("")
       : `<div class="center"><div class="big">🔍</div>No matches for “${esc(q)}”.<div class="small muted" style="margin-top:6px">Try fewer or shorter words — or browse by type on the left.</div></div>`}`;
-  $("#save-search", main).onclick = (e) => { toggleSaved(q); e.target.textContent = isSaved(q) ? "★ Saved" : "☆ Save search"; };
+  $("#save-search", main).onclick = async (e) => { await toggleSaved(q); e.target.textContent = isSaved(q) ? "★ Saved" : "☆ Save search"; };
 }
 
 // People / Concepts: every name with how many dumps it appears in. Tick two or more (or accept a
