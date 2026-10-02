@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import backup, db, engine, item_types, lock, plugins, reprocess, stats
 from .routes import oauth_router, router
+from .routes_data import router as data_router
 from .routes_extra import router as extra_router
 from .routes_models import router as models_router
 from .routes_tasks import router as tasks_router
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(tasks_router, prefix="/api")
     app.include_router(pipeline_router, prefix="/api")
     reprocess.start_watcher()  # processes dumps queued while no AI was on
+    app.include_router(data_router, prefix="/api")
     app.include_router(oauth_router)
     app.mount("/", _Static(directory=static_dir(), html=True), name="static")
     return app

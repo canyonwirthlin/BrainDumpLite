@@ -23,6 +23,11 @@ class BackupCfg(BaseModel):
     enabled: bool | None = None
     dir: str | None = None
     keep: int | None = None
+    include_private: bool | None = None
+
+
+class BackupRestoreIn(BaseModel):
+    name: str
 
 
 @router.get("/autobackup")
@@ -33,7 +38,7 @@ def backup_status():
 @router.put("/autobackup")
 def backup_configure(body: BackupCfg):
     try:
-        backup.set_config(body.enabled, body.dir, body.keep)
+        backup.set_config(body.enabled, body.dir, body.keep, body.include_private)
     except (ValueError, OSError) as e:
         raise HTTPException(400, f"Couldn't use that folder: {e}")
     return backup.status()
@@ -46,6 +51,16 @@ def backup_run():
     except Exception as e:
         raise HTTPException(500, f"Backup failed: {e}")
     return {**made, **backup.status()}
+
+
+@router.post("/autobackup/restore")
+def backup_restore(body: BackupRestoreIn):
+    try:
+        return backup.restore_backup(body.name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Restore failed: {e}")
 
 
 # ── Search index ─────────────────────────────────────────────────────────────

@@ -290,6 +290,12 @@ async function paintData(body) {
         <label class="btn ghost small">Restore from backup… <input type="file" id="restore-file" accept=".zip,application/zip" hidden></label>
         <span class="small muted" id="data-msg"></span>
       </div>
+      <p class="small muted" style="margin:14px 0 8px">Portable export: every dump, item, habit and setting in one JSON file you can import into any vault (importing twice never duplicates anything).</p>
+      <div class="row" style="margin:0">
+        <a class="btn ghost small" href="/api/data/export.json" download>Export JSON</a>
+        <a class="btn ghost small" href="/api/data/export.md" download>Export Markdown</a>
+        <label class="btn ghost small">Import JSON… <input type="file" id="import-json" accept=".json,application/json" hidden></label>
+      </div>
     </div>
     <div class="card">
       <h2>Automatic backups</h2>
@@ -399,6 +405,16 @@ async function paintData(body) {
     } catch (err) { m(err.message, true); }
     e.target.value = "";
   };
+  $("#import-json", body).onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append("file", f);
+    msg("Importing…");
+    try { const r = await api.post("/data/import", fd); msg(`Imported ${r.added} new rows; everything already in the vault was left alone.`); }
+    catch (err) { msg(err.message, true); }
+    e.target.value = "";
+  };
   paintVaults(body);
   paintGit(body);
   paintAutoBackup($("#autobackup", body));
@@ -462,14 +478,25 @@ async function paintAutoBackup(box) {
       <button class="btn small" id="ab-now">Back up now</button>
       <span class="small muted" id="ab-msg"></span>
     </div>
-    <p class="small muted" style="margin:10px 0 0">${last ? `Latest: <b>${esc(last.name)}</b> · ${last.size_mb} MB · ${esc(relTime(last.at))}` : "No backups yet."} · ${s.count} kept in <code>${esc(s.folder)}</code>.
-      To restore one: quit the app, then copy it over <code>braindump.db</code> in your vault folder.</p>`;
+    ${s.last_error ? `<p class="small bad" style="margin:10px 0 0">Last backup failed${s.last_error_at ? ` (${esc(relTime(s.last_error_at))})` : ""}: ${esc(s.last_error)}</p>` : ""}
+    ${s.folder_error ? `<p class="small bad" style="margin:10px 0 0">Can't use the backup folder: ${esc(s.folder_error)}</p>` : ""}
+    <p class="small muted" style="margin:10px 0 0">${last ? `Latest: <b>${esc(last.name)}</b> · ${last.size_mb} MB · ${esc(relTime(last.at))}` : "No backups yet."} · ${s.count} kept in <code>${esc(s.folder)}</code>.</p>
+    ${s.backups.length ? `<details style="margin-top:8px"><summary class="small muted">Restore one of these…</summary>
+      ${s.backups.map((b) => `<div class="row" style="margin:6px 0"><span class="small">${esc(b.name)} · ${b.size_mb} MB · ${esc(relTime(b.at))}</span><button class="btn ghost small" data-restore="${esc(b.name)}">Restore</button></div>`).join("")}
+      <p class="small muted">Restoring first saves your current vault as a <code>braindump-prerestore-…</code> copy in the same folder.</p></details>` : ""}`;
   const msg = (m, bad) => { const el = $("#ab-msg", box); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
   $("#ab-on", box).onchange = async (e) => { try { await api.put("/autobackup", { enabled: e.target.checked }); msg(e.target.checked ? "Automatic backups on" : "Automatic backups off"); } catch (err) { msg(err.message, true); } };
   $("#ab-save", box).onclick = async () => {
     try { await api.put("/autobackup", { dir: $("#ab-dir", box).value, keep: +$("#ab-keep", box).value || 7 }); toast("Backup settings saved"); paintAutoBackup(box); }
     catch (err) { msg(err.message, true); }
   };
+  box.querySelectorAll("[data-restore]").forEach((btn) => {
+    btn.onclick = async () => {
+      if (!confirm(`Replace your current vault with ${btn.dataset.restore}? Your current vault is saved as a pre-restore copy first.`)) return;
+      try { const r = await api.post("/autobackup/restore", { name: btn.dataset.restore }); toast(`Restored (${r.dumps} dumps). Previous vault saved as ${r.pre_restore_copy}`); setTimeout(() => location.reload(), 1500); }
+      catch (err) { msg(err.message, true); }
+    };
+  });
   $("#ab-now", box).onclick = async () => {
     $("#ab-now", box).disabled = true; msg("Backing up…");
     try { const r = await api.post("/autobackup/run"); toast(`Backed up (${r.size_mb} MB)`); paintAutoBackup(box); }
