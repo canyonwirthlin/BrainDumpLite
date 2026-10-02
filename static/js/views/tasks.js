@@ -7,6 +7,7 @@ import { dueWrap, bindDue, calBtns, editItem } from "./review.js";
 import { snoozeMenu, snoozeItem, rescheduleAllOverdue, fmtShort } from "./snooze.js";
 import { openJustOne, pickNext } from "./jot.js";
 import { renderHabits } from "./habits.js";
+import { loadTaskLists, filterByFolder, currentFolder, barHtml, bindBar, chipsHtml, buttonsHtml, bindRow } from "./task_lists.js";
 
 const GROUPS = [["all", "All"], ["overdue", "Overdue"], ["today", "Today"], ["upcoming", "Upcoming"], ["someday", "Someday"], ["snoozed", "Snoozed"], ["done", "Done"]];
 const KIND_GROUPS = [["goals", "Goals", "goal"], ["ideas", "Ideas", "idea"], ["habits", "Habits", "habit"]];
@@ -25,6 +26,7 @@ export async function render(ctx) {
   let items;
   try { items = await api.get("/tasks"); }
   catch (e) { $("#task-list").innerHTML = `<div class="center">Couldn't load tasks: ${esc(e.message)}</div>`; return; }
+  await loadTaskLists(); items = filterByFolder(items);   // folder tabs (task_lists.js)
   const today = todayIso(), dayOf = (t) => (t.due_date || "").split("T")[0] || null;
   let habitCount = 0;
   try { habitCount = (await api.get("/habits")).length; } catch {}
@@ -55,6 +57,7 @@ export async function render(ctx) {
   const kindOfNew = kindGroup ? kindGroup[2] : "task";
   const canJot = !kindGroup && group !== "done" && group !== "snoozed" && !!pickNext(items);
   $("#task-list").innerHTML = `<h1 class="page">${label}${canJot ? ` <button class="btn ghost small" id="jot-open" title="Hide everything but the one task you should do next">🎯 Just one thing</button>` : ""}</h1>
+    ${kindGroup || group === "habits" ? "" : barHtml()}
     ${BLURB[group] ? `<p class="sub">${BLURB[group]}</p>` : ""}
     ${group === "overdue" && list.length ? `<div class="row" style="margin:0 0 10px"><span class="small muted grow">${list.length} overdue — pick a new day for all of them at once, or one by one below.</span><button class="btn small" id="resched-all">Reschedule all…</button></div>` : ""}
     <form class="add-task" id="add-task">
@@ -66,6 +69,7 @@ export async function render(ctx) {
     : `<div class="center"><div class="big">🧺</div>${emptyText(group, label, items.length)}</div>`}`;
 
   const reload = () => render(ctx);
+  bindBar(reload);
   if ($("#jot-open")) $("#jot-open").onclick = () => openJustOne(items, reload);
   if ($("#resched-all")) $("#resched-all").onclick = (e) => snoozeMenu(e.currentTarget, { title: "Move all overdue tasks to…", onPick: (d) => rescheduleAllOverdue(d, reload) });
   $("#add-task").onsubmit = async (e) => {
@@ -73,7 +77,8 @@ export async function render(ctx) {
     const content = $("#add-content").value.trim();
     if (!content) return;
     try {
-      await api.post("/tasks", { content, kind: kindOfNew, due_date: $("#add-due")?.value || null });
+      const made = await api.post("/tasks", { content, kind: kindOfNew, due_date: $("#add-due")?.value || null });
+      if (currentFolder() && kindOfNew === "task") await api.put(`/items/${made.id}/folder`, { folder_id: currentFolder() });
       reload();
     } catch (err) { toast("Couldn't add: " + err.message, true); }
   };
@@ -86,6 +91,7 @@ export async function render(ctx) {
     $(".no", el).onclick = async () => { await api.patch("/items/" + t.id, { status: "rejected" }); reload(); };
     const promote = $(".promote", el);
     if (promote) promote.onclick = async () => { await api.patch("/items/" + t.id, { kind: "task", status: "approved" }); toast("Now a task"); reload(); };
+    bindRow(el, t, reload);
     const snz = $(".snz", el);
     if (snz) snz.onclick = (e) => snoozeMenu(e.currentTarget, {
       title: (dayOf(t) && dayOf(t) < today) ? "Reschedule to…" : "Not today — hide until…", onPick: (d) => snoozeItem(t.id, d, reload) });
@@ -116,6 +122,7 @@ function rowHtml(t) {
       ${snoozed ? `<span class="chip snoozed" title="Hidden from your lists until then">💤 until ${fmtShort(t.snoozed_until)}</span>` : ""}
       ${t.priority >= 4 ? `<span class="chip">P${t.priority}</span>` : ""}
       ${timeChips(t)}
+      ${chipsHtml(t)}
       ${t.status === "suggested" ? `<span class="chip">unreviewed</span>` : ""}
       ${t.detail ? `<div class="detail small">${t.kind === "task" ? "↳ first step:" : "↳ next step:"} ${esc(t.detail)}</div>` : ""}
       <div class="detail small muted">${t.manual ? "added by you" : `from <a href="#history/${t.dump_id}">${esc(t.dump_title || "dump")}</a>`}</div>
@@ -126,6 +133,7 @@ function rowHtml(t) {
     ${snoozed ? `<button class="btn ghost small unsnz" title="Bring it back now">Unsnooze</button>`
       : overdue ? `<button class="btn ghost small snz" title="Pick a new day for this task">Reschedule ▾</button>`
       : isTask && !t.done ? `<button class="iconbtn snz" title="Not today — hide until later">💤</button>` : ""}
+    ${buttonsHtml(t)}
     <button class="iconbtn edit" title="Edit">✎</button>
     <button class="iconbtn no" title="Remove">✕</button>
   </div>`;
