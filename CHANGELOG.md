@@ -21,6 +21,7 @@ This is a big one: 34 improvements across capturing, tasks, search, the Brain ma
 - Pin dumps and tasks to keep them at the top.
 - Tick tasks off right inside a dump's page.
 - A "≈ duplicate?" badge appears on a dump that looks like one you already wrote.
+- Private dumps. Tick "Private" when you capture (or press "Make private" on a dump) and it's kept out of Search, Ask your brain, duplicate checks, the weekly digest, the Brain map, your tasks lists, Markdown/JSON exports and the Obsidian mirror — and it's hidden whenever the app is locked. It needs an app PIN (Settings). Heads-up: private dumps are still read by your AI model like any other, and backups still contain them.
 
 ### Tasks
 - Task lists: make folders to keep tasks in separate lists (deleting a folder never deletes the tasks).
