@@ -15,6 +15,12 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+# THE single "not private" predicate (dumps.is_private). Every read that feeds Ask, search, exports, duplicates,
+# the Obsidian mirror, digest, graph or AI prompts appends `AND {PRIVATE_SQL}`; see app/private.py for the full list.
+PRIVATE_SQL = "COALESCE(is_private,0)=0"
+# Same rule for items: only those whose dump is not private.
+PRIVATE_ITEM_SQL = "dump_id NOT IN (SELECT id FROM dumps WHERE COALESCE(is_private,0)=1)"
+
 _conn: sqlite3.Connection | None = None
 _lock = threading.RLock()
 

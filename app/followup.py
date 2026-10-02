@@ -68,8 +68,8 @@ def get(dump_id: str) -> dict:
     """The current follow-up for a dump: {"state": "open", "question": ...} or {"state": "none"}.
     Generates the question on first call when allowed; failure just means no question."""
     row = _load(dump_id)
-    if not row or row["status"] != "ready":
-        return {"state": "none"}
+    if not row or row["status"] != "ready" or row["is_private"]:
+        return {"state": "none"}   # private dumps never get an AI-generated question
     st = _state(row)
     if st:
         return _view(st)

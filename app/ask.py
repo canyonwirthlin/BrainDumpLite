@@ -16,7 +16,7 @@ MAX_HISTORY_TURNS = 6
 MAX_Q = 500
 # The single place that decides which dumps Ask may read. Trashed dumps never; the private rule is here too
 # (Wave 4 flips is_private on) so every Ask read honours it.
-VISIBLE_SQL = "d.deleted_at IS NULL AND d.status='ready' AND COALESCE(d.is_private,0)=0"
+VISIBLE_SQL = f"d.deleted_at IS NULL AND d.status='ready' AND {db.PRIVATE_SQL}"
 
 AI_OFF = "AI is off. Set up a model in Settings -> AI to ask questions about your dumps."
 NOTHING = "I couldn't find anything in your dumps about that, so I'd rather not guess. Try different words or a name."

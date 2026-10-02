@@ -33,6 +33,7 @@ export const linksHtml = (d) => `<div class="card" id="links"><h2>Linked dumps</
 // Pin / split / merge, shown under the title in the History detail pane.
 export const cardActionsHtml = (d) => `<div class="row card-actions" style="margin:0 0 10px;flex-wrap:wrap;gap:6px">
   <button class="btn ghost small" id="pin-dump" aria-pressed="${d.pinned ? "true" : "false"}">${d.pinned ? "📌 Pinned" : "📍 Pin"}</button>
+  <button class="btn ghost small" id="private-dump" aria-pressed="${d.is_private ? "true" : "false"}" title="Private dumps stay out of Search, Ask, exports and the Obsidian mirror">${d.is_private ? "🔒 Private" : "🔓 Make private"}</button>
   <button class="btn ghost small" id="split-dump">✂ Split…</button>
   <button class="btn ghost small" id="merge-dump">⛙ Merge with…</button>
   <span id="dup-badge" class="chip" hidden></span></div>`;
@@ -68,6 +69,10 @@ function bindCardActions(box, d, reload) {
   pin.onclick = async () => {
     try { await api.post(`/dumps/${d.id}/pin`, { pinned: !d.pinned }); toast(d.pinned ? "Unpinned" : "Pinned to the top of History"); go("history/" + d.id); }
     catch (e) { toast("Couldn't pin: " + e.message, true); }
+  };
+  $("#private-dump", box).onclick = async () => {
+    try { await api.post(`/dumps/${d.id}/private`, { private: !d.is_private }); toast(d.is_private ? "No longer private" : "Private: hidden from Search, Ask and exports"); go("history/" + d.id); }
+    catch (e) { toast(/pin_required/.test(e.message) ? "Set a PIN in Settings first — private dumps sit behind it." : "Couldn't change: " + e.message, true); }
   };
   api.get("/dumps-meta").then((m) => {
     const dup = m.duplicates?.[d.id], el = $("#dup-badge", box);

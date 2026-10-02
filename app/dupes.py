@@ -156,7 +156,7 @@ def _usage(kind: str):
     cmap = graph.canonical_map(col)
     uses: dict[str, set] = {}
     titles: dict[str, str] = {}
-    for r in db.query(f"SELECT id, title, {col} FROM dumps WHERE status='ready' AND deleted_at IS NULL"):
+    for r in db.query(f"SELECT id, title, {col} FROM dumps WHERE status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL}"):
         titles[r["id"]] = r["title"] or "Untitled"
         for k in {graph._group_key(n, cmap) for n in graph._names(r[col])}:
             uses.setdefault(cmap.get(k, k), set()).add(r["id"])
@@ -170,7 +170,7 @@ def _neighbours(kind: str) -> dict[str, set]:
     col = "people" if kind == "person" else "concepts"
     cmap = graph.canonical_map(col)
     ctx: dict[str, set] = {}
-    for r in db.query(f"SELECT {col}, {other} FROM dumps WHERE status='ready' AND deleted_at IS NULL"):
+    for r in db.query(f"SELECT {col}, {other} FROM dumps WHERE status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL}"):
         around = {graph._group_key(n, ocmap) for n in graph._names(r[other])}
         for k in {graph._group_key(n, cmap) for n in graph._names(r[col])}:
             ctx.setdefault(cmap.get(k, k), set()).update(around)

@@ -40,7 +40,7 @@ export async function render(ctx) {
     if (trashMode) { paintTrash(); return; }
     const q = filterText.toLowerCase();
     const rows = dumps.filter((d) => (filterMode === "all" || d.mode === filterMode) &&
-      (!q || (d.title || "").toLowerCase().includes(q) || (d.raw_text || "").toLowerCase().includes(q)));
+      (!q || (d.title || "").toLowerCase().includes(q) || (!d.is_private && (d.raw_text || "").toLowerCase().includes(q))));
     $("#hist-list").className = "";
     const openRows = (filterMode === "all" && !q) ? open.map((o) => {
       const mode = MODES.find((m) => m.id === o.mode) || MODES[0];
@@ -53,10 +53,10 @@ export async function render(ctx) {
     $("#hist-list").innerHTML = openRows + (rows.length ? rows.map((d) => {
       const mode = MODES.find((m) => m.id === d.mode) || MODES[0];
       return `<a class="drow ${d.id === id ? "sel" : ""}" href="#history/${d.id}">
-        <b>${d.pinned ? `<span class="pin" title="Pinned">📌</span>` : ""}${esc(d.title || (d.raw_text || "").slice(0, 60) || "Untitled")}</b>
+        <b>${d.is_private ? `<span title="Private">🔒</span> ` : ""}${d.pinned ? `<span class="pin" title="Pinned">📌</span>` : ""}${esc(d.title || (d.raw_text || "").slice(0, 60) || "Untitled")}</b>
         <div class="m"><span>${relTime(d.created_at)}</span>${meta.duplicates[d.id] ? `<span class="tag" title="Looks like a duplicate of “${esc(meta.duplicates[d.id].title || "an earlier dump")}”">≈ duplicate?</span>` : ""}<span class="tag">${mode.label}</span><span>${d.item_count} item${d.item_count === 1 ? "" : "s"}</span>${toneChip(d.tone)}${trustBadge(d.provider)}
           ${d.status === "processing" || d.status === "pending" ? "<span>processing…</span>" : d.status === "queued" ? "<span>waiting for AI</span>" : d.status === "failed" ? "<span>failed</span>" : ""}</div>
-        <p>${esc((d.clean_text || d.raw_text || "").slice(0, 160))}</p></a>`;
+        <p>${d.is_private ? "Private dump (open to read)" : esc((d.clean_text || d.raw_text || "").slice(0, 160))}</p></a>`;
     }).join("") : (openRows ? "" : `<div class="center"><div class="big">🌱</div>${dumps.length ? "No dumps match." : `Nothing here yet.<br><br><a class="btn" href="#capture">Make your first dump</a>`}</div>`));
   };
   paintList();

@@ -20,14 +20,14 @@ def _missing(everything: bool = False) -> list:
     a different vector size (old and new vectors can't be compared)."""
     where = "" if everything else " AND (embedding IS NULL OR embedding='')"
     return db.query("SELECT id, title, summary, clean_text, raw_text FROM dumps "
-                    f"WHERE status='ready' AND deleted_at IS NULL{where}")
+                    f"WHERE status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL}{where}")
 
 
 def status() -> dict:
     with _lock:
         s = dict(_state)
     s["missing"] = len(_missing()) if not s["running"] else max(0, s["total"] - s["done"] - s["failed"])
-    s["total_dumps"] = db.query_one("SELECT COUNT(*) AS n FROM dumps WHERE status='ready' AND deleted_at IS NULL")["n"]
+    s["total_dumps"] = db.query_one(f"SELECT COUNT(*) AS n FROM dumps WHERE status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL}")["n"]
     s["available"] = ai.available()
     return s
 

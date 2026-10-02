@@ -109,7 +109,7 @@ def test_export_filters_and_bad_files():
 def test_endpoints_round_trip_and_markdown():
     _seed()
     c = TestClient(create_app())
-    r = c.get("/api/data/export.json")
+    r = c.get("/api/data/export.json", params={"include_private": 1})   # lossless round trip opts in; the default skips private
     assert r.status_code == 200 and "attachment" in r.headers["content-disposition"]
     before = _snapshot()
     _wipe()

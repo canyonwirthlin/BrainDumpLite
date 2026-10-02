@@ -5,6 +5,7 @@ export const state = {
   status: { ai: false, whisper: false, provider: "off", model: "", version: "", data_dir: "" },
   curMode: "freeform",
   draft: "",
+  draftPrivate: false,   // capture screen: next dump is private
   pollTimer: null,
   themes: [],
   activeTheme: "midnight",

@@ -112,7 +112,8 @@ def search_tasks(q: str) -> dict:
     vocab = search_mod._vocab()
     fixes = {t: c for t in ts if (c := search_mod.correct(t, vocab))}
     ids = []
-    for r in db.query("SELECT id, content FROM items WHERE status != 'rejected' AND kind IN ('task','goal','idea')"):
+    for r in db.query("SELECT id, content FROM items WHERE status != 'rejected' AND kind IN ('task','goal','idea') "
+                        f"AND dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL) AND {db.PRIVATE_ITEM_SQL}"):
         toks = re.findall(r"\w+", (r["content"] or "").lower())
 
         def hit(t: str) -> bool:

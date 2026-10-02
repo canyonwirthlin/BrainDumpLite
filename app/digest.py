@@ -10,7 +10,7 @@ from . import ai, db
 from .routes_extra import _local_day, _monday, weekly_digest
 
 # One place to switch the private-dump rule (see CLAUDE.md); `d` is the dumps alias.
-PRIVATE_SQL = "AND COALESCE(d.is_private,0)=0"
+PRIVATE_SQL = "AND " + db.PRIVATE_SQL
 MARKER = "<!-- digest -->\n"   # tells a digest narrative apart from the old /reflect weekly text sharing the key
 
 SYSTEM = """You write a person's weekly digest from their own brain-dump data. Write in second person, warm and plain, no hype.

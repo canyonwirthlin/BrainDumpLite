@@ -106,7 +106,7 @@ def personal() -> list[dict]:
     # A task that keeps not happening — the most honest question an old list can ask
     for r in db.query(
             "SELECT i.content, i.created_at FROM items i JOIN dumps d ON d.id = i.dump_id "
-            "WHERE i.kind='task' AND i.done=0 AND i.status != 'rejected' AND d.deleted_at IS NULL AND d.status IN ('ready','manual') "
+            f"WHERE i.kind='task' AND i.done=0 AND i.status != 'rejected' AND d.deleted_at IS NULL AND {db.PRIVATE_SQL} AND d.status IN ('ready','manual') "
             "ORDER BY i.created_at ASC LIMIT 40"):
         age = _days_old(r["created_at"])
         if age >= 6:
@@ -114,7 +114,7 @@ def personal() -> list[dict]:
             out.append({"kind": "task", "text": f"“{t}” has been on your list for {age} days. What's the real reason it hasn't happened?"})
     for r in db.query(
             "SELECT i.content, i.created_at FROM items i JOIN dumps d ON d.id = i.dump_id "
-            "WHERE i.kind='goal' AND i.done=0 AND i.status != 'rejected' AND d.deleted_at IS NULL AND d.status='ready' ORDER BY i.created_at ASC LIMIT 40"):
+            f"WHERE i.kind='goal' AND i.done=0 AND i.status != 'rejected' AND d.deleted_at IS NULL AND {db.PRIVATE_SQL} AND d.status='ready' ORDER BY i.created_at ASC LIMIT 40"):
         if _days_old(r["created_at"]) >= 3:
             g = r["content"].strip().rstrip(".")
             out.append({"kind": "goal", "text": f"You said: “{g}” What would you have to stop doing to make honest room for it?"})
@@ -127,7 +127,7 @@ def personal() -> list[dict]:
             out.append({"kind": "person",
                         "text": f"{p['name']} has come up in {p['count']} of your dumps. What do you want from that relationship that you haven't asked for?"})
     tones = []
-    for r in db.query("SELECT tone FROM dumps WHERE status='ready' AND deleted_at IS NULL AND tone IS NOT NULL ORDER BY created_at DESC LIMIT 5"):
+    for r in db.query(f"SELECT tone FROM dumps WHERE status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL} AND tone IS NOT NULL ORDER BY created_at DESC LIMIT 5"):
         try:
             tones.append((json.loads(r["tone"]) or {}).get("label"))
         except (ValueError, TypeError):

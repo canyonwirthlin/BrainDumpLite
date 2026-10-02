@@ -34,10 +34,10 @@ def terms(q: str) -> list[str]:
 def _vocab() -> set[str]:
     """Every distinctive word in the vault (titles, names, concepts, item text) — the typo dictionary."""
     words: set[str] = set()
-    for r in db.query("SELECT title, people, concepts FROM dumps WHERE status='ready' AND deleted_at IS NULL"):
+    for r in db.query(f"SELECT title, people, concepts FROM dumps WHERE status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL}"):
         for chunk in [r["title"] or ""] + graph._names(r["people"]) + graph._names(r["concepts"]):
             words.update(w for w in re.findall(r"\w+", chunk.lower()) if len(w) >= 4)
-    for r in db.query("SELECT content FROM items WHERE status != 'rejected' AND dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL) LIMIT 3000"):
+    for r in db.query(f"SELECT content FROM items WHERE status != 'rejected' AND dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL) AND {db.PRIVATE_ITEM_SQL} LIMIT 3000"):
         words.update(w for w in re.findall(r"\w+", (r["content"] or "").lower()) if len(w) >= 4)
     return words
 
@@ -102,7 +102,7 @@ def search(q: str) -> dict:
             rows = db.query(
                 "SELECT d.id, d.title, d.created_at, snippet(dumps_fts, 1, '「', '」', '…', 14) AS snip "
                 "FROM dumps_fts JOIN dumps d ON d.id = dumps_fts.id "
-                "WHERE dumps_fts MATCH ? AND d.deleted_at IS NULL AND d.status='ready' ORDER BY bm25(dumps_fts) LIMIT 30",
+                f"WHERE dumps_fts MATCH ? AND d.deleted_at IS NULL AND d.status='ready' AND {db.PRIVATE_SQL} ORDER BY bm25(dumps_fts) LIMIT 30",
                 (_fts_query(ts, fixes, op),))
         except Exception:
             rows = []
@@ -122,7 +122,7 @@ def search(q: str) -> dict:
         rows = db.query(
             "SELECT f.item_id, f.dump_id, i.kind, i.content, i.done, d.title, d.created_at, d.summary "
             "FROM items_fts f JOIN items i ON i.id = f.item_id JOIN dumps d ON d.id = f.dump_id "
-            "WHERE items_fts MATCH ? AND d.deleted_at IS NULL AND d.status='ready' AND i.status != 'rejected' "
+            f"WHERE items_fts MATCH ? AND d.deleted_at IS NULL AND d.status='ready' AND {db.PRIVATE_SQL} AND i.status != 'rejected' "
             "ORDER BY bm25(items_fts) LIMIT 40", (_fts_query(ts, fixes, "AND" if len(ts) > 1 else "OR"),))
         for r in rows:
             e = entry(r["dump_id"], r["title"], r["created_at"], (r["summary"] or "")[:160])
@@ -145,7 +145,7 @@ def search(q: str) -> dict:
     # 4 · meaning (only with an embedding model)
     emb = ai.embed(q) if ai.available() else None
     if emb:
-        rows = db.query("SELECT id, title, created_at, summary, embedding FROM dumps WHERE embedding IS NOT NULL AND status='ready' AND deleted_at IS NULL")
+        rows = db.query(f"SELECT id, title, created_at, summary, embedding FROM dumps WHERE embedding IS NOT NULL AND status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL}")
         scored = sorted(((r, ai.cosine(emb, json.loads(r["embedding"]))) for r in rows), key=lambda t: -t[1])
         for r, sc in scored[:8]:
             if sc < 0.45:
