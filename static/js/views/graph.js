@@ -47,6 +47,24 @@ try { const v = localStorage.getItem(RANGE_KEY); if (v in RANGES) range = v; } c
 // Remembered between visits (this session): where every node sat and the pan/zoom, per layout, so coming
 // back to the map doesn't re-scramble it. Pins (nodes you dragged and dropped) also survive restarts.
 const savedLayouts = new Map();
+// The same snapshot is also written to localStorage so pan, zoom and node positions survive an app restart.
+const VIEW_KEY = "bdl-graph-view-";
+function loadView(layoutName) {
+  if (savedLayouts.has(layoutName)) return savedLayouts.get(layoutName);
+  try {
+    const v = JSON.parse(localStorage.getItem(VIEW_KEY + layoutName) || "null");
+    if (!v || !v.pos || ![v.scale, v.panX, v.panY].every(Number.isFinite)) return null;
+    const snap = { pos: new Map(Object.entries(v.pos).map(([id, q]) => [id, { x: q[0], y: q[1] }])), scale: v.scale, panX: v.panX, panY: v.panY, userMoved: !!v.userMoved };
+    savedLayouts.set(layoutName, snap);
+    return snap;
+  } catch { return null; }
+}
+function storeView(layoutName, snap) {
+  if (snap.pos.size > 3000) return;
+  const pos = {};
+  snap.pos.forEach((q, id) => { pos[id] = [Math.round(q.x), Math.round(q.y)]; });
+  try { localStorage.setItem(VIEW_KEY + layoutName, JSON.stringify({ pos, scale: snap.scale, panX: snap.panX, panY: snap.panY, userMoved: snap.userMoved })); } catch {}
+}
 let snapshotHook = null, timelapseHook = null, pathMode = false, pathReset = null;
 const PINS_KEY = "bdl-graph-pins";
 const loadPins = () => { try { const v = JSON.parse(localStorage.getItem(PINS_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch { return {}; } };
@@ -276,7 +294,7 @@ function mountForceGraph(canvas, data) {
   let restored = null;   // the remembered arrangement, when this map is a rebuild of one already seen
   function place() {
     placeFresh();
-    const snap = savedLayouts.get(layout);
+    const snap = loadView(layout);
     if (snap) {
       let hit = 0;
       nodes.forEach((n) => { const q = snap.pos.get(n.id); if (q) { n.x = q.x; n.y = q.y; hit++; } });
@@ -348,7 +366,7 @@ function mountForceGraph(canvas, data) {
   const sig = { signal: ac.signal };
   redraw = () => { needsDraw = true; };
   reheat = () => { alpha = 1; userMoved = false; needsDraw = true; };
-  refit = () => { userMoved = false; fit(); };
+  refit = () => { userMoved = false; fit(); persistSoon(); };
 
   function resize() {
     const dpr = window.devicePixelRatio || 1;
@@ -462,6 +480,12 @@ function mountForceGraph(canvas, data) {
   const myLayout = layout;
   const snapshot = () => savedLayouts.set(myLayout, { pos: new Map(nodes.map((n) => [n.id, { x: n.x, y: n.y }])), scale, panX, panY, userMoved });
   snapshotHook = snapshot;
+  // Persist the view (pan/zoom/positions) shortly after any interaction and when the window closes.
+  let saveTimer = 0;
+  const persist = () => { clearTimeout(saveTimer); if (canvas.isConnected) { snapshot(); storeView(myLayout, savedLayouts.get(myLayout)); } };
+  const persistSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 400); };
+  window.addEventListener("pagehide", persist, sig);
+  window.addEventListener("beforeunload", persist, sig);
 
   // Time-lapse: the finished layout stays put while nodes fade in as their first dump is reached.
   const tlBox = $("#graph-tl");
@@ -506,10 +530,10 @@ function mountForceGraph(canvas, data) {
     needsDraw = true;
   }
 
-  let ticks = 0;
+  let ticks = 0, settledSaved = false;
   function tick() {
     // View switched away → stop the loop and drop window listeners.
-    if (!canvas.isConnected) { if (snapshotHook === snapshot) { snapshot(); snapshotHook = null; } ac.abort(); return; }
+    if (!canvas.isConnected) { if (snapshotHook === snapshot) { snapshot(); storeView(myLayout, savedLayouts.get(myLayout)); snapshotHook = null; } clearTimeout(saveTimer); ac.abort(); return; }
     if (tl.on) {
       tl.cur = tl.from + (tl.to - tl.from) * Math.min(1, (performance.now() - tl.t0) / tl.ms);
       const shown = nodes.filter((n) => n.type === "dump" && n.born <= tl.cur).length;
@@ -522,7 +546,8 @@ function mountForceGraph(canvas, data) {
       step();
       if (!userMoved && ++ticks % 6 === 0) fit();   // keep everything framed until the user takes over
       needsDraw = true;
-    }
+      settledSaved = false;
+    } else if (!settledSaved) { settledSaved = true; persistSoon(); }   // the layout just settled: remember it for next launch
     // Once the physics settle, redraw only on interaction — idle cost ~0.
     if (needsDraw) { draw(); needsDraw = false; }
     requestAnimationFrame(tick);
@@ -658,6 +683,7 @@ function mountForceGraph(canvas, data) {
       else if (!wasPinned) { dragging.fx = null; dragging.fy = null; }                           // a plain click doesn't pin
     }
     dragging = null; panning = false;
+    persistSoon();
   }, sig);
   canvas.addEventListener("dblclick", (e) => {
     const p = toWorld(e.clientX, e.clientY);
@@ -689,6 +715,7 @@ function mountForceGraph(canvas, data) {
     panY = my - (my - panY) * (next / scale);
     scale = next;
     needsDraw = true;
+    persistSoon();
   }, { passive: false });
 
   // Used by "Find a node": select it, zoom in on it and show its neighbourhood.
