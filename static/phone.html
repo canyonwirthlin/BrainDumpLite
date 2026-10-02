@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>BrainDump</title>
+<style>
+  :root { color-scheme: light dark; --bg:#fff; --fg:#1a1a1a; --mut:#777; --acc:#4f46e5; --bd:#ccc; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#eee; --mut:#999; --bd:#444; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:16px/1.4 system-ui, sans-serif; }
+  h1 { font-size:18px; margin:0 0 12px; }
+  textarea { width:100%; box-sizing:border-box; min-height:45vh; padding:12px; font:inherit; color:inherit; background:transparent; border:1px solid var(--bd); border-radius:10px; }
+  button { margin-top:12px; width:100%; padding:14px; font:inherit; font-weight:600; color:#fff; background:var(--acc); border:0; border-radius:10px; }
+  button:disabled { opacity:.5; }
+  #msg { margin-top:12px; color:var(--mut); min-height:1.4em; }
+</style>
+</head>
+<body>
+<h1>Dump a thought</h1>
+<textarea id="t" placeholder="What's on your mind?" autofocus></textarea>
+<button id="go">Send to BrainDump</button>
+<div id="msg"></div>
+<script>
+  const token = location.pathname.split("/").filter(Boolean).pop();
+  const t = document.getElementById("t"), go = document.getElementById("go"), msg = document.getElementById("msg");
+  go.onclick = async () => {
+    const text = t.value.trim();
+    if (!text) return;
+    go.disabled = true; msg.textContent = "Sending...";
+    try {
+      const r = await fetch("/phone/capture", { method: "POST", headers: { "Content-Type": "application/json", "X-Phone-Token": token }, body: JSON.stringify({ text }) });
+      if (r.ok) { t.value = ""; msg.textContent = "Saved."; }
+      else msg.textContent = r.status === 429 ? "Slow down a moment, then try again." : r.status === 413 ? "That's too long." : r.status === 423 ? "BrainDump is locked on the computer." : "Couldn't send (" + r.status + "). Re-scan the QR code?";
+    } catch (e) { msg.textContent = "Couldn't reach your computer."; }
+    go.disabled = false;
+  };
+</script>
+</body>
+</html>

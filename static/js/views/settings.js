@@ -298,6 +298,10 @@ async function paintData(body) {
       </div>
     </div>
     <div class="card">
+      <h2>Capture from my phone</h2>
+      <div id="phone-panel"><span class="spin"></span></div>
+    </div>
+    <div class="card">
       <h2>Automatic backups</h2>
       <div id="autobackup"><span class="spin"></span></div>
     </div>
@@ -418,6 +422,7 @@ async function paintData(body) {
   paintVaults(body);
   paintGit(body);
   paintAutoBackup($("#autobackup", body));
+  paintPhone($("#phone-panel", body));
   paintIndex($("#index-panel", body));
   paintPipeline($("#reprocess-panel", body));
   if ($("#quick-capture-on", body)) $("#quick-capture-on", body).onchange = async (e) => {
@@ -458,6 +463,24 @@ async function paintData(body) {
     } catch (err) { msg(err.message, true); }
     e.target.value = "";
   };
+}
+
+// ── Phone capture (Settings → Data) ──────────────────────────────────────────
+
+async function paintPhone(box) {
+  if (!box) return;
+  let s;
+  try { s = await api.get("/phone/status"); } catch (e) { box.innerHTML = `<div class="small bad">${esc(e.message)}</div>`; return; }
+  box.innerHTML = `
+    <label class="row"><input type="checkbox" id="ph-on" ${s.enabled ? "checked" : ""}> <span>Let my phone add dumps over Wi-Fi</span></label>
+    <p class="small muted" style="margin:8px 0">Off by default and off again after every restart. Only a minimal capture page is shared: your phone can add dumps but never read anything. It uses plain HTTP, so only turn it on at home or on a Wi-Fi network you trust.</p>
+    ${s.enabled && s.qr_svg ? `<div style="max-width:200px;margin:8px 0;background:#fff;border-radius:8px">${s.qr_svg}</div>
+      <p class="small" style="margin:0 0 8px;word-break:break-all"><code>${esc(s.url)}</code></p>
+      <button class="btn ghost small" id="ph-rot">New link (invalidates the old QR code)</button>` : ""}
+    ${s.enabled && !s.qr_svg ? `<p class="small bad">Couldn't find this computer's Wi-Fi address. Are you connected to a network?</p>` : ""}`;
+  $("#ph-on", box).onchange = async (e) => { try { await api.put("/phone/enable", { enabled: e.target.checked }); } catch (err) { toast(err.message, true); } paintPhone(box); };
+  const rot = $("#ph-rot", box);
+  if (rot) rot.onclick = async () => { try { await api.post("/phone/rotate"); toast("New link created"); } catch (err) { toast(err.message, true); } paintPhone(box); };
 }
 
 // ── Automatic backups (Settings → Data) ──────────────────────────────────────
