@@ -152,7 +152,7 @@ def reschedule_overdue(body: SnoozeIn):
     """Move every overdue, unfinished task to one new date in a single click."""
     until = _future_day(body.until)
     today = date.today().isoformat()
-    rows = db.query("SELECT id, due_date FROM items WHERE kind='task' AND done=0 AND status!='rejected' "
+    rows = db.query("SELECT id, due_date FROM items WHERE kind='task' AND done=0 AND status!='rejected' AND dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL) "
                     "AND due_date IS NOT NULL AND substr(due_date,1,10) < ?", (today,))
     for r in rows:
         db.execute("UPDATE items SET due_date=?, snoozed_until=? WHERE id=?", (_moved_due(r["due_date"], until), until, r["id"]))
@@ -320,7 +320,7 @@ def weekly_digest(weeks_back: int = 0):
     cmap = graph.canonical_map("concepts")
     dumps = []
     seen_before: set[str] = set()
-    for r in db.query("SELECT id, title, created_at, tone, people, concepts, raw_text FROM dumps WHERE status='ready' ORDER BY created_at"):
+    for r in db.query("SELECT id, title, created_at, tone, people, concepts, raw_text FROM dumps WHERE status='ready' AND deleted_at IS NULL ORDER BY created_at"):
         d = _local_day(r["created_at"])
         if d is None:
             continue
@@ -363,12 +363,12 @@ def weekly_digest(weeks_back: int = 0):
         days.append({"day": d.isoformat(), "dumps": sum(1 for x in mine if x["day"] == d),
                      "mood": round(sum(dv) / len(dv), 2) if dv else None, "future": d > today})
     label_counts = Counter(lbl for _, lbl, _ in m)
-    t_open = db.query_one("SELECT COUNT(*) n FROM items WHERE kind='task' AND done=0 AND status!='rejected'")["n"]
-    t_over = db.query_one("SELECT COUNT(*) n FROM items WHERE kind='task' AND done=0 AND status!='rejected' AND due_date IS NOT NULL "
+    t_open = db.query_one("SELECT COUNT(*) n FROM items WHERE kind='task' AND done=0 AND status!='rejected' AND dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL)")["n"]
+    t_over = db.query_one("SELECT COUNT(*) n FROM items WHERE kind='task' AND done=0 AND status!='rejected' AND dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL) AND due_date IS NOT NULL "
                           "AND substr(due_date,1,10) < ?", (today.isoformat(),))["n"]
-    t_added = sum(1 for r in db.query("SELECT created_at FROM items WHERE kind='task' AND status!='rejected'")
+    t_added = sum(1 for r in db.query("SELECT created_at FROM items WHERE kind='task' AND status!='rejected' AND dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL)")
                   if (d := _local_day(r["created_at"])) and start <= d <= end)
-    t_due = db.query_one("SELECT COUNT(*) n FROM items WHERE kind='task' AND done=0 AND status!='rejected' AND substr(due_date,1,10) BETWEEN ? AND ?",
+    t_due = db.query_one("SELECT COUNT(*) n FROM items WHERE kind='task' AND done=0 AND status!='rejected' AND dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL) AND substr(due_date,1,10) BETWEEN ? AND ?",
                          (today.isoformat(), (today + timedelta(days=7)).isoformat()))["n"]
     habits = _habits_view()
     return {

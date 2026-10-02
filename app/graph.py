@@ -99,7 +99,7 @@ def canonical_map(column: str = "concepts") -> dict[str, str]:
     """{lowercased name as stored: display name of its spelling-variant group} across all ready dumps."""
     freq: Counter = Counter()
     display: dict[str, str] = {}
-    for r in db.query(f"SELECT {column} FROM dumps WHERE status='ready'"):
+    for r in db.query(f"SELECT {column} FROM dumps WHERE status='ready' AND deleted_at IS NULL"):
         for name in {n.lower(): n for n in _names(r[column])}.values():
             k = name.lower()
             freq[k] += 1
@@ -123,7 +123,7 @@ def _group_key(name: str, cmap: dict[str, str]) -> str:
 
 def build(items: bool = False) -> dict:
     """Nodes: dumps + concepts + people (+ items). Edges: mention / similar / in."""
-    rows = db.query("SELECT id, title, created_at, people, concepts FROM dumps WHERE status='ready'")
+    rows = db.query("SELECT id, title, created_at, people, concepts FROM dumps WHERE status='ready' AND deleted_at IS NULL")
     nodes: list[dict] = []
     edges: list[dict] = []
     slots: dict[str, str] = {}
@@ -152,7 +152,7 @@ def build(items: bool = False) -> dict:
         edges.append({"source": r["dump_id"], "target": r["related_id"], "type": "similar", "score": r["score"]})
     if items:
         ready = {n["id"] for n in nodes if n["type"] == "dump"}
-        for r in db.query("SELECT id, dump_id, kind, content FROM items WHERE status != 'rejected'"):
+        for r in db.query("SELECT id, dump_id, kind, content FROM items WHERE status != 'rejected' AND dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL)"):
             if r["dump_id"] not in ready:
                 continue
             nodes.append({"id": "item:" + r["id"], "label": r["content"][:40], "type": r["kind"], "dump": r["dump_id"]})
@@ -172,13 +172,13 @@ def _dump_brief(r) -> dict:
 
 
 _BRIEF_SQL = ("SELECT d.id, d.title, d.created_at, d.mode, d.tone, d.provider, d.clean_text, d.raw_text, d.people, d.concepts, "
-              "(SELECT COUNT(*) FROM items i WHERE i.dump_id = d.id) AS item_count FROM dumps d WHERE d.status='ready'")
+              "(SELECT COUNT(*) FROM items i WHERE i.dump_id = d.id) AS item_count FROM dumps d WHERE d.status='ready' AND d.deleted_at IS NULL")
 
 
 def _tally(column: str) -> list[dict]:
     cmap = canonical_map(column)
     counts: dict[str, dict] = {}
-    for r in db.query(f"SELECT {column}, created_at FROM dumps WHERE status='ready'"):
+    for r in db.query(f"SELECT {column}, created_at FROM dumps WHERE status='ready' AND deleted_at IS NULL"):
         for k in {_group_key(n, cmap) for n in _names(r[column])}:
             e = counts.setdefault(k, {"name": cmap.get(k, k), "count": 0, "last_at": r["created_at"]})
             e["count"] += 1
@@ -220,7 +220,7 @@ def backlinks(dump_id: str) -> dict:
     similar_ids = {r["related_id"] if r["dump_id"] == dump_id else r["dump_id"]
                    for r in db.query("SELECT dump_id, related_id FROM links WHERE dump_id=? OR related_id=?", (dump_id, dump_id))}
     briefs = {r["id"]: _dump_brief(r) for r in db.query(_BRIEF_SQL)}
-    all_rows = {r["id"]: r for r in db.query("SELECT id, people, concepts FROM dumps WHERE status='ready' AND id != ?", (dump_id,))}
+    all_rows = {r["id"]: r for r in db.query("SELECT id, people, concepts FROM dumps WHERE status='ready' AND deleted_at IS NULL AND id != ?", (dump_id,))}
 
     def via(column: str) -> list[dict]:
         cmap = canonical_map(column)
@@ -258,7 +258,7 @@ def today(day: str | None = None) -> dict:
             d["items"] = [dict(i) for i in db.query(
                 "SELECT id, kind, content, detail, due_date, status, done, est_minutes, urgency FROM items WHERE dump_id=? AND status != 'rejected'", (r["id"],))]
             dumps.append(d)
-    pending = db.query_one("SELECT COUNT(*) AS n FROM dumps WHERE status IN ('pending','processing')")["n"]
+    pending = db.query_one("SELECT COUNT(*) AS n FROM dumps WHERE deleted_at IS NULL AND status IN ('pending','processing')")["n"]
     return {"date": day, "dumps": dumps, "processing": pending}
 
 
@@ -313,7 +313,7 @@ def browse() -> list[dict]:
     ]
     counts = {r["kind"]: r["n"] for r in db.query(
         "SELECT i.kind, COUNT(*) AS n FROM items i JOIN dumps d ON d.id = i.dump_id "
-        "WHERE i.status != 'rejected' AND d.status IN ('ready','manual') GROUP BY i.kind")}
+        "WHERE i.status != 'rejected' AND d.deleted_at IS NULL AND d.status IN ('ready','manual') GROUP BY i.kind")}
     for t in item_types.enabled():
         out.append({"id": t["id"], "label": t["label"], "color": t["color"], "icon": t["icon"], "entries": "items",
                     "count": counts.get(t["id"], 0)})
@@ -325,7 +325,7 @@ def items_of_kind(kind: str) -> list[dict]:
     rows = db.query(
         "SELECT i.id, i.kind, i.content, i.detail, i.done, i.due_date, i.created_at, i.dump_id, d.title AS dump_title, d.status AS dump_status "
         "FROM items i JOIN dumps d ON d.id = i.dump_id "
-        "WHERE i.kind=? AND i.status != 'rejected' AND d.status IN ('ready','manual') ORDER BY i.created_at DESC", (kind,))
+        "WHERE i.kind=? AND i.status != 'rejected' AND d.deleted_at IS NULL AND d.status IN ('ready','manual') ORDER BY i.created_at DESC", (kind,))
     return [{**dict(r), "dump_id": None if r["dump_status"] == "manual" else r["dump_id"], "dump_title": None if r["dump_status"] == "manual" else r["dump_title"]}
             for r in rows]
 

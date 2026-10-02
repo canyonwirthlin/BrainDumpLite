@@ -98,7 +98,7 @@ def dump_markdown(dump_id: str, wikilinks: bool = True) -> tuple[str, str]:
 
 
 def all_ready_ids() -> list[str]:
-    return [r["id"] for r in db.query("SELECT id FROM dumps WHERE status='ready' ORDER BY created_at")]
+    return [r["id"] for r in db.query("SELECT id FROM dumps WHERE status='ready' AND deleted_at IS NULL ORDER BY created_at")]
 
 
 def vault_markdown_zip(wikilinks: bool = True) -> bytes:

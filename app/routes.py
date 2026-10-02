@@ -96,7 +96,7 @@ def status():
         "vault_dir": str(db.vault_dir()),
         "locked": lock.locked(),
         "lock_set": lock.is_set(),
-        "last_dump_at": (db.query_one("SELECT MAX(created_at) AS m FROM dumps") or {"m": None})["m"],
+        "last_dump_at": (db.query_one("SELECT MAX(created_at) AS m FROM dumps WHERE deleted_at IS NULL") or {"m": None})["m"],
         "onboarded": bool(db.get_setting("onboarded", False)),
         "platform": {"win32": "windows", "darwin": "macos"}.get(sys.platform, "linux"),
         "builtin_ai": engine.SUPPORTED,
@@ -407,7 +407,7 @@ def wikilink_suggest(q: str = ""):
     for p in graph.people():
         if not q or q in p["name"].lower():
             out.append({"name": p["name"], "kind": "person", "count": p["count"]})
-    for r in db.query("SELECT title FROM dumps WHERE status='ready' AND title IS NOT NULL ORDER BY created_at DESC LIMIT 200"):
+    for r in db.query("SELECT title FROM dumps WHERE status='ready' AND deleted_at IS NULL AND title IS NOT NULL ORDER BY created_at DESC LIMIT 200"):
         if r["title"] and (not q or q in r["title"].lower()):
             out.append({"name": r["title"], "kind": "dump", "count": 1})
     return out[:20]
@@ -874,6 +874,7 @@ def _dump_out(row, items=None, related=None):
         out["tone"] = json.loads(row["tone"]) if row["tone"] else None
     except (ValueError, TypeError):
         out["tone"] = None
+    out["pinned"] = bool(row["pinned"]) if "pinned" in row.keys() else False
     for k in ("concepts", "people"):
         try:
             out[k] = json.loads(row[k]) if row[k] else []
@@ -909,13 +910,13 @@ def create_dump(body: DumpIn, bg: BackgroundTasks):
 def list_dumps(limit: int = 100):
     rows = db.query(
         "SELECT d.*, (SELECT COUNT(*) FROM items i WHERE i.dump_id = d.id) AS item_count "
-        "FROM dumps d WHERE d.status != 'manual' ORDER BY d.created_at DESC LIMIT ?", (limit,))
+        "FROM dumps d WHERE d.status != 'manual' AND d.deleted_at IS NULL ORDER BY COALESCE(d.pinned,0) DESC, d.created_at DESC LIMIT ?", (limit,))
     return [{**_dump_out(r), "item_count": r["item_count"]} for r in rows]
 
 
 @router.get("/dumps/{dump_id}")
 def get_dump(dump_id: str):
-    row = db.query_one("SELECT * FROM dumps WHERE id=?", (dump_id,))
+    row = db.query_one("SELECT * FROM dumps WHERE id=? AND deleted_at IS NULL", (dump_id,))
     if not row:
         raise HTTPException(404, "Dump not found")
     items = [dict(r) for r in db.query(
@@ -927,7 +928,7 @@ def get_dump(dump_id: str):
             "SELECT l.dump_id, l.related_id, l.score FROM links l "
             "WHERE l.dump_id=? OR l.related_id=?", (dump_id, dump_id)):
         other = r["related_id"] if r["dump_id"] == dump_id else r["dump_id"]
-        d = db.query_one("SELECT id, title, created_at FROM dumps WHERE id=?", (other,))
+        d = db.query_one("SELECT id, title, created_at FROM dumps WHERE id=? AND deleted_at IS NULL", (other,))
         if d and all(x["id"] != other for x in related):
             related.append({"id": d["id"], "title": d["title"],
                             "created_at": d["created_at"], "score": r["score"]})
@@ -936,8 +937,9 @@ def get_dump(dump_id: str):
 
 @router.delete("/dumps/{dump_id}")
 def delete_dump(dump_id: str):
+    # Soft delete: the dump sits in Trash for 30 days (routes_dumps.py: restore / delete forever / auto-purge).
+    db.execute("UPDATE dumps SET deleted_at=? WHERE id=? AND deleted_at IS NULL", (db.now_iso(), dump_id))
     db.execute("DELETE FROM dumps_fts WHERE id=?", (dump_id,))
-    db.execute("DELETE FROM dumps WHERE id=?", (dump_id,))  # cascades items/links
     return {"ok": True}
 
 
@@ -1050,8 +1052,8 @@ def list_tasks():
     so the Tasks tab can show them apart instead of pretending "get stronger" can be ticked off."""
     rows = db.query(
         "SELECT i.*, d.title AS dump_title, (d.status = 'manual') AS manual FROM items i JOIN dumps d ON d.id = i.dump_id "
-        "WHERE i.kind IN ('task','goal','idea') AND i.status != 'rejected' AND d.status IN ('ready','manual') "
-        "ORDER BY i.done, CASE WHEN i.due_date IS NULL THEN 1 ELSE 0 END, "
+        "WHERE i.kind IN ('task','goal','idea') AND i.status != 'rejected' AND d.deleted_at IS NULL AND d.status IN ('ready','manual') "
+        "ORDER BY i.done, COALESCE(i.pinned,0) DESC, CASE WHEN i.due_date IS NULL THEN 1 ELSE 0 END, "
         "i.due_date, COALESCE(i.priority, 0) DESC, i.created_at DESC")
     return [{**dict(r), "manual": bool(r["manual"])} for r in rows]
 
@@ -1307,7 +1309,7 @@ def reflect(body: ReflectIn):
 
     rows = [r for r in db.query(
         "SELECT title, summary, mode, created_at FROM dumps "
-        "WHERE status='ready' ORDER BY created_at DESC LIMIT 60")
+        "WHERE status='ready' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 60")
         if _local_date(r["created_at"]) >= since]
     if not rows:
         return {"content": f"No dumps from {label} yet — nothing to reflect on. Go dump something.",
