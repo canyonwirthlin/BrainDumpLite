@@ -6,6 +6,7 @@ import { renderProcessing } from "./capture.js";
 import { go } from "../router.js";
 import { on } from "../state.js";
 import { bindDumpEdit } from "../dumpedit.js";
+import { mountFollowup } from "../followup.js";
 
 let filterMode = "all", filterText = "", trashMode = false;
 let meta = { pinned: [], duplicates: {} };
@@ -107,6 +108,7 @@ export async function paintDetail(id, base = "#history") {
   const reload = () => paintDetail(id, base);
   bindItemRows(box, d.items, reload);
   bindDumpEdit(box, d, { reload, onTags: () => paintBacklinks(id, $("#backlinks", box)) });
+  mountFollowup(box, reload);
   if ($("#approve-all", box)) $("#approve-all", box).onclick = async () => {
     for (const it of d.items.filter((x) => x.status === "suggested")) { await api.patch("/items/" + it.id, { status: "approved" }); it.status = "approved"; }
     $$("#items .item:not(.rejected) .ok", box).forEach((b) => b.classList.add("active"));

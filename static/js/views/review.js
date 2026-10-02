@@ -3,6 +3,7 @@ import { $, $$, esc, md, toast, modal, fmtDate, fmtDay, fmtTime, todayIso, MODES
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { titleHtml, tagsHtml, linksHtml, bindDumpEdit, cardActionsHtml } from "../dumpedit.js";
+import { followupSlot, mountFollowup } from "../followup.js";
 
 // Prefilled Google Calendar event link — no OAuth, user completes it there.
 function gcalUrl(t) {
@@ -186,6 +187,7 @@ export function reviewHtml(d, { showBack = false, detail = false } = {}) {
     ${d.items.length ? `<div class="card"><h2>Extracted items <span class="muted small">(✓ keep · ✕ reject · ✎ edit)</span></h2>
       <div id="items">${d.items.map(itemRow).join("")}</div>
       <div class="row"><button class="btn ghost" id="approve-all">Keep all</button></div></div>` : ""}
+    ${followupSlot(d)}
     ${tagsHtml(d)}
     ${linksHtml(d)}
     ${detail ? `<div class="card backlinks" id="backlinks"><span class="small muted">Looking for links…</span></div>` : ""}
@@ -205,6 +207,7 @@ export function renderReview(d) {
   const reload = async () => { try { renderReview(await api.get("/dumps/" + d.id)); } catch {} };
   bindItemRows($("#view"), d.items, reload);
   bindDumpEdit($("#view"), d, { reload });
+  mountFollowup($("#view"), reload);
   if ($("#approve-all")) $("#approve-all").onclick = async () => {
     for (const it of d.items.filter((x) => x.status === "suggested")) {
       await api.patch("/items/" + it.id, { status: "approved" });

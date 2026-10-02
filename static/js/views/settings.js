@@ -11,6 +11,7 @@ import { lockNow } from "../shell.js";
 import { runTool, MODE_LABEL } from "../tools.js";
 import { replayTutorial } from "../onboarding.js";
 import { paintPipeline } from "./pipeline.js";
+import { mountFollowupSetting } from "../followup.js";
 import { modelOptions, geminiSetup, autoPickNote } from "../geminipicker.js";
 
 const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["about", "About"]];
@@ -166,10 +167,12 @@ function sectionAI(box, s) {
             it's sorted. Turn off to keep your exact words as the transcript — dumps also process a little faster.</div></div>
         <label class="sw"><input type="checkbox" id="cleanup-on" ${s.cleanup_enabled !== false ? "checked" : ""}><i></i></label>
       </div></div>` : ""}
+    ${cur !== "off" ? `<div id="followup-setting"></div>` : ""}
     ${on ? `<div class="sec">Extraction types</div>
     <p class="small muted" style="margin-bottom:10px">What the AI looks for in every dump. Add your own, rename, recolor; built-ins can't be removed.</p>
     <div class="card" id="types-editor"></div>` : ""}`;
   if (on) paintTypesEditor($("#types-editor", body));
+  mountFollowupSetting($("#followup-setting", body));
   if ($("#cleanup-on", body)) $("#cleanup-on", body).onchange = async (e) => {
     const want = e.target.checked;
     try {
