@@ -2,7 +2,7 @@
 one model call proposes what to put where. Greedy fallback without AI."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from . import ai, db, google_cal
 
@@ -34,7 +34,8 @@ def _hhmm(m: int) -> str:
 
 def backlog(limit: int = 15) -> list[dict]:
     rows = db.query("SELECT id, content, est_minutes, urgency, due_date FROM items WHERE kind='task' "
-                    "AND status='approved' AND done=0 ORDER BY COALESCE(urgency,0) DESC, COALESCE(est_minutes, 60) ASC, created_at DESC LIMIT ?", (limit,))
+                    "AND status='approved' AND done=0 AND (snoozed_until IS NULL OR snoozed_until <= ?) "   # "not today" tasks aren't offered
+                    "ORDER BY COALESCE(urgency,0) DESC, COALESCE(est_minutes, 60) ASC, created_at DESC LIMIT ?", (date.today().isoformat(), limit))
     return [dict(r) for r in rows]
 
 

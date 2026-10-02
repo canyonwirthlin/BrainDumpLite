@@ -14,7 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import ai, catalog, changelog, db, engine, export_md, gemini, gitsync, google_cal, graph, import_md, item_types, lock, mcp_client, pipeline, planner, plugins, profiles, prompts, search as search_mod, secrets, sessions, stats, streaks, suggestions, themes, todoist, transcribe, vault
+from . import ai, catalog, changelog, db, engine, export_md, gemini, gitsync, google_cal, graph, import_md, item_types, lock, mcp_client, pipeline, planner, plugins, profiles, prompts, search as search_mod, secrets, sessions, stats, streaks, suggestions, themes, todoist, transcribe, vault, routes_tasks
 from .version import __version__ as VERSION
 
 router = APIRouter()
@@ -1012,6 +1012,8 @@ def patch_item(item_id: str, body: ItemPatch):
         db.execute("UPDATE items SET status=? WHERE id=?", (body.status, item_id))
     if body.done is not None:
         db.execute("UPDATE items SET done=? WHERE id=?", (1 if body.done else 0, item_id))
+        if body.done:
+            routes_tasks.spawn_next(item_id)   # recurring task: queue the next occurrence
     if body.kind is not None:
         # Hand-retagging: how a custom type gets its first node without waiting for the AI.
         if body.kind not in item_types.enum():

@@ -567,3 +567,13 @@ button.name-row { width: 100%; background: transparent; border: 0; text-align: l
 .graph-tl { position: absolute; left: 14px; bottom: 14px; padding: 6px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; font-size: 13px; font-variant-numeric: tabular-nums; box-shadow: var(--shadow); pointer-events: none; }
 .add-task select { width: auto; flex: none; }
 .add-task input[type=number] { flex: none; }
+
+/* Task folders (tabs above the task list) */
+.ftabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.ftab { font: inherit; font-size: 12.5px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--dim); cursor: pointer; }
+.ftab:hover { background: var(--panel-2); color: var(--text); }
+.ftab.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.ftab.add { border-style: dashed; }
+.ftab .count { opacity: .7; margin-left: 2px; }
+.ftab-form { display: flex; gap: 6px; align-items: center; }
+.snooze-menu select { font: inherit; font-size: 12px; }
