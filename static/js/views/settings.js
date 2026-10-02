@@ -324,6 +324,11 @@ async function paintData(body) {
       </div>
     </div>
     <div class="card">
+      <h2>Obsidian mirror</h2>
+      <p class="small muted" style="margin-bottom:10px">Keeps a folder in your Obsidian vault up to date, one note per dump (one-way: edits made in Obsidian get overwritten). Trashed dumps move to <code>_trash</code>. Files BrainDump didn't create are never touched.</p>
+      <div id="obs-panel"><span class="spin"></span></div>
+    </div>
+    <div class="card">
       <h2>Vaults</h2>
       <p class="small muted" style="margin-bottom:10px">Keep separate vaults (Work, Personal…) and switch between them. A vault in a Dropbox/OneDrive/Drive folder syncs by itself.</p>
       <div id="vault-list"></div>
@@ -421,6 +426,7 @@ async function paintData(body) {
   };
   paintVaults(body);
   paintGit(body);
+  paintObsidian(body);
   paintAutoBackup($("#autobackup", body));
   paintPhone($("#phone-panel", body));
   paintIndex($("#index-panel", body));
@@ -922,6 +928,27 @@ async function paintGit(body) {
   if ($("#git-off", body)) $("#git-off", body).onclick = async () => { await api.post("/gitsync/configure", { dir: null }); paintGit(body); };
 }
 
+
+async function paintObsidian(body) {
+  const box = $("#obs-panel", body); if (!box) return;
+  let o;
+  try { o = await api.get("/obsidian"); } catch (e) { box.innerHTML = `<span class="small bad">${esc(e.message)}</span>`; return; }
+  box.innerHTML = `<div class="row" style="margin:0">
+      <span class="small muted grow" style="font-family:var(--mono)">${o.dir ? esc(o.dir) : "No folder chosen"}</span>
+      <button class="btn ghost small" id="obs-pick">${o.dir ? "Change folder…" : "Choose folder…"}</button>
+      ${o.dir ? `<label class="sw"><input type="checkbox" id="obs-on" ${o.enabled ? "checked" : ""}><i></i> mirror</label>` : ""}
+      ${o.enabled ? `<button class="btn small" id="obs-sync">Sync now</button>` : ""}
+    </div>
+    ${o.last_sync ? `<div class="small muted" style="margin-top:8px">Last sync ${esc(new Date(o.last_sync).toLocaleString())} · ${o.count} notes</div>` : ""}
+    ${o.last_error ? `<div class="small bad" style="margin-top:6px">${esc(o.last_error)}</div>` : ""}`;
+  const cfg = async (dir, enabled) => { try { await api.post("/obsidian/configure", { dir, enabled }); } catch (e) { toast(e.message, true); } paintObsidian(body); };
+  $("#obs-pick", body).onclick = async () => { const dir = await pickFolder("Choose a folder inside your Obsidian vault", o.dir); if (dir) cfg(dir, true); };
+  if ($("#obs-on", body)) $("#obs-on", body).onchange = (e) => cfg(o.dir, e.target.checked);
+  if ($("#obs-sync", body)) $("#obs-sync", body).onclick = async () => {
+    try { const r = await api.post("/obsidian/sync", {}); toast(`Synced: ${r.written} written, ${r.removed} moved to _trash`); } catch (e) { toast(e.message, true); }
+    paintObsidian(body);
+  };
+}
 
 // ── Integrations (Phase 8) ───────────────────────────────────────────────────
 async function sectionIntegrations(box, s) {

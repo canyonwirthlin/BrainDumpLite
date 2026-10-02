@@ -8,7 +8,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import backup, db, engine, item_types, lock, plugins, reprocess, stats
+from . import backup, db, engine, item_types, lock, obsidian, plugins, reprocess, stats
+from .routes_obsidian import router as obsidian_router
 from .routes import oauth_router, router
 from .routes_data import router as data_router
 from . import routes_dumps
@@ -72,6 +73,8 @@ def create_app() -> FastAPI:
     app.include_router(search_router, prefix="/api")
     app.include_router(ask_router, prefix="/api")
     app.include_router(pipeline_router, prefix="/api")
+    app.include_router(obsidian_router, prefix="/api")
+    obsidian.start_watcher()  # live Obsidian mirror (no-op unless enabled)
     reprocess.start_watcher()  # processes dumps queued while no AI was on
     app.include_router(data_router, prefix="/api")
     app.include_router(phone_router, prefix="/api")
