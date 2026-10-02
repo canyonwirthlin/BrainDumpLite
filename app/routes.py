@@ -893,11 +893,16 @@ def create_dump(body: DumpIn, bg: BackgroundTasks):
         raise HTTPException(400, "Empty dump")
     mode = body.mode if body.mode in pipeline.VALID_MODES else "freeform"
     dump_id = db.new_id()
+    from . import reprocess
+    queued = reprocess.should_queue()   # AI chosen but not usable yet: keep the dump, process it once AI is up
     db.execute(
-        "INSERT INTO dumps (id, created_at, mode, raw_text, status) VALUES (?,?,?,?, 'pending')",
-        (dump_id, db.now_iso(), mode, text))
-    bg.add_task(pipeline.run_pipeline, dump_id)
-    return {"id": dump_id}
+        "INSERT INTO dumps (id, created_at, mode, raw_text, status) VALUES (?,?,?,?,?)",
+        (dump_id, db.now_iso(), mode, text, "queued" if queued else "pending"))
+    if queued:
+        reprocess.kick()
+    else:
+        bg.add_task(pipeline.run_pipeline, dump_id)
+    return {"id": dump_id, "status": "queued" if queued else "pending"}
 
 
 @router.get("/dumps")

@@ -15,9 +15,12 @@ _state = {"running": False, "done": 0, "total": 0, "failed": 0, "error": ""}
 _lock = threading.Lock()
 
 
-def _missing() -> list:
+def _missing(everything: bool = False) -> list:
+    """Dumps to (re)embed. everything=True re-embeds all of them, e.g. after switching to an embedding model with
+    a different vector size (old and new vectors can't be compared)."""
+    where = "" if everything else " AND (embedding IS NULL OR embedding='')"
     return db.query("SELECT id, title, summary, clean_text, raw_text FROM dumps "
-                    "WHERE status='ready' AND (embedding IS NULL OR embedding='')")
+                    f"WHERE status='ready' AND deleted_at IS NULL{where}")
 
 
 def status() -> dict:
@@ -29,13 +32,13 @@ def status() -> dict:
     return s
 
 
-def start() -> tuple[bool, str]:
+def start(everything: bool = False) -> tuple[bool, str]:
     if not ai.available():
         return False, "No AI model is on - set one up in Settings -> AI first."
     with _lock:
         if _state["running"]:
             return False, "Already running"
-        rows = _missing()
+        rows = _missing(everything)
         _state.update(running=True, done=0, total=len(rows), failed=0, error="")
     if not rows:
         with _lock:

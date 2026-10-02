@@ -49,7 +49,7 @@ export async function render(ctx) {
       return `<a class="drow ${d.id === id ? "sel" : ""}" href="#history/${d.id}">
         <b>${esc(d.title || (d.raw_text || "").slice(0, 60) || "Untitled")}</b>
         <div class="m"><span>${relTime(d.created_at)}</span><span class="tag">${mode.label}</span><span>${d.item_count} item${d.item_count === 1 ? "" : "s"}</span>${toneChip(d.tone)}${trustBadge(d.provider)}
-          ${d.status === "processing" || d.status === "pending" ? "<span>processing…</span>" : d.status === "failed" ? "<span>failed</span>" : ""}</div>
+          ${d.status === "processing" || d.status === "pending" ? "<span>processing…</span>" : d.status === "queued" ? "<span>waiting for AI</span>" : d.status === "failed" ? "<span>failed</span>" : ""}</div>
         <p>${esc((d.clean_text || d.raw_text || "").slice(0, 160))}</p></a>`;
     }).join("") : (openRows ? "" : `<div class="center"><div class="big">🌱</div>${dumps.length ? "No dumps match." : `Nothing here yet.<br><br><a class="btn" href="#capture">Make your first dump</a>`}</div>`));
   };
@@ -68,6 +68,12 @@ export async function paintDetail(id, base = "#history") {
   let d;
   try { d = await api.get("/dumps/" + id); }
   catch { box.innerHTML = `<div class="center">Dump not found. <a href="#history">Back</a></div>`; return; }
+  if (d.status === "queued") {
+    box.innerHTML = `<a class="btn ghost small back" href="${base}">← Back</a><div class="card"><h2>Waiting for AI</h2>
+      <p class="small muted">Saved. It will be processed automatically once an AI model is available (Settings → AI).</p>
+      <p style="white-space:pre-wrap">${esc(d.raw_text || "")}</p></div>`;
+    return;
+  }
   if (d.status === "processing" || d.status === "pending") { renderProcessing(id, box, () => paintDetail(id)); return; }
   box.innerHTML = `<a class="btn ghost small back" href="${base}">← Back</a>` + reviewHtml(d, { detail: true });
   paintBacklinks(id, $("#backlinks", box));

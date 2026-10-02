@@ -126,8 +126,13 @@ async function submitDump() {
   if (!text) return;
   $("#dump-btn").disabled = true;
   try {
-    const { id } = await api.post("/dumps", { text, mode: state.curMode });
+    const { id, status } = await api.post("/dumps", { text, mode: state.curMode });
     state.draft = "";
+    if (status === "queued") {   // no AI available yet: saved, and processed automatically once one is on
+      $("#view").innerHTML = `<h1>Saved</h1><p class="sub">Your dump is waiting for AI. It will be processed automatically as soon as an AI model is available.</p>
+        <div class="card"><a class="btn" href="#history/${id}">View it</a> <a class="btn ghost" href="#capture">Capture another</a></div>`;
+      return;
+    }
     renderProcessing(id);
   } catch (e) {
     toast("Failed to save dump: " + e.message, true);
