@@ -1,5 +1,5 @@
 // Capture stage, processing progress and voice recording.
-import { $, $$, esc, toast, md, MODES, modeOf, STAGES, kindBadge, toneChip } from "../ui.js";
+import { $, $$, esc, toast, modal, md, MODES, modeOf, STAGES, kindBadge, toneChip } from "../ui.js";
 import { go } from "../router.js";
 import { attach as attachWikilinks } from "../wikilinks.js";
 import { api } from "../api.js";
@@ -104,7 +104,14 @@ function paintMode() {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); chat ? startTalk() : submitDump(); }
   };
   $$(".tpl-btn").forEach((b) => b.onclick = () => {
-    state.draft = applyTemplate(ta, TEMPLATES.find((t) => t.id === b.dataset.tpl));
+    const tpl = TEMPLATES.find((t) => t.id === b.dataset.tpl);
+    if (!ta.value.trim()) { state.draft = applyTemplate(ta, tpl); return; }
+    const m = modal(`<h2>Replace what you've written?</h2>
+      <p class="small muted" style="margin:0 0 14px">Using the ${esc(tpl.label)} template clears the box first.</p>
+      <div class="row"><div class="grow"></div>
+        <button class="btn ghost small" id="tpl-no">Cancel</button><button class="btn small" id="tpl-yes">Yes, clear it</button></div>`);
+    $("#tpl-no", m.el).onclick = m.close;
+    $("#tpl-yes", m.el).onclick = () => { m.close(); state.draft = applyTemplate(ta, tpl); };
   });
   $("#dump-btn").onclick = submitDump;
   if ($("#talk-btn")) $("#talk-btn").onclick = startTalk;

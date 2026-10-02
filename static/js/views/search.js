@@ -5,6 +5,7 @@ import { $, $$, esc, fmtDate, relTime, kindBadge, colorCss, modal, toast } from 
 import { api } from "../api.js";
 import { go } from "../router.js";
 import { state } from "../state.js";
+import { loadSearchLists, savedList, recentList, isSaved, rememberSearch, clearRecent, toggleSaved } from "../searchlists.js";
 
 const GLYPH = { person: "🧑", concept: "💡" };
 
@@ -14,6 +15,7 @@ const VIA = { keyword: "words", items: "in an item", semantic: "by meaning", bot
 export async function render(ctx) {
   const [mode, a, b] = ctx.params;
   const query = mode === "q" ? a || "" : "";
+  await loadSearchLists();
   ctx.setTitle("Search", `<input type="text" id="q" class="topbar-input" list="recent-q" placeholder="a name, a topic, a half-remembered phrase…" value="${esc(query)}" autocomplete="off">
     <datalist id="recent-q">${[...new Set([...savedList(), ...recentList()])].map((q) => `<option value="${esc(q)}">`).join("")}</datalist>
     <button class="btn small" id="go">Search</button>`);

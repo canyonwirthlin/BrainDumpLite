@@ -4,6 +4,12 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.25.1 — 2026-10-02
+A small fix-up release.
+- Fixed the Search tab: clicking it showed the Graph or Ask screen instead.
+- Capture templates are now just Morning, Night, Meeting and Worry. If the box already has text, picking one asks first and then clears the box, so templates no longer pile up.
+- The installer now refreshes Windows' icon cache, so a pinned taskbar icon picks up the new app icon after updating. (If yours still looks old, unpin and re-pin once.)
+
 ## 0.25.0 — 2026-10-02
 This is a big one: 34 improvements across capturing, tasks, search, the Brain map, backups and AI.
 
