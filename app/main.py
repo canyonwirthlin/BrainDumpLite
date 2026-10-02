@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from . import backup, db, engine, item_types, lock, plugins, stats
 from .routes import oauth_router, router
 from .routes_extra import router as extra_router
+from .routes_models import router as models_router
 
 
 def static_dir() -> Path:
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
 
     app.include_router(router, prefix="/api")
     app.include_router(extra_router, prefix="/api")
+    app.include_router(models_router, prefix="/api")
     app.include_router(oauth_router)
     app.mount("/", _Static(directory=static_dir(), html=True), name="static")
     return app

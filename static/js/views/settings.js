@@ -532,6 +532,11 @@ let dlSample = null;   // {t, mb, speed}: previous poll, to turn "MB done" into 
 function downloadRate(setup) {
   const now = Date.now(), mb = setup.done_mb || 0;
   if (!setup.total_mb || !["engine", "model", "embed"].includes(setup.phase)) { dlSample = null; return ""; }
+  if (setup.speed_mbps) {  // the backend measures this between chunks - more accurate than polling
+    const s = setup.speed_mbps, secs = setup.eta_s ?? (setup.total_mb - mb) / s;
+    const left = secs < 90 ? `${Math.max(5, Math.round(secs / 5) * 5)} sec` : secs < 5400 ? `${Math.round(secs / 60)} min` : `${(secs / 3600).toFixed(1)} h`;
+    return ` · ${s >= 10 ? Math.round(s) : s.toFixed(1)} MB/s · about ${left} left`;
+  }
   let speed = dlSample?.speed || 0;
   if (dlSample && mb >= dlSample.mb && now > dlSample.t) {
     const inst = (mb - dlSample.mb) / ((now - dlSample.t) / 1000);
@@ -574,7 +579,8 @@ export async function paintEnginePanel() {
       <div class="small">${ENGINE_PHASES[ph]}${es.setup.message ? ": " + esc(es.setup.message) : ""}${mb}${downloadRate(es.setup)}</div>
       <div class="progress ${pct == null ? "indet" : ""}"><i style="width:${pct == null ? 40 : pct}%"></i></div>
       <div class="row" style="margin:6px 0 0;gap:10px"><span class="small muted grow">You can keep using the app — this runs in the background.</span>
-        ${canCancel ? `<button class="btn ghost small" data-cancel title="Stop downloading. What's already downloaded is kept, so you can resume later.">Cancel</button>` : ""}</div>
+        ${canCancel ? `<button class="btn ghost small" data-pause title="Pause. What's already downloaded is kept, and Resume continues from there.">Pause</button>
+        <button class="btn ghost small" data-cancel title="Stop and discard the partial download.">Cancel</button>` : ""}</div>
     </div>`;
   })() : "";
   // List a page at a time; the model being downloaded is always kept in view.
@@ -617,6 +623,10 @@ export async function paintEnginePanel() {
   // Progress sits under its model's row; fall back to the footer if that row is filtered out.
   if (busy) {
     if (!visible.some((m) => m.id === es.setup.model_id)) foot = progressHtml;
+  } else if (ph === "paused") {
+    dlSample = null;
+    foot = `<div class="row" style="margin:10px 0 0;gap:10px"><span class="small muted grow">${esc(es.setup.message)} (${es.setup.done_mb} / ${es.setup.total_mb} MB)</span>
+      <button class="btn small" data-resume>Resume</button><button class="btn ghost small" data-cancel>Cancel</button></div>`;
   } else if (ph === "cancelled") {
     dlSample = null;
     foot = `<div class="small muted" style="margin-top:10px">${esc(es.setup.message)}</div>`;
@@ -655,6 +665,16 @@ export async function paintEnginePanel() {
   $$("[data-cancel]", box).forEach((b) => b.onclick = async () => {
     b.disabled = true; b.textContent = "Cancelling…";
     try { await api.post("/engine/cancel"); } catch (e) { toast(e.message, true); }
+    paintEnginePanel();
+  });
+  $$("[data-pause]", box).forEach((b) => b.onclick = async () => {
+    b.disabled = true; b.textContent = "Pausing…";
+    try { await api.post("/engine/pause"); } catch (e) { toast(e.message, true); }
+    paintEnginePanel();
+  });
+  $$("[data-resume]", box).forEach((b) => b.onclick = async () => {
+    b.disabled = true;
+    try { await api.post("/engine/resume"); } catch (e) { toast(e.message, true); }
     paintEnginePanel();
   });
   $$("[data-del]", box).forEach((b) => b.onclick = async () => {

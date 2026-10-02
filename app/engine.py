@@ -244,15 +244,17 @@ def recommended_id(vram_mb: int) -> str:
 
 # ── Progress reporting ───────────────────────────────────────────────────────
 
-def _phase(phase: str, message: str = "", pct=None, done_mb=0, total_mb=0) -> None:
+def _phase(phase: str, message: str = "", pct=None, done_mb=0, total_mb=0, speed_mbps=None, eta_s=None) -> None:
     global _progress
     with _progress_lock:
         _progress = {"phase": phase, "message": message, "pct": pct,
-                     "done_mb": done_mb, "total_mb": total_mb}
+                     "done_mb": done_mb, "total_mb": total_mb,
+                     "speed_mbps": speed_mbps, "eta_s": eta_s}
 
 
 _setup_model_id = ""  # which catalog model the running setup is for (UI shows progress on its row)
-_cancel = threading.Event()   # set by cancel_setup(); downloads check it between chunks
+_cancel = threading.Event()   # set by cancel_setup()/pause_setup(); downloads check it between chunks
+_stop_mode = "cancel"         # why _cancel was set: "cancel" (discard partial file) or "pause" (keep it)
 
 
 class SetupCancelled(Exception):
@@ -260,11 +262,39 @@ class SetupCancelled(Exception):
 
 
 def cancel_setup() -> bool:
-    """Stop a running download. The partial file is kept, so pressing the model button again resumes."""
-    if setup_progress()["phase"] not in ("queued", "engine", "model", "embed"):
+    """Abort a running download and discard its partial file."""
+    global _stop_mode
+    p = setup_progress()
+    if p["phase"] == "paused":  # nothing running: just drop what was kept
+        meta = _model_by_id(p["model_id"])
+        for m in (meta, EMBED_MODEL):
+            if m:
+                model_path(m).with_name(m["file"] + ".part").unlink(missing_ok=True)
+        _phase("cancelled", "Download cancelled.")
+        return True
+    if p["phase"] not in ("queued", "engine", "model", "embed"):
         return False
+    _stop_mode = "cancel"
     _cancel.set()
     return True
+
+
+def pause_setup() -> bool:
+    """Stop a running download but KEEP the partial file; resume_setup() continues via HTTP Range."""
+    global _stop_mode
+    if setup_progress()["phase"] not in ("queued", "engine", "model", "embed"):
+        return False
+    _stop_mode = "pause"
+    _cancel.set()
+    return True
+
+
+def resume_setup() -> tuple[bool, str]:
+    """Continue a paused download (the same model that was paused)."""
+    p = setup_progress()
+    if p["phase"] != "paused" or not p["model_id"]:
+        return False, "Nothing is paused"
+    return start_setup(p["model_id"])
 
 
 def setup_progress() -> dict:
@@ -277,6 +307,7 @@ def setup_progress() -> dict:
 def _download(url: str, dest: Path, sha256: str, expect_size: int | None, phase: str, label: str) -> None:
     part = dest.with_name(dest.name + ".part")
     last_err: Exception | None = None
+    t0, speed, t_last, b_last = time.monotonic(), 0.0, 0.0, 0   # smoothed MB/s for the readout
     for attempt in range(4):
         try:
             have = part.stat().st_size if part.exists() else 0
@@ -291,15 +322,26 @@ def _download(url: str, dest: Path, sha256: str, expect_size: int | None, phase:
                     with open(part, "ab" if have else "wb") as f:
                         while True:
                             if _cancel.is_set():
+                                f.close()
+                                if _stop_mode == "cancel":
+                                    part.unlink(missing_ok=True)
                                 raise SetupCancelled()
                             chunk = r.read(1 << 18)
                             if not chunk:
                                 break
                             f.write(chunk)
                             have += len(chunk)
+                            now = time.monotonic()
+                            if now - t_last >= 1.0:
+                                if t_last:
+                                    inst = (have - b_last) / (now - t_last) / (1 << 20)
+                                    speed = inst if not speed else speed * 0.7 + inst * 0.3
+                                t_last, b_last = now, have
+                            eta = int((total - have) / (speed * (1 << 20))) if total and speed > 0.01 else None
                             _phase(phase, label,
                                    pct=round(have / total * 100, 1) if total else None,
-                                   done_mb=have >> 20, total_mb=total >> 20)
+                                   done_mb=have >> 20, total_mb=total >> 20,
+                                   speed_mbps=round(speed, 2) if speed else None, eta_s=eta)
             if expect_size is not None and part.stat().st_size < expect_size:
                 raise OSError(f"connection dropped at {have >> 20} MB")  # → resume on retry
             last_err = None
@@ -651,11 +693,17 @@ def _run_setup(meta: dict) -> None:
     try:
         _phase("engine", "AI engine")
         _ensure_engine()
+        if _cancel.is_set():
+            raise SetupCancelled()
         _phase("model", meta["label"])
         _ensure_model_file(meta, "model", meta["label"])
+        if _cancel.is_set():
+            raise SetupCancelled()
         try:  # embeddings are optional — a failure here must not fail setup
             _phase("embed", "semantic search model")
             _ensure_model_file(EMBED_MODEL, "embed", "semantic search model")
+        except SetupCancelled:
+            raise
         except Exception as e:
             print(f"[engine] embed model download failed (semantic search off): {e}", flush=True)
         _phase("starting", meta["label"])
@@ -667,7 +715,10 @@ def _run_setup(meta: dict) -> None:
         ensure_embed_running()
         _phase("done")
     except SetupCancelled:
-        _phase("cancelled", "Download cancelled - press the model button to resume where it left off.")
+        if _stop_mode == "pause":
+            _phase("paused", "Paused - press Resume to continue where it left off.")
+        else:
+            _phase("cancelled", "Download cancelled.")
     except Exception as e:
         _phase("error", str(e)[:400])
 
