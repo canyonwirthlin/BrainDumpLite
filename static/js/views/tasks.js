@@ -7,6 +7,8 @@ import { dueWrap, bindDue, calBtns, editItem } from "./review.js";
 import { snoozeMenu, snoozeItem, rescheduleAllOverdue, fmtShort } from "./snooze.js";
 import { openJustOne, pickNext } from "./jot.js";
 import { renderHabits } from "./habits.js";
+import { loadSearchLists, searchBoxHtml, bindSearchBox, searchTaskIds } from "../searchlists.js";
+let taskQuery = "";   // the Tasks search bar (same engine as the Search tab)
 import { loadTaskLists, filterByFolder, currentFolder, barHtml, bindBar, chipsHtml, buttonsHtml, bindRow } from "./task_lists.js";
 
 const GROUPS = [["all", "All"], ["overdue", "Overdue"], ["today", "Today"], ["upcoming", "Upcoming"], ["someday", "Someday"], ["snoozed", "Snoozed"], ["done", "Done"]];
@@ -53,11 +55,15 @@ export async function render(ctx) {
     <div class="small muted" style="padding:12px 16px">Tasks are things you can finish. Ongoing aims and loose ideas are kept apart from them.</div>`;
 
   if (group === "habits") return renderHabits($("#task-list"), () => render(ctx));
-  const list = by[group];
+  await loadSearchLists();
+  let hit = null;
+  if (taskQuery) { try { hit = await searchTaskIds(taskQuery); } catch {} }
+  const list = hit ? by[group].filter((t) => hit.ids.has(t.id)) : by[group];
   const kindOfNew = kindGroup ? kindGroup[2] : "task";
   const canJot = !kindGroup && group !== "done" && group !== "snoozed" && !!pickNext(items);
   $("#task-list").innerHTML = `<h1 class="page">${label}${canJot ? ` <button class="btn ghost small" id="jot-open" title="Hide everything but the one task you should do next">🎯 Just one thing</button>` : ""}</h1>
     ${kindGroup || group === "habits" ? "" : barHtml()}
+    <div class="row" style="margin:0 0 10px">${searchBoxHtml("task-q", taskQuery, "Search tasks…")}${hit && Object.keys(hit.corrected).length ? `<span class="small muted">Also searched for ${Object.values(hit.corrected).map((w) => `<b>${esc(w)}</b>`).join(", ")}.</span>` : ""}</div>
     ${BLURB[group] ? `<p class="sub">${BLURB[group]}</p>` : ""}
     ${group === "overdue" && list.length ? `<div class="row" style="margin:0 0 10px"><span class="small muted grow">${list.length} overdue — pick a new day for all of them at once, or one by one below.</span><button class="btn small" id="resched-all">Reschedule all…</button></div>` : ""}
     <form class="add-task" id="add-task">
@@ -70,6 +76,7 @@ export async function render(ctx) {
 
   const reload = () => render(ctx);
   bindBar(reload);
+  bindSearchBox($("#task-list"), "task-q", (q) => { if (q === taskQuery) return; taskQuery = q; reload().then(() => { const i = $("#task-q"); if (i && q) { i.focus(); i.setSelectionRange(q.length, q.length); } }); });
   if ($("#jot-open")) $("#jot-open").onclick = () => openJustOne(items, reload);
   if ($("#resched-all")) $("#resched-all").onclick = (e) => snoozeMenu(e.currentTarget, { title: "Move all overdue tasks to…", onPick: (d) => rescheduleAllOverdue(d, reload) });
   $("#add-task").onsubmit = async (e) => {
