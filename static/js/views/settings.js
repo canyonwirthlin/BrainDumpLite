@@ -289,6 +289,12 @@ async function paintData(body) {
         <label class="btn ghost small">Restore from backup… <input type="file" id="restore-file" accept=".zip,application/zip" hidden></label>
         <span class="small muted" id="data-msg"></span>
       </div>
+      <p class="small muted" style="margin:14px 0 8px">Portable export: every dump, item, habit and setting in one JSON file you can import into any vault (importing twice never duplicates anything).</p>
+      <div class="row" style="margin:0">
+        <a class="btn ghost small" href="/api/data/export.json" download>Export JSON</a>
+        <a class="btn ghost small" href="/api/data/export.md" download>Export Markdown</a>
+        <label class="btn ghost small">Import JSON… <input type="file" id="import-json" accept=".json,application/json" hidden></label>
+      </div>
     </div>
     <div class="card">
       <h2>Automatic backups</h2>
@@ -392,6 +398,16 @@ async function paintData(body) {
       const r = await api.post("/import/markdown", fd);
       m(`Imported ${r.imported}, skipped ${r.skipped}. Processing in the background — watch History.`);
     } catch (err) { m(err.message, true); }
+    e.target.value = "";
+  };
+  $("#import-json", body).onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append("file", f);
+    msg("Importing…");
+    try { const r = await api.post("/data/import", fd); msg(`Imported ${r.added} new rows; everything already in the vault was left alone.`); }
+    catch (err) { msg(err.message, true); }
     e.target.value = "";
   };
   paintVaults(body);
