@@ -20,3 +20,7 @@ Stack: Python/FastAPI backend (`app/`), vanilla-JS frontend with no build step (
 
 ## Schema added in Phase 0 (already in `app/db.py`)
 dumps: `pinned`, `is_private`, `deleted_at`, `merged_into`; dumps.status may be `queued`. items (tasks): `pinned`, `folder_id`, `recurrence` (JSON), `tags` (JSON), `actual_minutes` (est_minutes, snoozed_until pre-existed). Tables: `task_folders`, `saved_searches`, `recent_searches`, `dump_merges` (habits/habit_log pre-existed). Settings keys are free-form JSON in `settings`: `journal_prompt_enabled` and `backup` already exist.
+
+## Trash and private rules (added after Wave 2)
+- Every query over `dumps` (and `items` joined to dumps) must exclude trashed dumps: `deleted_at IS NULL`. Dump deletion is a soft delete; see `app/routes_dumps.py`.
+- `is_private` dumps (Wave 4) must be excluded from Ask, search, exports, duplicates and the Obsidian mirror. When you write new code that reads dumps for any of those, add a single helper/WHERE clause so Wave 4 can switch it on in one place (e.g. `AND COALESCE(is_private,0)=0` behind a `db.PRIVATE_SQL` constant if one exists).
