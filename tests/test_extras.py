@@ -189,3 +189,13 @@ def test_hints_and_reset(client):
     assert client.get("/api/merge/hints").json()["person"] >= 1
     for x in ("h1", "h2"):
         db.execute("DELETE FROM dumps WHERE id=?", (x,))
+
+
+def test_phase0_schema_columns(client):
+    from app import db
+    dcols = {r["name"] for r in db.query("PRAGMA table_info(dumps)")}
+    icols = {r["name"] for r in db.query("PRAGMA table_info(items)")}
+    assert {"pinned", "is_private", "deleted_at", "merged_into"} <= dcols
+    assert {"pinned", "folder_id", "recurrence", "tags", "actual_minutes"} <= icols
+    for t in ("task_folders", "saved_searches", "recent_searches", "dump_merges"):
+        assert db.query_one("SELECT name FROM sqlite_master WHERE name=?", (t,))

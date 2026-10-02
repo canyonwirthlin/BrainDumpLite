@@ -141,6 +141,28 @@ CREATE TABLE IF NOT EXISTS habit_log (
   day      TEXT NOT NULL,                          -- local YYYY-MM-DD
   PRIMARY KEY (habit_id, day)
 );
+CREATE TABLE IF NOT EXISTS task_folders (         -- 0.22: separate task lists
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  sort       INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS saved_searches (       -- 0.22: moves the localStorage lists into the vault
+  id         TEXT PRIMARY KEY,
+  query      TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS recent_searches (
+  query   TEXT PRIMARY KEY,
+  used_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS dump_merges (          -- 0.22: lets "Undo merge" restore the originals
+  id         TEXT PRIMARY KEY,
+  target_id  TEXT NOT NULL,                       -- the dump that survived
+  snapshot   TEXT NOT NULL,                       -- JSON: the dumps (and their items) that were folded in, plus the target's prior text
+  created_at TEXT NOT NULL,
+  undone     INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS session_items (     -- live preview items, dropped when the session ends
   id         TEXT PRIMARY KEY,
   session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -281,6 +303,23 @@ def _migrate() -> None:
                      ("snoozed_until", "TEXT")):   # 0.21: "not today" - hidden from the active lists until this date
         if col not in icols:
             conn().execute(f"ALTER TABLE items ADD COLUMN {col} {typ}")
+
+    # 0.22 (34-feature batch). dumps.status gains the value 'queued' (captured while no AI was on; no column change).
+    for col, typ in (("pinned", "INTEGER NOT NULL DEFAULT 0"), ("is_private", "INTEGER NOT NULL DEFAULT 0"),
+                     ("deleted_at", "TEXT"),            # soft delete: 30-day trash
+                     ("merged_into", "TEXT")):          # set while a dump is folded into another (see dump_merges)
+        if col not in cols:
+            conn().execute(f"ALTER TABLE dumps ADD COLUMN {col} {typ}")
+    icols = {r["name"] for r in conn().execute("PRAGMA table_info(items)")}
+    for col, typ in (("pinned", "INTEGER NOT NULL DEFAULT 0"), ("folder_id", "TEXT"),
+                     ("recurrence", "TEXT"),            # JSON {"every":N,"unit":"day|week|month","from":"due|done"}
+                     ("tags", "TEXT"),                  # JSON array: home|pc|errand
+                     ("actual_minutes", "INTEGER")):
+        if col not in icols:
+            conn().execute(f"ALTER TABLE items ADD COLUMN {col} {typ}")
+    conn().execute("CREATE INDEX IF NOT EXISTS idx_items_folder ON items(folder_id)")
+    conn().execute("CREATE INDEX IF NOT EXISTS idx_dumps_deleted ON dumps(deleted_at)")
+
 
 
 def query(sql: str, params: tuple = ()) -> list[sqlite3.Row]:
