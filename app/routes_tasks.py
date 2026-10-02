@@ -140,7 +140,7 @@ def _name(s: str) -> str:
 def list_folders():
     return [dict(r) for r in db.query(
         "SELECT f.*, (SELECT COUNT(*) FROM items i WHERE i.folder_id = f.id AND i.done = 0 AND i.kind = 'task' "
-        "AND i.status != 'rejected') AS open_count FROM task_folders f ORDER BY f.sort, f.created_at")]
+        "AND i.status != 'rejected' AND i.dump_id NOT IN (SELECT id FROM dumps WHERE deleted_at IS NOT NULL)) AS open_count FROM task_folders f ORDER BY f.sort, f.created_at")]
 
 
 @router.post("/task-folders")

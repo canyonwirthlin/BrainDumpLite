@@ -27,7 +27,7 @@ def status() -> dict:
     with _lock:
         s = dict(_state)
     s["missing"] = len(_missing()) if not s["running"] else max(0, s["total"] - s["done"] - s["failed"])
-    s["total_dumps"] = db.query_one("SELECT COUNT(*) AS n FROM dumps WHERE status='ready'")["n"]
+    s["total_dumps"] = db.query_one("SELECT COUNT(*) AS n FROM dumps WHERE status='ready' AND deleted_at IS NULL")["n"]
     s["available"] = ai.available()
     return s
 

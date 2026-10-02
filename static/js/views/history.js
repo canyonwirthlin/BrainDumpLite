@@ -1,5 +1,5 @@
 // History as master/detail: filterable list on the left, the selected dump on the right.
-import { $, $$, esc, relTime, MODES, toneChip, trustBadge } from "../ui.js";
+import { $, $$, esc, relTime, MODES, toneChip, trustBadge, toast } from "../ui.js";
 import { api } from "../api.js";
 import { reviewHtml, bindItemRows } from "./review.js";
 import { renderProcessing } from "./capture.js";
@@ -7,7 +7,8 @@ import { go } from "../router.js";
 import { on } from "../state.js";
 import { bindDumpEdit } from "../dumpedit.js";
 
-let filterMode = "all", filterText = "";
+let filterMode = "all", filterText = "", trashMode = false;
+let meta = { pinned: [], duplicates: {} };
 let cache = [];  // the dumps behind the list, so a rename in the detail pane can update its row
 on("dump:changed", ({ id, title }) => {
   const d = cache.find((x) => x.id === id);
@@ -25,13 +26,17 @@ export async function render(ctx) {
     <div class="detail" id="hist-detail"></div></div>`;
   let dumps, open = [];
   try { open = await api.get("/sessions?open=1"); } catch {}
+  try { meta = await api.get("/dumps-meta"); } catch { meta = { pinned: [], duplicates: {} }; }
   try { dumps = await api.get("/dumps?limit=200"); }
   catch (e) { $("#hist-list").textContent = "Couldn't load: " + e.message; return; }
   cache = dumps;
   const paintList = () => {
     const modes = [["all", "All"], ...MODES.map((m) => [m.id, m.label])];
-    $("#hist-chips").innerHTML = modes.map(([v, l]) => `<button class="chip ${v === filterMode ? "on" : ""}" data-m="${v}">${l}</button>`).join("");
-    $$("#hist-chips .chip").forEach((b) => b.onclick = () => { filterMode = b.dataset.m; paintList(); });
+    $("#hist-chips").innerHTML = modes.map(([v, l]) => `<button class="chip ${v === filterMode && !trashMode ? "on" : ""}" data-m="${v}">${l}</button>`).join("")
+      + `<button class="chip ${trashMode ? "on" : ""}" id="trash-chip" title="Deleted dumps are kept 30 days">🗑 Trash</button>`;
+    $$("#hist-chips .chip[data-m]").forEach((b) => b.onclick = () => { filterMode = b.dataset.m; trashMode = false; paintList(); });
+    $("#trash-chip").onclick = () => { trashMode = !trashMode; paintList(); };
+    if (trashMode) { paintTrash(); return; }
     const q = filterText.toLowerCase();
     const rows = dumps.filter((d) => (filterMode === "all" || d.mode === filterMode) &&
       (!q || (d.title || "").toLowerCase().includes(q) || (d.raw_text || "").toLowerCase().includes(q)));
@@ -47,8 +52,8 @@ export async function render(ctx) {
     $("#hist-list").innerHTML = openRows + (rows.length ? rows.map((d) => {
       const mode = MODES.find((m) => m.id === d.mode) || MODES[0];
       return `<a class="drow ${d.id === id ? "sel" : ""}" href="#history/${d.id}">
-        <b>${esc(d.title || (d.raw_text || "").slice(0, 60) || "Untitled")}</b>
-        <div class="m"><span>${relTime(d.created_at)}</span><span class="tag">${mode.label}</span><span>${d.item_count} item${d.item_count === 1 ? "" : "s"}</span>${toneChip(d.tone)}${trustBadge(d.provider)}
+        <b>${d.pinned ? `<span class="pin" title="Pinned">📌</span>` : ""}${esc(d.title || (d.raw_text || "").slice(0, 60) || "Untitled")}</b>
+        <div class="m"><span>${relTime(d.created_at)}</span>${meta.duplicates[d.id] ? `<span class="tag" title="Looks like a duplicate of “${esc(meta.duplicates[d.id].title || "an earlier dump")}”">≈ duplicate?</span>` : ""}<span class="tag">${mode.label}</span><span>${d.item_count} item${d.item_count === 1 ? "" : "s"}</span>${toneChip(d.tone)}${trustBadge(d.provider)}
           ${d.status === "processing" || d.status === "pending" ? "<span>processing…</span>" : d.status === "queued" ? "<span>waiting for AI</span>" : d.status === "failed" ? "<span>failed</span>" : ""}</div>
         <p>${esc((d.clean_text || d.raw_text || "").slice(0, 160))}</p></a>`;
     }).join("") : (openRows ? "" : `<div class="center"><div class="big">🌱</div>${dumps.length ? "No dumps match." : `Nothing here yet.<br><br><a class="btn" href="#capture">Make your first dump</a>`}</div>`));
@@ -57,8 +62,30 @@ export async function render(ctx) {
   const qEl = $("#hist-q");
   if (qEl) qEl.oninput = (e) => { filterText = e.target.value; paintList(); };
   const wide = window.matchMedia("(min-width: 960px)").matches;
-  if (!id && wide && dumps.length) { location.replace("#history/" + dumps[0].id); return; }
+  if (!id && wide && dumps.length && !trashMode) { location.replace("#history/" + dumps[0].id); return; }
   if (id) await paintDetail(id);
+}
+
+// Trash: deleted dumps wait here 30 days (then they're purged). Restore or delete forever.
+async function paintTrash() {
+  const list = $("#hist-list");
+  list.className = "";
+  let rows;
+  try { rows = await api.get("/trash"); } catch (e) { list.textContent = "Couldn't load: " + e.message; return; }
+  $("#hist-detail").innerHTML = "";
+  list.innerHTML = (rows.length ? `<div class="row" style="margin:0 0 8px"><span class="small muted grow">Deleted dumps are removed for good after 30 days.</span><button class="btn ghost small danger" id="trash-empty">Empty Trash</button></div>` : "")
+    + (rows.length ? rows.map((r) => `<div class="drow" data-id="${r.id}"><b>${esc(r.title || r.preview.slice(0, 60) || "Untitled")}</b>
+      <div class="m"><span>${r.days_left} day${r.days_left === 1 ? "" : "s"} left</span><span>${r.item_count} item${r.item_count === 1 ? "" : "s"}</span>
+        <button class="btn ghost small" data-restore>Restore</button><button class="btn ghost small danger" data-forever>Delete forever</button></div>
+      <p>${esc(r.preview)}</p></div>`).join("") : `<div class="center"><div class="big">🗑</div>Trash is empty.</div>`);
+  const done = async (fn, msg) => { try { await fn(); toast(msg); trashMode = false; go("history"); } catch (e) { toast(e.message, true); } };
+  $$("#hist-list .drow").forEach((el) => {
+    const id = el.dataset.id;
+    $("[data-restore]", el).onclick = () => done(() => api.post(`/trash/${id}/restore`), "Restored");
+    $("[data-forever]", el).onclick = () => { if (confirm("Delete this dump forever? This can't be undone.")) done(() => api.del("/trash/" + id), "Deleted forever"); };
+  });
+  const emp = $("#trash-empty");
+  if (emp) emp.onclick = () => { if (confirm("Delete everything in Trash forever?")) done(() => api.del("/trash"), "Trash emptied"); };
 }
 
 export async function paintDetail(id, base = "#history") {
@@ -87,6 +114,7 @@ export async function paintDetail(id, base = "#history") {
   if ($("#delete-dump", box)) $("#delete-dump", box).onclick = async () => {
     if (!confirm("Delete this dump and its items?")) return;
     await api.del("/dumps/" + id);
+    toast("Moved to Trash — kept for 30 days");
     go("history");
   };
 }

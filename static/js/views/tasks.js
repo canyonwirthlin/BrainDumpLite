@@ -100,6 +100,7 @@ export async function render(ctx) {
       if (e.target.checked && !t.done) return completeTask(t, reload).catch((err) => { toast(err.message, true); reload(); });   // asks how long it took (focus.js)
       await api.patch("/items/" + t.id, { done: e.target.checked, status: "approved" }); reload(); };
     bindFocusRow(el, t, reload);
+    $(".pin-task", el).onclick = async () => { await api.post(`/items/${t.id}/pin`, { pinned: !t.pinned }); reload(); };
     $(".edit", el).onclick = () => editItem(el, t, reload, { kinds: ["task", "goal", "idea"] });
     $(".no", el).onclick = async () => { await api.patch("/items/" + t.id, { status: "rejected" }); reload(); };
     const promote = $(".promote", el);
@@ -147,6 +148,7 @@ function rowHtml(t) {
       : overdue ? `<button class="btn ghost small snz" title="Pick a new day for this task">Reschedule ▾</button>`
       : isTask && !t.done ? `<button class="iconbtn snz" title="Not today — hide until later">💤</button>` : ""}
     ${buttonsHtml(t)}${focusButtons(t)}
+    <button class="iconbtn pin-task" title="${t.pinned ? "Unpin" : "Pin to top"}" aria-pressed="${t.pinned ? "true" : "false"}">${t.pinned ? "📌" : "📍"}</button>
     <button class="iconbtn edit" title="Edit">✎</button>
     <button class="iconbtn no" title="Remove">✕</button>
   </div>`;

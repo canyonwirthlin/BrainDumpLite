@@ -139,7 +139,7 @@ def import_data(payload: dict) -> dict:
             if not _SECRETISH.search(key) and db.query_one("SELECT 1 FROM settings WHERE key=?", (key,)) is None:
                 c.execute("INSERT INTO settings(key, value) VALUES(?,?)", (key, json.dumps(val)))
                 report["settings_added"] += 1
-        for r in c.execute("SELECT id, title, summary, clean_text, raw_text FROM dumps d WHERE status='ready' "
+        for r in c.execute("SELECT id, title, summary, clean_text, raw_text FROM dumps d WHERE status='ready' AND deleted_at IS NULL "
                            "AND NOT EXISTS (SELECT 1 FROM dumps_fts f WHERE f.id = d.id)").fetchall():
             c.execute("INSERT INTO dumps_fts (id, body) VALUES (?,?)",
                       (r["id"], "\n".join([r["title"] or "", r["summary"] or "", r["clean_text"] or r["raw_text"] or ""])))
