@@ -10,6 +10,7 @@ import { resolveHex, isHex6 } from "../color.js";
 import { lockNow } from "../shell.js";
 import { runTool, MODE_LABEL } from "../tools.js";
 import { replayTutorial } from "../onboarding.js";
+import { paintPipeline } from "./pipeline.js";
 import { modelOptions, geminiSetup, autoPickNote } from "../geminipicker.js";
 
 const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["about", "About"]];
@@ -299,6 +300,10 @@ async function paintData(body) {
       <div id="index-panel"><span class="spin"></span></div>
     </div>
     <div class="card">
+      <h2>Re-process dumps</h2>
+      <div id="reprocess-panel"><span class="spin"></span></div>
+    </div>
+    <div class="card">
       <h2>Markdown export &amp; import</h2>
       <p class="small muted" style="margin-bottom:12px">Every dump as an Obsidian-compatible <code>.md</code> file — frontmatter, items as a task list, concepts and people as <code>[[wikilinks]]</code>. Import a folder of notes the same way; each file becomes a dump and goes through the pipeline.</p>
       <div class="row" style="margin:0">
@@ -398,6 +403,7 @@ async function paintData(body) {
   paintGit(body);
   paintAutoBackup($("#autobackup", body));
   paintIndex($("#index-panel", body));
+  paintPipeline($("#reprocess-panel", body));
   if ($("#quick-capture-on", body)) $("#quick-capture-on", body).onchange = async (e) => {
     const err = await setQuickCapture(e.target.checked);
     if (err) { toast(err, true); e.target.checked = !e.target.checked; }
