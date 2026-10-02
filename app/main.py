@@ -8,8 +8,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, engine, item_types, lock, plugins, stats
+from . import backup, db, engine, item_types, lock, plugins, stats
 from .routes import oauth_router, router
+from .routes_extra import router as extra_router
 
 
 def static_dir() -> Path:
@@ -44,6 +45,7 @@ def create_app() -> FastAPI:
     stats.sample_daily()
     engine.autostart()  # warm the built-in AI servers (no-op unless configured)
     lock.boot()
+    backup.start()      # hourly check; makes a daily copy of the vault (Settings -> Data)
     plugins.load_all()  # a set passphrase means the app starts locked
     app = FastAPI(title="BrainDump Lite", docs_url=None, redoc_url=None)
 
@@ -54,6 +56,7 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     app.include_router(router, prefix="/api")
+    app.include_router(extra_router, prefix="/api")
     app.include_router(oauth_router)
     app.mount("/", _Static(directory=static_dir(), html=True), name="static")
     return app

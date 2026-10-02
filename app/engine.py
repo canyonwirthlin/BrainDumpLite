@@ -251,9 +251,25 @@ def _phase(phase: str, message: str = "", pct=None, done_mb=0, total_mb=0) -> No
                      "done_mb": done_mb, "total_mb": total_mb}
 
 
+_setup_model_id = ""  # which catalog model the running setup is for (UI shows progress on its row)
+_cancel = threading.Event()   # set by cancel_setup(); downloads check it between chunks
+
+
+class SetupCancelled(Exception):
+    """The user pressed Cancel. Deliberately NOT an OSError, so the download retry loop lets it through."""
+
+
+def cancel_setup() -> bool:
+    """Stop a running download. The partial file is kept, so pressing the model button again resumes."""
+    if setup_progress()["phase"] not in ("queued", "engine", "model", "embed"):
+        return False
+    _cancel.set()
+    return True
+
+
 def setup_progress() -> dict:
     with _progress_lock:
-        return dict(_progress)
+        return {**_progress, "model_id": _setup_model_id}
 
 
 # ── Downloads (resumable, sha256-verified) ───────────────────────────────────
@@ -274,6 +290,8 @@ def _download(url: str, dest: Path, sha256: str, expect_size: int | None, phase:
                     total = expect_size or have + int(r.headers.get("Content-Length") or 0)
                     with open(part, "ab" if have else "wb") as f:
                         while True:
+                            if _cancel.is_set():
+                                raise SetupCancelled()
                             chunk = r.read(1 << 18)
                             if not chunk:
                                 break
@@ -613,6 +631,7 @@ def autostart() -> None:
 # ── Setup orchestration (background thread, progress polled by the UI) ──────
 
 def start_setup(model_id: str) -> tuple[bool, str]:
+    global _setup_model_id
     if not SUPPORTED:
         return False, "Built-in AI isn't available on this platform yet — pick Gemini, Claude, OpenAI or a self-hosted server."
     meta = _model_by_id(model_id)
@@ -622,6 +641,8 @@ def start_setup(model_id: str) -> tuple[bool, str]:
         if _progress["phase"] in ("queued", "engine", "model", "embed", "starting"):
             return False, "Setup is already running"
         _progress.update(phase="queued", message="", pct=None, done_mb=0, total_mb=0)
+        _setup_model_id = meta["id"]
+        _cancel.clear()
     threading.Thread(target=_run_setup, args=(meta,), daemon=True).start()
     return True, "started"
 
@@ -645,6 +666,8 @@ def _run_setup(meta: dict) -> None:
         db.set_setting("provider", "builtin")
         ensure_embed_running()
         _phase("done")
+    except SetupCancelled:
+        _phase("cancelled", "Download cancelled - press the model button to resume where it left off.")
     except Exception as e:
         _phase("error", str(e)[:400])
 

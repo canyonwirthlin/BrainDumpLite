@@ -5,7 +5,7 @@
 fn main() {
     tauri_build::try_build(
         tauri_build::Attributes::new().app_manifest(
-            tauri_build::AppManifest::new().commands(&["get_quit_on_close", "set_quit_on_close"]),
+            tauri_build::AppManifest::new().commands(&["get_quit_on_close", "set_quit_on_close", "get_quick_capture", "set_quick_capture"]),
         ),
     )
     .expect("failed to run tauri-build")

@@ -21,6 +21,8 @@
     "autostart:default",
     "allow-get-quit-on-close",
     "allow-set-quit-on-close",
+    "allow-get-quick-capture",
+    "allow-set-quick-capture",
     "core:window:allow-start-dragging",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",

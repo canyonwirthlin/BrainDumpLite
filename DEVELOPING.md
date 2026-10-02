@@ -7,9 +7,10 @@ GitHub Releases). Everything below lets you run **unreleased** code without the 
 
 ```powershell
 git switch -c dev          # once: do your work here, not on master (master = what's released)
-.\dev.ps1                  # run from source against a SANDBOX vault (never touches your real dumps)
-.\dev.ps1 -Clone           # same, but starts from a copy of your real vault - try changes on real data, risk-free
-.\dev.ps1 -Reset           # wipe the sandbox and start empty
+.\dev.ps1                  # run from source against a SANDBOX vault seeded with a copy of your real dumps (never touches the real ones)
+.\dev.ps1 -Clone           # re-copy your real vault into the sandbox now (refresh it)
+.\dev.ps1 -Empty           # sandbox that starts blank
+.\dev.ps1 -Reset           # wipe the sandbox (it is re-seeded from your real vault)
 .\dev.ps1 -Real            # run from source against your REAL vault (changes are permanent)
 ```
 

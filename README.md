@@ -151,7 +151,7 @@ How long it takes depends heavily on the model and the hardware.
 
 ```powershell
 .\dev.ps1                 # backend + UI in your browser against a sandbox vault (fastest loop, no Rust needed)
-.\dev.ps1 -Clone          # ...starting from a copy of your real vault
+.\dev.ps1 -Clone          # ...re-copy your real vault into the sandbox (the default already seeds it from a copy)
 .\build-backend.ps1       # freeze the backend into src-tauri\backend\ (needed by the two below)
 npm run tauri dev         # the real native window + tray, debug build
 npm run tauri build       # local installer: src-tauri\target\release\bundle\nsis\

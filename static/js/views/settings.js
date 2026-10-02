@@ -1,9 +1,9 @@
 // Settings: sectioned (Appearance, AI, Voice, Data, About) with a per-section
 // "Advanced" switch — the standing progressive-disclosure rule for every settings screen.
-import { $, $$, esc, toast, modal, colorCss } from "../ui.js";
+import { $, $$, esc, toast, modal, colorCss, relTime } from "../ui.js";
 import { api } from "../api.js";
 import { state, clearPoll, refreshStatus, loadTypes } from "../state.js";
-import { native, openExternal, showWhatsNew, checkForUpdates, isAutostartEnabled, setAutostart, getQuitOnClose, setQuitOnClose, saveAs, streakNotifyOn, setStreakNotify } from "../native.js";
+import { native, openExternal, showWhatsNew, checkForUpdates, isAutostartEnabled, setAutostart, getQuitOnClose, setQuitOnClose, getQuickCapture, setQuickCapture, saveAs, streakNotifyOn, setStreakNotify } from "../native.js";
 import { setActive, importTheme, deleteTheme, exportUrl, setDensity, setMotion, BUILTIN_IDS } from "../theme.js";
 import { openThemeEditor } from "../themeeditor.js";
 import { resolveHex, isHex6 } from "../color.js";
@@ -269,6 +269,7 @@ async function paintData(body) {
   const mb = (v.size_bytes / 1048576).toFixed(1);
   const autostartOn = await isAutostartEnabled();
   const quitOnClose = await getQuitOnClose();
+  const quickOn = await getQuickCapture();
   body.innerHTML = `
     <div class="card">
       <h2>Vault</h2>
@@ -288,6 +289,14 @@ async function paintData(body) {
         <label class="btn ghost small">Restore from backup… <input type="file" id="restore-file" accept=".zip,application/zip" hidden></label>
         <span class="small muted" id="data-msg"></span>
       </div>
+    </div>
+    <div class="card">
+      <h2>Automatic backups</h2>
+      <div id="autobackup"><span class="spin"></span></div>
+    </div>
+    <div class="card">
+      <h2>Search index</h2>
+      <div id="index-panel"><span class="spin"></span></div>
     </div>
     <div class="card">
       <h2>Markdown export &amp; import</h2>
@@ -335,6 +344,7 @@ async function paintData(body) {
     ${native ? `<div class="card">
       <h2>Startup, tray &amp; notifications</h2>
       <label class="sw" style="font-size:13.5px;color:var(--text);margin-bottom:10px"><input type="checkbox" id="startup-on" ${autostartOn ? "checked" : ""}><i></i> Open BrainDump Lite when my computer starts</label>
+      <label class="sw" style="font-size:13.5px;color:var(--text);margin-bottom:10px"><input type="checkbox" id="quick-capture-on" ${quickOn ? "checked" : ""}><i></i> <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> opens a quick-capture box from anywhere, even when the window is hidden</span></label>
       <label class="sw" style="font-size:13.5px;color:var(--text);margin-bottom:10px"><input type="checkbox" id="quit-on-close" ${quitOnClose ? "checked" : ""}><i></i> Quit when I close the window (instead of staying in the tray)</label>
       <label class="sw" style="font-size:13.5px;color:var(--text)"><input type="checkbox" id="streak-notify-on" ${streakNotifyOn() ? "checked" : ""}><i></i> Remind me about today's dump / streak, every couple hours</label>
     </div>` : ""}`;
@@ -386,6 +396,13 @@ async function paintData(body) {
   };
   paintVaults(body);
   paintGit(body);
+  paintAutoBackup($("#autobackup", body));
+  paintIndex($("#index-panel", body));
+  if ($("#quick-capture-on", body)) $("#quick-capture-on", body).onchange = async (e) => {
+    const err = await setQuickCapture(e.target.checked);
+    if (err) { toast(err, true); e.target.checked = !e.target.checked; }
+    else toast(e.target.checked ? "Quick capture is on - press Ctrl+Shift+Space anywhere" : "Quick capture hotkey is off");
+  };
   const lkmsg = (m, bad) => { const el = $("#lk-msg", body); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
   if ($("#lk-set", body)) $("#lk-set", body).onclick = async () => {
     try { await api.post("/lock/set", { passphrase: $("#lk-new", body).value }); await refreshStatus(); paintData(body); toast("App lock set"); }
@@ -421,6 +438,66 @@ async function paintData(body) {
   };
 }
 
+// ── Automatic backups (Settings → Data) ──────────────────────────────────────
+
+async function paintAutoBackup(box) {
+  if (!box) return;
+  let s;
+  try { s = await api.get("/autobackup"); } catch (e) { box.innerHTML = `<div class="small bad">${esc(e.message)}</div>`; return; }
+  const last = s.backups[0];
+  box.innerHTML = `
+    <p class="small muted" style="margin-bottom:10px">A copy of your whole vault, saved automatically about once a day, keeping the newest few. It's your safety net if the vault file is ever damaged.</p>
+    <label class="sw" style="font-size:13.5px;color:var(--text);margin-bottom:10px"><input type="checkbox" id="ab-on" ${s.enabled ? "checked" : ""}><i></i> Back up automatically</label>
+    <div class="field"><label>Backup folder <span class="muted">(blank = the default below)</span></label>
+      <input type="text" id="ab-dir" value="${esc(s.dir)}" placeholder="${esc(s.folder)}" spellcheck="false"></div>
+    <div class="row" style="margin:8px 0 0">
+      <label class="small muted">Keep the newest <input type="number" id="ab-keep" min="1" max="60" value="${s.keep}" style="width:64px"> copies</label>
+      <button class="btn ghost small" id="ab-save">Save</button>
+      <button class="btn small" id="ab-now">Back up now</button>
+      <span class="small muted" id="ab-msg"></span>
+    </div>
+    <p class="small muted" style="margin:10px 0 0">${last ? `Latest: <b>${esc(last.name)}</b> · ${last.size_mb} MB · ${esc(relTime(last.at))}` : "No backups yet."} · ${s.count} kept in <code>${esc(s.folder)}</code>.
+      To restore one: quit the app, then copy it over <code>braindump.db</code> in your vault folder.</p>`;
+  const msg = (m, bad) => { const el = $("#ab-msg", box); el.textContent = m; el.className = "small " + (bad ? "bad" : "muted"); };
+  $("#ab-on", box).onchange = async (e) => { try { await api.put("/autobackup", { enabled: e.target.checked }); msg(e.target.checked ? "Automatic backups on" : "Automatic backups off"); } catch (err) { msg(err.message, true); } };
+  $("#ab-save", box).onclick = async () => {
+    try { await api.put("/autobackup", { dir: $("#ab-dir", box).value, keep: +$("#ab-keep", box).value || 7 }); toast("Backup settings saved"); paintAutoBackup(box); }
+    catch (err) { msg(err.message, true); }
+  };
+  $("#ab-now", box).onclick = async () => {
+    $("#ab-now", box).disabled = true; msg("Backing up…");
+    try { const r = await api.post("/autobackup/run"); toast(`Backed up (${r.size_mb} MB)`); paintAutoBackup(box); }
+    catch (err) { msg(err.message, true); $("#ab-now", box).disabled = false; }
+  };
+}
+
+// ── Search index: rebuild missing embeddings ─────────────────────────────────
+
+let indexTimer = null;
+async function paintIndex(box) {
+  clearTimeout(indexTimer);
+  if (!box || !box.isConnected) return;
+  let s;
+  try { s = await api.get("/embeddings/status"); } catch (e) { box.innerHTML = `<div class="small bad">${esc(e.message)}</div>`; return; }
+  const total = s.running ? s.total : 0;
+  box.innerHTML = `
+    <p class="small muted" style="margin-bottom:10px">Meaning-based search needs each dump to be indexed by an AI model. Dumps captured while no AI was on, or imported from elsewhere, are skipped until you rebuild.</p>
+    <div class="row" style="margin:0">
+      <button class="btn small" id="ix-go" ${s.running || !s.missing || !s.available ? "disabled" : ""}>${s.running ? "Rebuilding…" : "Rebuild search index"}</button>
+      <span class="small muted" id="ix-msg">${s.running ? `${s.done} of ${total} done${s.failed ? ` · ${s.failed} failed` : ""}`
+        : !s.available ? "Turn on an AI model first (Settings → AI)."
+        : s.missing ? `${s.missing} of ${s.total_dumps} dump${s.total_dumps === 1 ? "" : "s"} aren't indexed yet.`
+        : `All ${s.total_dumps} dump${s.total_dumps === 1 ? " is" : "s are"} indexed. ✓`}</span>
+    </div>
+    ${s.running ? `<div class="progress" style="margin-top:8px"><i style="width:${total ? Math.round(100 * (s.done + s.failed) / total) : 0}%"></i></div>` : ""}
+    ${!s.running && s.error ? `<div class="small bad" style="margin-top:6px">${esc(s.error)}</div>` : ""}`;
+  $("#ix-go", box).onclick = async () => {
+    try { await api.post("/embeddings/rebuild"); } catch (e) { toast(e.message, true); }
+    paintIndex(box);
+  };
+  if (s.running) indexTimer = setTimeout(() => paintIndex(box), 1000);
+}
+
 // ── About ────────────────────────────────────────────────────────────────────
 
 function sectionAbout(box, s) {
@@ -449,7 +526,25 @@ const ENGINE_PHASES = {
   starting: "Loading model into memory…",
 };
 let enginePrevPhase = null;
-const browseState = { q: "", vram: 0 };
+let dlSample = null;   // {t, mb, speed}: previous poll, to turn "MB done" into MB/s and a time-left estimate
+
+// "12.4 MB/s · about 3 min left" from successive progress polls (smoothed so it doesn't jitter).
+function downloadRate(setup) {
+  const now = Date.now(), mb = setup.done_mb || 0;
+  if (!setup.total_mb || !["engine", "model", "embed"].includes(setup.phase)) { dlSample = null; return ""; }
+  let speed = dlSample?.speed || 0;
+  if (dlSample && mb >= dlSample.mb && now > dlSample.t) {
+    const inst = (mb - dlSample.mb) / ((now - dlSample.t) / 1000);
+    if (mb > dlSample.mb) speed = speed ? speed * 0.7 + inst * 0.3 : inst;
+  }
+  dlSample = { t: now, mb, speed };
+  if (speed < 0.05) return "";
+  const secs = (setup.total_mb - mb) / speed;
+  const left = secs < 90 ? `${Math.max(5, Math.round(secs / 5) * 5)} sec` : secs < 5400 ? `${Math.round(secs / 60)} min` : `${(secs / 3600).toFixed(1)} h`;
+  return ` · ${speed >= 10 ? Math.round(speed) : speed.toFixed(1)} MB/s · about ${left} left`;
+}
+const browseState = { q: "", vram: 0, limit: 6 };   // limit: how many models are listed until "Show more"
+const MODEL_PAGE = 6;
 
 export async function paintEnginePanel() {
   const box = $("#engine-panel");
@@ -471,7 +566,20 @@ export async function paintEnginePanel() {
   const shown = es.models.filter((m) => (!browseState.vram || m.vram_gb <= browseState.vram) &&
     (!q || [m.label, m.blurb, m.family, m.license].some((s) => (s || "").toLowerCase().includes(q)) || (m.tags || []).some((t) => t.includes(q))))
     .sort((a, b) => a.vram_gb - b.vram_gb);  // stable: catalog order breaks ties within a tier
-  const rows = shown.map((m) => {
+  const progressHtml = busy ? (() => {
+    const pct = es.setup.pct;
+    const mb = es.setup.total_mb ? ` — ${es.setup.done_mb} / ${es.setup.total_mb} MB` : "";
+    const canCancel = ["queued", "engine", "model", "embed"].includes(ph);
+    return `<div class="engine-progress">
+      <div class="small">${ENGINE_PHASES[ph]}${es.setup.message ? ": " + esc(es.setup.message) : ""}${mb}${downloadRate(es.setup)}</div>
+      <div class="progress ${pct == null ? "indet" : ""}"><i style="width:${pct == null ? 40 : pct}%"></i></div>
+      <div class="row" style="margin:6px 0 0;gap:10px"><span class="small muted grow">You can keep using the app — this runs in the background.</span>
+        ${canCancel ? `<button class="btn ghost small" data-cancel title="Stop downloading. What's already downloaded is kept, so you can resume later.">Cancel</button>` : ""}</div>
+    </div>`;
+  })() : "";
+  // List a page at a time; the model being downloaded is always kept in view.
+  const visible = shown.filter((m, i) => i < browseState.limit || m.id === es.setup.model_id);
+  const rows = visible.map((m) => {
     const gb = (m.size_mb / 1024).toFixed(1);
     const specs = [
       m.params && `${m.params}${m.arch === "moe" ? " · mixture-of-experts" : ""}`,
@@ -484,9 +592,10 @@ export async function paintEnginePanel() {
     const caveats = (m.caveats || []).length
       ? `<ul class="small muted model-caveats">${m.caveats.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : "";
     let btn;
+    const mine = busy && es.setup.model_id === m.id;  // this row owns the running download
     if (m.active && es.server.running && !busy) btn = `<button class="btn ghost small" disabled>Running ✓</button>`;
     else if (m.downloaded) btn = `<button class="btn ghost small" data-em="${m.id}" ${busy ? "disabled" : ""}>${m.active ? "Start" : "Use this"}</button>`;
-    else btn = `<button class="btn small" data-em="${m.id}" ${busy ? "disabled" : ""}>Get · ${gb} GB</button>`;
+    else btn = `<button class="btn small" data-em="${m.id}" ${busy ? "disabled" : ""}>${mine ? "Downloading…" : `Get · ${gb} GB`}</button>`;
     return `
       <div class="engine-model ${m.active ? "active" : ""}">
         <div class="grow">
@@ -497,6 +606,7 @@ export async function paintEnginePanel() {
           <div class="small muted">${esc(m.blurb)}</div>
           <div class="small muted model-specs">${specs}</div>
           ${spill}${caveats}
+          ${mine ? progressHtml : ""}
         </div>
         ${btn}
         ${m.downloaded ? `<button class="iconbtn no" title="Delete downloaded file" data-del="${m.id}" ${busy ? "disabled" : ""}>🗑</button>` : ""}
@@ -504,14 +614,12 @@ export async function paintEnginePanel() {
   }).join("");
 
   let foot = "";
+  // Progress sits under its model's row; fall back to the footer if that row is filtered out.
   if (busy) {
-    const pct = es.setup.pct;
-    const mb = es.setup.total_mb ? ` — ${es.setup.done_mb} / ${es.setup.total_mb} MB` : "";
-    foot = `<div class="engine-progress">
-      <div class="small">${ENGINE_PHASES[ph]}${es.setup.message ? ": " + esc(es.setup.message) : ""}${mb}</div>
-      <div class="progress ${pct == null ? "indet" : ""}"><i style="width:${pct == null ? 40 : pct}%"></i></div>
-      <div class="small muted" style="margin-top:4px">You can keep using the app — this runs in the background.</div>
-    </div>`;
+    if (!visible.some((m) => m.id === es.setup.model_id)) foot = progressHtml;
+  } else if (ph === "cancelled") {
+    dlSample = null;
+    foot = `<div class="small muted" style="margin-top:10px">${esc(es.setup.message)}</div>`;
   } else if (ph === "error") {
     foot = `<div class="test-result bad">Setup failed: ${esc(es.setup.message)}<br>Press a model button to retry — downloads resume where they left off.</div>`;
   }
@@ -524,13 +632,15 @@ export async function paintEnginePanel() {
       <button class="btn ghost small" id="mb-refresh" title="Fetch the latest curated list">↻ Check for new models</button>
     </div>
     ${rows || `<div class="small muted" style="padding:8px 0">No models match.</div>`}
+    ${shown.length > visible.length ? `<div class="row" style="margin:8px 0 0"><button class="btn ghost small" id="mb-more">Show ${Math.min(MODEL_PAGE, shown.length - visible.length)} more (${shown.length - visible.length} left)</button></div>` : ""}
     ${foot}
     <p class="small muted" style="margin:12px 0 0">One-time download per model; it's saved for next time. A tiny semantic-search model (~0.15 GB) is included automatically.</p>
     <p class="small muted" style="margin:6px 0 0">VRAM and RAM figures are estimates for full GPU offload or a CPU-only run. Every model runs with an 8K context here, whatever its native window. Only models that answer directly are listed; ones that think out loud first would burn the response budget.</p>`;
 
   const qEl = $("#mb-q", box);
-  qEl.oninput = () => { browseState.q = qEl.value; const pos = qEl.selectionStart; paintEnginePanel(); setTimeout(() => { const el = $("#mb-q"); if (el) { el.focus(); el.setSelectionRange(pos, pos); } }, 0); };
-  $$("[data-vram]", box).forEach((b) => b.onclick = () => { browseState.vram = +b.dataset.vram; paintEnginePanel(); });
+  qEl.oninput = () => { browseState.q = qEl.value; browseState.limit = MODEL_PAGE; const pos = qEl.selectionStart; paintEnginePanel(); setTimeout(() => { const el = $("#mb-q"); if (el) { el.focus(); el.setSelectionRange(pos, pos); } }, 0); };
+  $$("[data-vram]", box).forEach((b) => b.onclick = () => { browseState.vram = +b.dataset.vram; browseState.limit = MODEL_PAGE; paintEnginePanel(); });
+  if ($("#mb-more", box)) $("#mb-more", box).onclick = () => { browseState.limit += MODEL_PAGE; paintEnginePanel(); };
   $("#mb-refresh", box).onclick = async () => {
     try { const c = await api.get("/catalog?refresh=1"); toast(`Catalog v${c.version} — ${c.chat_models.length} models`); paintEnginePanel(); }
     catch (e) { toast("Couldn't refresh the catalog: " + e.message, true); }
@@ -540,6 +650,11 @@ export async function paintEnginePanel() {
     b.textContent = "Starting…";
     try { await api.post("/engine/setup", { model: b.dataset.em }); }
     catch (e) { toast(e.message, true); paintEnginePanel(); return; }
+    paintEnginePanel();
+  });
+  $$("[data-cancel]", box).forEach((b) => b.onclick = async () => {
+    b.disabled = true; b.textContent = "Cancelling…";
+    try { await api.post("/engine/cancel"); } catch (e) { toast(e.message, true); }
     paintEnginePanel();
   });
   $$("[data-del]", box).forEach((b) => b.onclick = async () => {

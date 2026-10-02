@@ -3,6 +3,7 @@
 
 mod backend;
 mod prefs;
+mod quick;
 mod tray;
 
 use std::sync::Mutex;
@@ -34,7 +35,22 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized".into()]),
         ))
-        .invoke_handler(tauri::generate_handler![prefs::get_quit_on_close, prefs::set_quit_on_close])
+        // Ctrl+Shift+Space -> quick capture (quick.rs). Registered in setup() unless switched off.
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        quick::toggle(app);
+                    }
+                })
+                .build(),
+        )
+        .invoke_handler(tauri::generate_handler![
+            prefs::get_quit_on_close,
+            prefs::set_quit_on_close,
+            prefs::get_quick_capture,
+            prefs::set_quick_capture
+        ])
         .setup(|app| {
             app.manage(prefs::Prefs::load(app.handle()));
 
@@ -57,6 +73,9 @@ pub fn run() {
                 if ready {
                     let url = format!("http://127.0.0.1:{port}/").parse().expect("valid url");
                     let _ = window.navigate(url);
+                    if let Some(q) = handle.get_webview_window(quick::LABEL) {
+                        let _ = q.navigate(format!("http://127.0.0.1:{port}/quick.html").parse().expect("valid url"));
+                    }
                 } else {
                     let log = handle
                         .path()
@@ -69,6 +88,14 @@ pub fn run() {
             });
 
             tray::setup(app.handle())?;
+
+            // 3. Quick-capture box (hidden until the hotkey) + the hotkey itself.
+            quick::create(app.handle())?;
+            if app.state::<prefs::Prefs>().quick_capture() {
+                if let Err(e) = quick::register(app.handle()) {
+                    eprintln!("[quick-capture] {e}");
+                }
+            }
             Ok(())
         })
         // Close button = hide to tray (tray -> Quit is the real exit), unless
@@ -76,6 +103,12 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let app = window.app_handle();
+                if window.label() == quick::LABEL {
+                    // The quick box only ever hides (the page calls window.close() on Esc / after saving).
+                    let _ = window.hide();
+                    api.prevent_close();
+                    return;
+                }
                 if app.try_state::<prefs::Prefs>().is_some_and(|p| p.quit_on_close()) {
                     app.exit(0);
                 } else {

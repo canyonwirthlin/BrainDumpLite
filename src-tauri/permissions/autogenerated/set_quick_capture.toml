@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-quick-capture"
+description = "Enables the set_quick_capture command without any pre-configured scope."
+commands.allow = ["set_quick_capture"]
+
+[[permission]]
+identifier = "deny-set-quick-capture"
+description = "Denies the set_quick_capture command without any pre-configured scope."
+commands.deny = ["set_quick_capture"]

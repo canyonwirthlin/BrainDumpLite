@@ -1127,6 +1127,35 @@ def merge_suggestions(kind: str = "concept"):
     return graph.duplicate_groups(kind)
 
 
+class ScanIn(BaseModel):
+    kind: str
+    use_ai: bool = True
+
+
+@router.post("/merge/scan")
+def merge_scan(body: ScanIn):
+    """The deep duplicate scan (app/dupes.py). Suggestions only - nothing is merged."""
+    from . import dupes
+    try:
+        return dupes.scan(body.kind, body.use_ai)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+class DismissIn(BaseModel):
+    kind: str
+    names: list[str]
+
+
+@router.post("/merge/dismiss")
+def merge_dismiss(body: DismissIn):
+    """'These are different things' - the scan stops suggesting that pairing."""
+    from . import dupes
+    if body.kind not in ("person", "concept") or len(body.names) < 2:
+        raise HTTPException(400, "need a kind and at least two names")
+    return {"dismissed": dupes.dismiss(body.kind, body.names)}
+
+
 @router.get("/concepts")
 def list_concepts():
     return graph.concepts()

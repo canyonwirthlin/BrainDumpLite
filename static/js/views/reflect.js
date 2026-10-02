@@ -9,6 +9,7 @@ export function render(ctx) {
     <div id="resurface"></div>
     <h1>Reflect <span class="wip-chip" title="Reflect is still being built — expect rough edges">${ICONS.wip} Work in progress</span></h1>
     <p class="sub">Your second brain reads everything back to you.</p>
+    <div class="card digest" id="digest"><span class="spin"></span></div>
     <div class="card" id="plan-card">
       <div class="row" style="margin:0 0 6px">
         <h2 class="grow">🗓️ Plan my day</h2>
@@ -27,6 +28,7 @@ export function render(ctx) {
         <div id="reflect-${k}" class="muted small">Press Generate.</div>
       </div>`).join("")}`;
   paintResurface();
+  paintDigest(0);
   $("#plan-go").onclick = planDay;
   $$("[data-kind]").forEach((b) => b.onclick = async () => {
     const box = $("#reflect-" + b.dataset.kind);
@@ -42,6 +44,46 @@ export function render(ctx) {
   });
 }
 
+
+// One-screen summary of a Monday-Sunday week, computed from your own data (no AI needed).
+const MOOD_FACE = (v) => (v == null ? "–" : v >= 1 ? "😊" : v >= 0.3 ? "🙂" : v > -0.3 ? "😐" : v > -1 ? "😕" : "😞");
+const short = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" }); };
+const wkday = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "narrow" }); };
+
+async function paintDigest(back) {
+  const box = $("#digest");
+  if (!box) return;
+  let d;
+  try { d = await api.get("/digest/weekly?weeks_back=" + back); }
+  catch (e) { box.innerHTML = `<div class="small muted">Couldn't build the digest: ${esc(e.message)}</div>`; return; }
+  const delta = (a, b) => (b == null || a == null || a === b ? "" : ` <span class="small ${a > b ? "" : "muted"}" title="vs the week before">${a > b ? "▲" : "▼"}${Math.abs(Math.round((a - b) * 10) / 10)}</span>`);
+  const max = Math.max(1, ...d.days.map((x) => x.dumps));
+  const t = d.tasks;
+  box.innerHTML = `
+    <div class="digest-head"><h2>📊 ${d.current ? "This week" : "Week"} at a glance</h2>
+      <span class="small muted">${short(d.start)} – ${short(d.end)}</span>
+      <button class="btn ghost small" id="dg-prev" title="Previous week">◀</button>
+      <button class="btn ghost small" id="dg-next" title="Next week" ${d.current ? "disabled" : ""}>▶</button></div>
+    ${d.dumps ? `
+    <div class="dg-stats">
+      <div class="dg-stat"><b>${d.dumps}${delta(d.dumps, d.dumps_prev)}</b><span>dump${d.dumps === 1 ? "" : "s"}</span></div>
+      <div class="dg-stat"><b>${d.words.toLocaleString()}</b><span>words</span></div>
+      <div class="dg-stat"><b>${d.active_days}/7</b><span>days you dumped</span></div>
+      <div class="dg-stat"><b>${MOOD_FACE(d.mood.avg)}${d.mood.avg != null ? delta(d.mood.avg, d.mood.prev_avg) : ""}</b><span>${d.mood.labels.length ? d.mood.labels.map(([l]) => l).join(", ") : "mood"}</span></div>
+    </div>
+    <div class="dg-days">${d.days.map((x) => `<div class="dg-day" title="${short(x.day)} · ${x.dumps} dump${x.dumps === 1 ? "" : "s"}${x.mood != null ? " · mood " + MOOD_FACE(x.mood) : ""}">
+      <div class="dg-bar ${x.dumps ? "" : "none"}" style="height:${x.dumps ? Math.max(12, Math.round(100 * x.dumps / max) * 0.62) : 4}px"></div><small>${wkday(x.day)}</small></div>`).join("")}</div>
+    <div class="dg-cols">
+      <div><h3>Themes</h3>${d.concepts.length ? d.concepts.map((c) => `<a class="chip ent" href="#search/type/concept/${encodeURIComponent(c.name)}">💡 ${esc(c.name)}${c.count > 1 ? ` · ${c.count}×` : ""}${c.new ? " ✨" : ""}</a>`).join("") : `<span class="small muted">None yet.</span>`}</div>
+      <div><h3>People</h3>${d.people.length ? d.people.map((c) => `<a class="chip ent" href="#search/type/person/${encodeURIComponent(c.name)}">🧑 ${esc(c.name)}${c.count > 1 ? ` · ${c.count}×` : ""}</a>`).join("") : `<span class="small muted">None mentioned.</span>`}</div>
+      <div><h3>Tasks</h3><div class="small">${t.added} added this week<br>${t.open} open${t.overdue ? ` · <a href="#tasks/overdue"><b>${t.overdue} overdue</b></a>` : ""}<br>${t.due_next_7_days} due in the next 7 days</div></div>
+      ${d.current && d.habits.length ? `<div><h3>Habits</h3><div class="small">${d.habits.map((h) => `${esc(h.title)} — ${h.frequency === "weekly" ? `${h.week_count}/${h.target} this week` : h.streak ? `🔥 ${h.streak}-day streak` : "start today"}`).join("<br>")}</div></div>` : ""}
+    </div>
+    ${d.busiest ? `<div class="small muted" style="margin-top:12px">Longest dump: <a href="#history/${d.busiest.id}">${esc(d.busiest.title)}</a> · ✨ = a theme you hadn't mentioned before</div>` : ""}`
+    : `<div class="small muted" style="margin:10px 0">No dumps ${d.current ? "yet this week" : "that week"}. ${d.current ? "Capture one and it will show up here." : ""}</div>`}`;
+  $("#dg-prev", box).onclick = () => paintDigest(back + 1);
+  $("#dg-next", box).onclick = () => paintDigest(Math.max(0, back - 1));
+}
 
 async function paintResurface() {
   const box = $("#resurface");

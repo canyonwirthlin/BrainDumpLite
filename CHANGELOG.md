@@ -4,6 +4,21 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.21.0 — 2026-10-02
+- Quick capture from anywhere. Press Ctrl+Shift+Space — even with the window closed to the tray — and a small box pops up. Type, Ctrl+Enter, and it's saved as a dump. Switch it off in Settings → Data if another program wants that key. (It's in the tutorial too.)
+- Snooze and reschedule. Every task has a 💤 button: "Not today" hides it until tomorrow, next week or a date you pick, and it comes back by itself (see the new Snoozed tab). Overdue tasks get a Reschedule button instead, which also moves their due date, and the Overdue tab can reschedule all of them in one go.
+- Just one thing. On the Tasks tab, 🎯 shows only the single task you should do next — overdue first, then today, then priority — with its first tiny step and an optional 10-minute focus timer. Done, Not today or Skip.
+- Habits. A new Habits tab for things you repeat rather than finish: check in each day (or "3× a week"), see your streak and the last two weeks, fix a day you forgot.
+- Week at a glance on the Reflect tab: dumps, words, which days you dumped, mood, your themes (✨ marks ones you hadn't mentioned before), people, tasks and habits — for any week, with ◀ ▶ to go back. No AI needed.
+- Scan for duplicates in Search → People / Concepts. Catches typos, nicknames ("Liz" / "Elizabeth"), first names, initials and abbreviations, one name inside another, and — with an AI model on — names that mean the same thing, then asks the AI to double-check. Names that keep turning up in the same dump are treated as different things. "Not the same" is remembered (and can be undone), and a ⚠ badge appears next to People / Concepts when the quick check spots a likely duplicate.
+- The Brain map is easier to get around: Find a node (type a name, jump to it), Min mentions (hide topics mentioned only once), a date range, Path (click two nodes to see how they connect), Time-lapse (watch the map grow dump by dump), a remembered layout when you come back, and nodes you drag and drop stay pinned (double-click to release). Busy dumps now get more room, titles no longer overlap, and Galaxy is no longer clumped when you have few dumps.
+- "Titles only on hover" switch for the Brain map, and a Focus mode that hides everything beyond two hops of what you select.
+- Automatic backups: a copy of your vault about once a day, keeping the newest 7, in a folder you choose (Settings → Data). "Back up now" is there too.
+- Rebuild search index (Settings → Data) gives meaning-based search to dumps captured while no AI was on or imported from elsewhere.
+- Model downloads show the speed and time left, sit directly under the model you picked ("Downloading…" on its button), and can be cancelled — what's downloaded is kept, so you can resume later. The models list now shows a few at a time with a "Show more" button, and so does the changelog.
+- Saved and recent searches on the Search page (☆ Save search).
+- New brain-of-nodes app icon.
+
 ## 0.20.4 — 2026-09-30
 - Merge nodes. See "internships" and "internship applications" as two topics, or "Bela" and "Bella" as two people? In Search → Browse → People or Concepts, tick the duplicates and press "Merge into one…" (or open one and use "Merge into another…"). Pick which name survives, or type a new one; every dump is updated, and future dumps that use the old wording land on the merged node instead of splitting it again. The app also flags likely duplicates at the top of the list for you.
 

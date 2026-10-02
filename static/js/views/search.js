@@ -7,12 +7,22 @@ import { go } from "../router.js";
 import { state } from "../state.js";
 
 const GLYPH = { person: "🧑", concept: "💡" };
+
+// Recent + saved searches live in this browser/app only (localStorage); nothing leaves the device.
+const RECENT_KEY = "bdl-recent-searches", SAVED_KEY = "bdl-saved-searches";
+const readList = (k) => { try { const v = JSON.parse(localStorage.getItem(k) || "[]"); return Array.isArray(v) ? v.filter((x) => typeof x === "string") : []; } catch { return []; } };
+const writeList = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const rememberSearch = (q) => writeList(RECENT_KEY, [q, ...readList(RECENT_KEY).filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(0, 8));
+const isSaved = (q) => readList(SAVED_KEY).some((x) => x.toLowerCase() === q.toLowerCase());
+const toggleSaved = (q) => { const l = readList(SAVED_KEY); writeList(SAVED_KEY, isSaved(q) ? l.filter((x) => x.toLowerCase() !== q.toLowerCase()) : [q, ...l].slice(0, 20)); };
+const searchChips = (list, attr) => list.map((q) => `<a class="chip" href="#search/q/${encodeURIComponent(q)}" ${attr}="${esc(q)}">${esc(q)}</a>`).join("");
 const VIA = { keyword: "words", items: "in an item", semantic: "by meaning", both: "words + meaning", name: "by name" };
 
 export async function render(ctx) {
   const [mode, a, b] = ctx.params;
   const query = mode === "q" ? a || "" : "";
-  ctx.setTitle("Search", `<input type="text" id="q" class="topbar-input" placeholder="a name, a topic, a half-remembered phrase…" value="${esc(query)}" autocomplete="off">
+  ctx.setTitle("Search", `<input type="text" id="q" class="topbar-input" list="recent-q" placeholder="a name, a topic, a half-remembered phrase…" value="${esc(query)}" autocomplete="off">
+    <datalist id="recent-q">${[...new Set([...readList(SAVED_KEY), ...readList(RECENT_KEY)])].map((q) => `<option value="${esc(q)}">`).join("")}</datalist>
     <button class="btn small" id="go">Search</button>`);
   ctx.setLayout("full");
   $("#view").innerHTML = `<div class="split has-detail" id="search">
@@ -23,12 +33,13 @@ export async function render(ctx) {
   $("#q").onkeydown = (e) => { if (e.key === "Enter") run(); };
   if (!query) $("#q").focus();
 
-  let types = [];
+  let types = [], hints = {};
   try { types = await api.get("/browse"); } catch {}
+  try { hints = await api.get("/merge/hints"); } catch {}   // likely-duplicate counts for the badge
   const active = mode === "type" ? a : null;
   $("#browse-types").innerHTML = `<div class="glist"><div class="glist-sep" style="margin-top:0">Browse</div>
     ${types.map((t) => `<a href="#search/type/${encodeURIComponent(t.id)}" class="grow-row ${t.id === active ? "on" : ""}">
-      <span><i class="legend-dot" style="background:${colorCss(t.color)}"></i> ${esc((t.icon ? t.icon + " " : "") + t.label)}</span><span class="count">${t.count}</span></a>`).join("")}</div>
+      <span><i class="legend-dot" style="background:${colorCss(t.color)}"></i> ${esc((t.icon ? t.icon + " " : "") + t.label)}</span><span class="count">${hints[t.id] ? `<span class="chip due" title="${hints[t.id]} likely duplicate${hints[t.id] === 1 ? "" : "s"} - open to merge">⚠ ${hints[t.id]}</span> ` : ""}${t.count}</span></a>`).join("")}</div>
     <div class="small muted" style="padding:12px 16px">Pick a type to see everything of that kind, and how often each appears across your dumps.</div>`;
 
   const main = $("#search-main");
@@ -40,7 +51,25 @@ export async function render(ctx) {
   }
   main.innerHTML = `<h1 class="page">Search your brain</h1>
     <p class="sub">${state.status.ai ? "Words, names and meaning across every dump." : "Words and names across every dump."} Typos and word endings are forgiven.</p>
+    ${paintSaved()}
     <div class="center" style="padding-top:30px"><div class="big">🔍</div>Search above, or pick a type on the left to browse it.</div>`;
+  bindSaved(main);
+}
+
+// Saved searches (★, kept until you remove them) and the last few you ran, as one-click chips.
+function paintSaved() {
+  const saved = readList(SAVED_KEY), recent = readList(RECENT_KEY).filter((q) => !saved.some((x) => x.toLowerCase() === q.toLowerCase()));
+  if (!saved.length && !recent.length) return "";
+  return `<div class="card" id="saved-searches">
+    ${saved.length ? `<div class="small muted" style="margin-bottom:6px">★ Saved searches</div><div class="ent-strip">${saved.map((q) => `<span class="chip"><a href="#search/q/${encodeURIComponent(q)}">${esc(q)}</a> <button class="legend-edit" data-unsave="${esc(q)}" title="Remove">✕</button></span>`).join("")}</div>` : ""}
+    ${recent.length ? `<div class="small muted" style="margin:${saved.length ? "12px" : "0"} 0 6px">Recent <button class="legend-edit" id="clear-recent" title="Clear recent searches">clear</button></div><div class="ent-strip">${searchChips(recent, "data-recent")}</div>` : ""}
+  </div>`;
+}
+
+function bindSaved(main) {
+  $$("[data-unsave]", main).forEach((b) => b.onclick = () => { toggleSaved(b.dataset.unsave); b.closest("#saved-searches").outerHTML = paintSaved(); bindSaved(main); });
+  const clr = $("#clear-recent", main);
+  if (clr) clr.onclick = () => { writeList(RECENT_KEY, []); $("#saved-searches").outerHTML = paintSaved(); bindSaved(main); };
 }
 
 async function paintResults(main, q) {
@@ -49,7 +78,8 @@ async function paintResults(main, q) {
   try { r = await api.get("/search?q=" + encodeURIComponent(q)); }
   catch (e) { main.innerHTML = `<div class="center">Search failed: ${esc(e.message)}</div>`; return; }
   const fixes = Object.entries(r.corrected || {});
-  main.innerHTML = `<h1 class="page">Results for “${esc(q)}”</h1>
+  rememberSearch(q);
+  main.innerHTML = `<h1 class="page">Results for “${esc(q)}” <button class="btn ghost small" id="save-search" title="Keep this search on your Search page">${isSaved(q) ? "★ Saved" : "☆ Save search"}</button></h1>
     ${fixes.length ? `<p class="sub">Also searched for ${fixes.map(([from, to]) => `<b>${esc(to)}</b> (you typed “${esc(from)}”)`).join(", ")}.</p>` : ""}
     ${r.entities.length ? `<div class="ent-strip">${r.entities.map((e) => `
       <a class="chip ent" href="#search/type/${e.type}/${encodeURIComponent(e.name)}" title="See every dump that mentions ${esc(e.name)}">${GLYPH[e.type]} ${esc(e.name)} · ${e.count}×</a>`).join("")}</div>` : ""}
@@ -63,6 +93,7 @@ async function paintResults(main, q) {
         ${(d.matched_items || []).length ? `<div class="matched">${d.matched_items.map((it) => `<div class="mi">${kindBadge(it.kind)} ${esc(it.content)}</div>`).join("")}</div>` : ""}
       </div>`).join("")
       : `<div class="center"><div class="big">🔍</div>No matches for “${esc(q)}”.<div class="small muted" style="margin-top:6px">Try fewer or shorter words — or browse by type on the left.</div></div>`}`;
+  $("#save-search", main).onclick = (e) => { toggleSaved(q); e.target.textContent = isSaved(q) ? "★ Saved" : "☆ Save search"; };
 }
 
 // People / Concepts: every name with how many dumps it appears in. Tick two or more (or accept a
@@ -90,6 +121,8 @@ async function paintNames(main, t) {
   };
   main.innerHTML = `<h1 class="page">${esc(t.label)}</h1>
     <p class="sub">${rows.length} ${rows.length === 1 ? "entry" : "entries"}. The number is how many dumps each appears in — pick one to read them. See the same thing twice? Tick both and merge.</p>
+    <div class="row" style="margin:0 0 10px"><button class="btn small" id="scan-go" title="Checks spelling, nicknames, abbreviations and (with an AI model on) meaning. Nothing merges until you say so.">🔍 Scan for duplicates</button><span class="small muted" id="scan-status"></span></div>
+    <div id="scan-results"></div>
     ${dupes.length ? `<div class="card dupes"><div class="small muted" style="margin-bottom:6px">Looks like duplicates</div>${dupes.map((g, i) => `
       <div class="row" style="margin:4px 0"><span class="grow">${g.map((e) => `<b>${esc(e.name)}</b> <span class="small muted">${e.count}×</span>`).join(" &nbsp;+&nbsp; ")}</span>
         <button class="btn ghost small" data-dupe="${i}">Merge…</button></div>`).join("")}</div>` : ""}
@@ -101,7 +134,42 @@ async function paintNames(main, t) {
   $("#name-filter", main)?.addEventListener("input", (e) => paint(e.target.value));
   $("#merge-clear", main).onclick = () => { picked.clear(); paint($("#name-filter", main)?.value || ""); bar(); };
   $("#merge-go", main).onclick = () => mergeDialog(t, [...picked].map((n) => rows.find((r) => r.name === n)).filter(Boolean), () => go("search/type/" + t.id));
+  $("#scan-go", main).onclick = () => runScan(main, t);
   $$("[data-dupe]", main).forEach((b) => b.onclick = () => mergeDialog(t, dupes[+b.dataset.dupe], () => go("search/type/" + t.id)));
+}
+
+// The deep scan: spelling, nicknames, initials, meaning, and an AI second opinion when a model is on.
+// Each result can be merged or dismissed ("not the same") - dismissed pairs never come back.
+async function runScan(main, t) {
+  const btn = $("#scan-go", main), status = $("#scan-status", main), box = $("#scan-results", main);
+  btn.disabled = true; btn.textContent = "Scanning…"; status.textContent = "This can take a little while if an AI model is checking meaning.";
+  box.innerHTML = "";
+  let r;
+  try { r = await api.post("/merge/scan", { kind: t.id }); }
+  catch (e) { status.textContent = "Scan failed: " + e.message; btn.disabled = false; btn.textContent = "🔍 Scan for duplicates"; return; }
+  btn.disabled = false; btn.textContent = "🔍 Scan again"; status.textContent = "";
+  const level = (c) => (c >= 0.8 ? ["High", "ok"] : c >= 0.7 ? ["Likely", "due"] : ["Maybe", ""]);
+  const notes = (r.notes || []).map((n) => `<div class="small muted" style="margin-top:6px">${esc(n)}</div>`).join("");
+  const undo = `<div class="small" style="margin-top:8px"><a href="#" id="reset-dismissed">Show the ones I marked "not the same" again</a></div>`;
+  const bindUndo = () => { const a = $("#reset-dismissed", box); if (a) a.onclick = async (e) => { e.preventDefault(); try { const x = await api.post("/merge/dismiss/reset"); toast(x.cleared ? "Cleared - scan again to see them" : "Nothing had been dismissed"); } catch (err) { toast(err.message, true); } }; };
+  if (!r.groups.length) { box.innerHTML = `<div class="card"><b>No duplicates found</b> <span class="small muted">among ${r.checked} ${esc(t.label.toLowerCase())}.</span>${notes}${undo}</div>`; bindUndo(); return; }
+  box.innerHTML = `<div class="card dupes"><div class="small muted" style="margin-bottom:6px">${r.groups.length} possible duplicate${r.groups.length === 1 ? "" : "s"} · ${r.checked} ${esc(t.label.toLowerCase())} checked${r.ai_reviewed ? " · AI-reviewed" : ""}</div>
+    ${r.groups.map((g, i) => { const [lv, cls] = level(g.confidence); return `
+      <div class="scan-hit" data-i="${i}"><div class="row" style="margin:4px 0">
+        <span class="grow">${g.members.map((e) => `<b>${esc(e.name)}</b> <span class="small muted">${e.count}×</span>`).join(" &nbsp;+&nbsp; ")}
+          <div class="small muted" style="margin-top:2px"><span class="chip ${cls}">${lv}</span> ${esc(g.reason)}${g.ai === "confirmed" ? " · ✓ AI agrees" : ""}</div></span>
+        <button class="btn ghost small" data-merge="${i}">Merge…</button>
+        <button class="btn ghost small" data-no="${i}" title="Don't suggest these together again">Not the same</button></div></div>`; }).join("")}${notes}${undo}</div>`;
+  bindUndo();
+  $$("[data-merge]", box).forEach((b) => b.onclick = () => {
+    const g = r.groups[+b.dataset.merge];
+    mergeDialog(t, g.members, () => go("search/type/" + t.id));
+  });
+  $$("[data-no]", box).forEach((b) => b.onclick = async () => {
+    const g = r.groups[+b.dataset.no];
+    try { await api.post("/merge/dismiss", { kind: t.id, names: g.members.map((m) => m.name) }); } catch (e) { toast(e.message, true); return; }
+    b.closest(".scan-hit").remove();
+  });
 }
 
 // Choose which name survives (or type a new one), then fold the rest into it.

@@ -45,12 +45,13 @@ const demoNote = (t) => `<p class="t-demo">${t}</p>`;
 const SCENES = {
   capture: {
     title: "Capture — get it all out",
-    blurb: "Pick a mode, then just talk or type. Each mode is a different kind of place: a free page, a checklist, or a live chat.",
-    tip: "Click the modes to see how each one changes, then run the demo.",
+    blurb: "Pick a mode, then just talk or type. Each mode is a different kind of place: a free page, a checklist, or a live chat. Away from the app? Press Ctrl+Shift+Space anywhere on your PC for an instant quick-capture box.",
+    tip: "Click the modes to see how each one changes, then run the demo. Later, try Ctrl+Shift+Space from any other window.",
     mount(view, t) {
       let mode = "freeform";
       view.innerHTML = `<div class="capture" id="t-cap"><div class="modes">${MODES.map((m) => `<button class="mode-chip" data-mode="${m.id}" style="--mode:${m.color}">${m.icon} ${m.label}</button>`).join("")}</div>
-        <div class="mode-info" id="t-mi"></div><div id="t-body"></div></div>`;
+        <div class="mode-info" id="t-mi"></div><div id="t-body"></div>
+        <div class="tour-hotkey">⌨️ <b>From anywhere on your PC:</b> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> opens a tiny capture box. Type, <kbd>Ctrl</kbd>+<kbd>Enter</kbd>, done — it works even when this window is closed to the tray.</div></div>`;
       const SAMPLE = { freeform: "ok so the internship thing is stressing me out, I keep putting off the applications and also need to call the dentist and the report is due monday…",
         execution: "call the dentist Friday\nfinish the report by Monday\nsend internship application" };
       const REPLY = { brainstorm: "Ooh — what if the streak was a garden? A plant grows each day you dump. What would a missed day do to it?",
@@ -166,7 +167,7 @@ const SCENES = {
 
   tasks: {
     title: "Tasks — everything you've committed to",
-    blurb: "Tasks are things you can finish. All shows what's still open and the other tabs slice it by due date; ongoing aims and speculative thoughts sit under Goals and Ideas instead of cluttering the list. Add your own with the box at the top and edit any task with the pencil.",
+    blurb: "Tasks are things you can finish. All shows what's still open and the other tabs slice it by due date; ongoing aims and speculative thoughts sit under Goals and Ideas instead of cluttering the list. Add your own with the box at the top and edit any task with the pencil. Not today? The 💤 button hides a task until a day you pick, and overdue tasks get a Reschedule button. There is also a Habits tab and a Just one thing mode for when the list is too much.",
     tip: "Switch tabs, then tick a task to finish it.",
     mount(view) {
       const G = [["all", "All"], ["overdue", "Overdue"], ["today", "Today"], ["upcoming", "Upcoming"], ["someday", "Someday"], ["done", "Done"]];
@@ -278,13 +279,13 @@ export function runTour(el, finish, start = "capture") {
     t.clear();
     const id = ids[i], sc = SCENES[id], last = i === ids.length - 1;
     el.innerHTML = `<div class="tour">
-      <button class="btn ghost small ob-skip" id="ob-skip">Skip tutorial</button>
       <div class="tour-head"><h1>${esc(sc.title)}</h1><p class="sub">${esc(sc.blurb)}</p></div>
       <div class="tour-app"><nav class="tour-rail">${rail.map((n) => `<a href="#" data-id="${n.id}" class="${n.id === id ? "active" : ""}" title="${n.label}">${ICONS[n.id]}<span>${n.label}</span></a>`).join("")}</nav>
         <div class="tour-view" id="tour-view"></div></div>
       <p class="tour-tip">👆 ${esc(sc.tip)}</p>
       <div class="ob-dots">${ids.map((_, n) => `<i class="${n === i ? "on" : ""}"></i>`).join("")}</div>
       <div class="ob-foot"><button class="btn ghost" id="ob-back" ${i === 0 ? "disabled" : ""}>Back</button><div class="grow"></div>
+        <button class="btn ghost small" id="ob-skip">Skip tutorial</button><div class="grow"></div>
         <button class="btn" id="ob-next">${last ? "Get started" : "Next"}</button></div></div>`;
     sc.mount($("#tour-view", el), t);
     $("#ob-skip", el).onclick = () => { t.clear(); finish(); };

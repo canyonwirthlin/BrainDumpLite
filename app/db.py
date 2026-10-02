@@ -127,6 +127,20 @@ CREATE TABLE IF NOT EXISTS suggestions (           -- Phase 8: the AI Suggestion
   resolved_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_suggestions_status ON suggestions(status);
+CREATE TABLE IF NOT EXISTS habits (               -- 0.21: lightweight habit tracker (Tasks -> Habits)
+  id         TEXT PRIMARY KEY,
+  title      TEXT NOT NULL,
+  notes      TEXT,
+  frequency  TEXT NOT NULL DEFAULT 'daily',        -- daily | weekly (weekly = `target` check-ins per week)
+  target     INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  archived   INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS habit_log (
+  habit_id TEXT NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+  day      TEXT NOT NULL,                          -- local YYYY-MM-DD
+  PRIMARY KEY (habit_id, day)
+);
 CREATE TABLE IF NOT EXISTS session_items (     -- live preview items, dropped when the session ends
   id         TEXT PRIMARY KEY,
   session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -263,7 +277,8 @@ def _migrate() -> None:
     if get_setting("onboarded") is None:
         set_setting("onboarded", get_setting("provider") is not None)
     icols = {r["name"] for r in conn().execute("PRAGMA table_info(items)")}
-    for col, typ in (("est_minutes", "INTEGER"), ("urgency", "INTEGER"), ("time_hint", "TEXT")):
+    for col, typ in (("est_minutes", "INTEGER"), ("urgency", "INTEGER"), ("time_hint", "TEXT"),
+                     ("snoozed_until", "TEXT")):   # 0.21: "not today" - hidden from the active lists until this date
         if col not in icols:
             conn().execute(f"ALTER TABLE items ADD COLUMN {col} {typ}")
 

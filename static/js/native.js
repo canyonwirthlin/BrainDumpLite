@@ -41,6 +41,19 @@ export async function setQuitOnClose(on) {
   try { await native.core.invoke("set_quit_on_close", { enabled: on }); } catch (e) { console.warn("close-behaviour toggle failed", e); }
 }
 
+// Global quick-capture hotkey (Ctrl+Shift+Space). The Rust shell owns it; no-ops in a browser.
+export async function getQuickCapture() {
+  if (!native) return false;
+  try { return !!(await native.core.invoke("get_quick_capture")); } catch { return false; }
+}
+
+// Resolves to an error string when another program already owns the key combination.
+export async function setQuickCapture(on) {
+  if (!native) return null;
+  try { await native.core.invoke("set_quick_capture", { enabled: on }); return null; }
+  catch (e) { return typeof e === "string" ? e : (e.message || "Couldn't change the hotkey"); }
+}
+
 export function openExternal(url) {
   if (native) native.opener.openUrl(url).catch((e) => toast("Couldn't open link: " + (e.message || e), true));
   else window.open(url, "_blank", "noopener");
@@ -141,10 +154,22 @@ export async function showWhatsNew(version, sinceVersion) {
   bg.innerHTML = `<div class="modal wide">
     <h2>What's new in v${esc(version)}</h2>
     ${fresh.length ? fresh.map(entryHtml).join("") : `<p class="muted">No notes for this version.</p>`}
-    ${older.length ? `<details class="wn-older"><summary>Older releases (${older.length})</summary>${older.map(entryHtml).join("")}</details>` : ""}
-    <div class="row"><button class="btn" id="wn-ok">Nice</button></div></div>`;
+    ${older.length ? `<div class="wn-older"><div id="wn-older-list"></div><button class="btn ghost small" id="wn-more"></button></div>` : ""}
+    <div class="row wn-foot"><button class="btn" id="wn-ok">Nice</button></div></div>`;
   document.body.appendChild(bg);
   $("#wn-ok", bg).onclick = () => bg.remove();
+  // Older releases load a few at a time so the modal stays short and "Nice" stays within reach.
+  const PAGE = 3;
+  let shownOlder = 0;
+  const more = $("#wn-more", bg);
+  const paintMore = () => {
+    $("#wn-older-list", bg).insertAdjacentHTML("beforeend", older.slice(shownOlder, shownOlder + PAGE).map(entryHtml).join(""));
+    shownOlder = Math.min(older.length, shownOlder + PAGE);
+    const left = older.length - shownOlder;
+    if (left > 0) more.textContent = shownOlder ? `Show ${Math.min(PAGE, left)} more (${left} left)` : `Older releases (${left})`;
+    else more.remove();
+  };
+  if (more) { more.onclick = paintMore; more.textContent = `Older releases (${older.length})`; }
 }
 
 export function initNative() {

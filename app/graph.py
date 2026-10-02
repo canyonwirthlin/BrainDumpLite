@@ -432,6 +432,9 @@ def duplicate_groups(kind: str, limit: int = 6) -> list[list[dict]]:
     groups: dict[str, list[dict]] = {}
     for e in rows:
         groups.setdefault(find(e["name"]), []).append({"name": e["name"], "count": e["count"]})
-    out = [g for g in groups.values() if 2 <= len(g) <= 4]
+    from . import dupes   # pairs the user marked "not the same" in the deep scan stay out of these suggestions too
+    skip = dupes._dismissed()
+    out = [g for g in groups.values() if 2 <= len(g) <= 4
+           and not all(f"{kind}:{dupes._pair_key(x['name'], y['name'])}" in skip for i, x in enumerate(g) for y in g[i + 1:])]
     out.sort(key=lambda g: -sum(x["count"] for x in g))
     return out[:limit]
