@@ -5,6 +5,7 @@ import { attach as attachWikilinks } from "../wikilinks.js";
 import { api } from "../api.js";
 import { state, clearPoll } from "../state.js";
 import { renderReview } from "./review.js";
+import { TEMPLATES, applyTemplate } from "../templates.js";
 
 export function render(ctx) {
   ctx.setTitle("Capture");
@@ -41,7 +42,12 @@ async function loadPrompt() {
   box.innerHTML = `<div class="jp-label">${p.personal ? "From your own dumps" : "Something to think about"}</div>
     <div class="jp-text">${esc(p.text)}</div>
     <div class="jp-actions"><button class="btn ghost small" id="jp-use">Write about this</button>
-      <button class="btn ghost small" id="jp-new" title="A different question">↻ Another</button></div>`;
+      <button class="btn ghost small" id="jp-new" title="A different question">↻ Another</button>
+      <button class="btn ghost small" id="jp-hide" title="Turn the daily question off (Settings → Appearance turns it back on)">Hide this</button></div>`;
+  $("#jp-hide").onclick = async () => {
+    try { await api.put("/settings", { journal_prompt_enabled: false }); box.hidden = true; toast("Prompt hidden — turn it back on in Settings → Appearance"); }
+    catch (e) { toast("Couldn't save: " + e.message, true); }
+  };
   $("#jp-new").onclick = loadPrompt;
   $("#jp-use").onclick = () => {
     const ta = $("#dump-text");
@@ -76,6 +82,8 @@ function paintMode() {
       <div class="cb-thread"><div class="bubble assistant">${esc(m.opener)}</div></div>
       <div class="cb-composer">` : ""}
     <textarea id="dump-text" class="editor ${m.id === "execution" ? "tasklist" : ""} ${chat ? "chat-input" : ""}" placeholder="${esc(m.placeholder)}">${esc(state.draft)}</textarea>
+    <div class="row tpl-row"><span class="muted small">Template:</span>
+      ${TEMPLATES.map((t) => `<button class="btn ghost small tpl-btn" data-tpl="${t.id}">${esc(t.label)}</button>`).join("")}</div>
     <div class="row">
       ${state.status.whisper ? `<button class="mic" id="mic" title="Record voice">🎙️</button>
         <span class="muted small" id="rec-status"></span>` : ""}
@@ -93,6 +101,9 @@ function paintMode() {
   ta.onkeydown = (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); chat ? startTalk() : submitDump(); }
   };
+  $$(".tpl-btn").forEach((b) => b.onclick = () => {
+    state.draft = applyTemplate(ta, TEMPLATES.find((t) => t.id === b.dataset.tpl));
+  });
   $("#dump-btn").onclick = submitDump;
   if ($("#talk-btn")) $("#talk-btn").onclick = startTalk;
   if ($("#mic")) $("#mic").onclick = () => toggleRecording();
