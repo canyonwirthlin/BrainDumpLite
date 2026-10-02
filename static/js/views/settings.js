@@ -509,8 +509,13 @@ function sectionAbout(box, s) {
         <button class="btn ghost" id="about-whatsnew">What's new</button>
         <button class="btn ghost" id="about-tutorial">Replay tutorial</button>
         ${native ? `<button class="btn ghost" id="about-update">Check for updates</button>` : ""}
+        <button class="btn ghost" id="about-diag" title="Copies versions, GPU, model and engine status - never your dumps or keys.">Copy diagnostics</button>
       </div>
     </div>`;
+  $("#about-diag", body).onclick = async () => {
+    try { const d = await api.get("/diagnostics"); await navigator.clipboard.writeText(d.text); toast("Diagnostics copied"); }
+    catch (e) { toast("Couldn't copy diagnostics: " + (e.message || e), true); }
+  };
   $("#about-whatsnew", body).onclick = () => showWhatsNew(state.status.version);
   $("#about-tutorial", body).onclick = () => replayTutorial();
   if ($("#about-update", body)) $("#about-update", body).onclick = () => checkForUpdates({ silent: false });
