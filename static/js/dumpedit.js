@@ -5,6 +5,7 @@ import { $, $$, esc, toast, modal, fmtDate, relTime } from "./ui.js";
 import { api } from "./api.js";
 import { emit } from "./state.js";
 import { saveAs } from "./native.js";
+import { go } from "./router.js";
 
 // ── Markup ───────────────────────────────────────────────────────────────────
 export const titleHtml = (d) => `<h1 class="page title-row"><span id="d-title">${esc(d.title || "Untitled dump")}</span>
@@ -29,6 +30,13 @@ export const linksHtml = (d) => `<div class="card" id="links"><h2>Linked dumps</
     || `<p class="small muted" style="margin-bottom:8px">Nothing linked yet.</p>`}
   <div class="row" style="margin-top:8px"><button class="btn ghost small" id="add-link">＋ Link a dump</button></div></div>`;
 
+// Pin / split / merge, shown under the title in the History detail pane.
+export const cardActionsHtml = (d) => `<div class="row card-actions" style="margin:0 0 10px;flex-wrap:wrap;gap:6px">
+  <button class="btn ghost small" id="pin-dump" aria-pressed="${d.pinned ? "true" : "false"}">${d.pinned ? "📌 Pinned" : "📍 Pin"}</button>
+  <button class="btn ghost small" id="split-dump">✂ Split…</button>
+  <button class="btn ghost small" id="merge-dump">⛙ Merge with…</button>
+  <span id="dup-badge" class="chip" hidden></span></div>`;
+
 // ── Behaviour ────────────────────────────────────────────────────────────────
 // reload(): re-render the whole detail (used when links change).
 // onTags(): the chips changed in place — the host can refresh anything derived from them.
@@ -37,6 +45,70 @@ export function bindDumpEdit(box, d, { reload, onTags } = {}) {
   bindTags(box, d, onTags);
   bindLinks(box, d, reload);
   bindExport(box, d);
+  bindCardActions(box, d, reload);
+}
+
+// A toast with a button (the plain toast() has none). Lives ~9s.
+function actionToast(msg, label, onClick) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.append(msg + " ");
+  const b = document.createElement("button");
+  b.className = "btn small"; b.textContent = label; b.style.marginLeft = "8px";
+  b.onclick = () => { t.remove(); onClick(); };
+  t.appendChild(b);
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add("show"), 20);
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 300); }, 9000);
+}
+
+function bindCardActions(box, d, reload) {
+  const pin = $("#pin-dump", box);
+  if (!pin) return;
+  pin.onclick = async () => {
+    try { await api.post(`/dumps/${d.id}/pin`, { pinned: !d.pinned }); toast(d.pinned ? "Unpinned" : "Pinned to the top of History"); go("history/" + d.id); }
+    catch (e) { toast("Couldn't pin: " + e.message, true); }
+  };
+  api.get("/dumps-meta").then((m) => {
+    const dup = m.duplicates?.[d.id], el = $("#dup-badge", box);
+    if (dup && el) { el.hidden = false; el.innerHTML = `Looks like a duplicate of <a href="#history/${dup.of}">${esc(dup.title || "an earlier dump")}</a>`; }
+  }).catch(() => {});
+  $("#split-dump", box).onclick = () => {
+    const text = d.clean_text || d.raw_text || "";
+    const m = modal(`<h2>Split this dump</h2>
+      <p class="small muted">Click in the text where the second dump should start, then press Split. Items follow whichever half they came from.</p>
+      <textarea id="sp-text" readonly rows="10" style="width:100%">${esc(text)}</textarea>
+      <div class="row" style="margin-top:10px"><button class="btn" id="sp-go">Split here</button><button class="btn ghost" id="sp-cancel">Cancel</button></div>`);
+    $("#sp-cancel", m.el).onclick = m.close;
+    $("#sp-go", m.el).onclick = async () => {
+      const at = $("#sp-text", m.el).selectionStart;
+      try { const r = await api.post(`/dumps/${d.id}/split`, { at }); m.close(); toast("Split into two dumps"); go("history/" + r.second); }
+      catch (e) { toast("Couldn't split: " + e.message, true); }
+    };
+  };
+  $("#merge-dump", box).onclick = async () => {
+    let all;
+    try { all = await api.get("/dumps?limit=200"); } catch (e) { toast(e.message, true); return; }
+    const pool = all.filter((x) => x.id !== d.id && x.status === "ready");
+    const m = modal(`<h2>Merge with…</h2>
+      <p class="small muted">Pick one or more dumps to fold into this one. You can undo right after.</p>
+      <div class="lk-list">${pool.map((x) => `<label class="lk-row"><input type="checkbox" value="${x.id}"> <b>${esc(x.title || "Untitled")}</b><span class="muted small">${relTime(x.created_at)}</span></label>`).join("") || `<p class="small muted">No other dumps.</p>`}</div>
+      <div class="row" style="margin-top:10px"><button class="btn" id="mg-go">Merge</button><button class="btn ghost" id="mg-cancel">Cancel</button></div>`);
+    $("#mg-cancel", m.el).onclick = m.close;
+    $("#mg-go", m.el).onclick = async () => {
+      const ids = [d.id, ...$$("input:checked", m.el).map((c) => c.value)];
+      if (ids.length < 2) { toast("Pick at least one dump", true); return; }
+      try {
+        const r = await api.post("/dumps/merge", { ids });
+        m.close();
+        go("history/" + r.id);
+        actionToast("Dumps merged.", "Undo merge", async () => {
+          try { await api.post(`/merges/${r.merge_id}/undo`); toast("Merge undone"); go("history/" + r.id); }
+          catch (e) { toast("Couldn't undo: " + e.message, true); }
+        });
+      } catch (e) { toast("Couldn't merge: " + e.message, true); }
+    };
+  };
 }
 
 function bindTitle(box, d) {

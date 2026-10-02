@@ -2,7 +2,7 @@
 import { $, $$, esc, md, toast, modal, fmtDate, fmtDay, fmtTime, todayIso, MODES, kindBadge, timeChips, toneChip, trustBadge } from "../ui.js";
 import { api } from "../api.js";
 import { state } from "../state.js";
-import { titleHtml, tagsHtml, linksHtml, bindDumpEdit } from "../dumpedit.js";
+import { titleHtml, tagsHtml, linksHtml, bindDumpEdit, cardActionsHtml } from "../dumpedit.js";
 
 // Prefilled Google Calendar event link — no OAuth, user completes it there.
 function gcalUrl(t) {
@@ -88,7 +88,8 @@ export function bindDue(container, reload) {
 
 export function itemRow(it) {
   return `
-    <div class="item ${it.status === "rejected" ? "rejected" : ""}" data-id="${it.id}">
+    <div class="item ${it.status === "rejected" ? "rejected" : ""} ${it.done ? "done" : ""}" data-id="${it.id}">
+      ${it.kind === "task" ? `<input type="checkbox" class="item-done" ${it.done ? "checked" : ""} aria-label="Done" title="Tick off">` : ""}
       ${kindBadge(it.kind)}
       <div class="body">
         <div class="content">${esc(it.content)}
@@ -146,6 +147,11 @@ export function bindItemRows(container, items, reload) {
     const it = items.find((x) => x.id === el.dataset.id);
     const [ok, no] = [$(".ok", el), $(".no", el)];
     $(".edit", el).onclick = () => editItem(el, it, reload);
+    const done = $(".item-done", el);   // tick a task off without leaving the dump
+    if (done) done.onchange = async (e) => {
+      try { await api.patch("/items/" + it.id, { done: e.target.checked }); it.done = e.target.checked ? 1 : 0; el.classList.toggle("done", e.target.checked); }
+      catch (err) { e.target.checked = !e.target.checked; toast("Couldn't update: " + err.message, true); }
+    };
     ok.onclick = async () => {
       const next = it.status === "approved" ? "suggested" : "approved";
       await api.patch("/items/" + it.id, { status: next });
@@ -171,6 +177,7 @@ export function reviewHtml(d, { showBack = false, detail = false } = {}) {
   const transcript = d.clean_text || d.raw_text || "";
   return `
     ${titleHtml(d)}
+    ${detail ? cardActionsHtml(d) : ""}
     ${detail ? `<div class="meta"><span>${fmtDate(d.created_at)}</span><span>${mode.icon} ${mode.label}</span><span>${n} item${n === 1 ? "" : "s"}</span>${toneChip(d.tone)}${trustBadge(d.provider)}</div>`
              : `<p class="sub">${mode.icon} ${mode.label} · ${fmtDate(d.created_at)}</p>`}
     ${transcript ? `<div class="card transcript"><h2>Cleaned transcript</h2><p class="transcript-text">${esc(transcript)}</p>
