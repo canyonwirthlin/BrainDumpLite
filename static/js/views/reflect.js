@@ -18,7 +18,7 @@ export function render(ctx) {
       </div>
       <div id="plan-body" class="muted small">Fits your open tasks into the free gaps of the day — around your Google Calendar events when it's connected.</div>
     </div>
-    ${["daily", "weekly"].map((k) => `
+    ${["daily"].map((k) => `
       <div class="card">
         <div class="row" style="margin:0 0 6px">
           <h2 class="grow">${k === "daily" ? "☀️ Today" : "📆 This week"}</h2>
@@ -82,7 +82,52 @@ async function paintDigest(back) {
     ${d.busiest ? `<div class="small muted" style="margin-top:12px">Longest dump: <a href="#history/${d.busiest.id}">${esc(d.busiest.title)}</a> · ✨ = a theme you hadn't mentioned before</div>` : ""}`
     : `<div class="small muted" style="margin:10px 0">No dumps ${d.current ? "yet this week" : "that week"}. ${d.current ? "Capture one and it will show up here." : ""}</div>`}`;
   $("#dg-prev", box).onclick = () => paintDigest(back + 1);
+  paintNarrative(box, d, back);
   $("#dg-next", box).onclick = () => paintDigest(Math.max(0, back - 1));
+}
+
+// AI-written narrative for the week (cached server-side), regenerate, copy as Markdown, save as a dump.
+async function paintNarrative(box, d, back) {
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "margin-top:14px;border-top:1px solid var(--border,#8884);padding-top:10px";
+  box.appendChild(wrap);
+  const empty = !d.dumps;
+  let n = null;
+  try { n = await api.get("/digest/weekly/narrative?weeks_back=" + back); } catch { /* stats-only is fine */ }
+  const paint = (content, note) => {
+    wrap.innerHTML = `
+      <div class="row" style="margin:0 0 6px"><h3 class="grow" style="margin:0">✨ Week in words</h3>
+        ${n && n.ai_available && !empty ? `<button class="btn ghost small" id="dg-gen">${content ? "↻ Regenerate" : "Write it"}</button>` : ""}
+        <button class="btn ghost small" id="dg-copy" title="Copy this week as Markdown">Copy Markdown</button>
+        <button class="btn ghost small" id="dg-save" ${empty ? "disabled" : ""} title="Save this week as a new dump">Save as dump</button></div>
+      <div id="dg-body" class="${content ? "" : "muted small"}">${content ? md(content) : esc(note)}</div>`;
+    const gen = $("#dg-gen", wrap);
+    if (gen) gen.onclick = async () => {
+      gen.disabled = true; $("#dg-body", wrap).innerHTML = `<span class="spin"></span>`;
+      try {
+        const r = await api.post("/digest/weekly/narrative", { weeks_back: back, force: true });
+        paint(r.content, "Nothing to write about this week yet.");
+      } catch (e) { paint(content, "Couldn't write it: " + e.message); }
+    };
+    $("#dg-copy", wrap).onclick = async () => {
+      try {
+        const r = await api.get("/digest/weekly/markdown?weeks_back=" + back);
+        await navigator.clipboard.writeText(r.markdown);
+        toast("Copied as Markdown");
+      } catch (e) { toast("Couldn't copy: " + e.message, true); }
+    };
+    $("#dg-save", wrap).onclick = async () => {
+      try {
+        const r = await api.post("/digest/weekly/save", { weeks_back: back });
+        toast("Saved as a dump");
+        await refreshStatus();
+        location.hash = "history/" + r.id;
+      } catch (e) { toast("Couldn't save: " + e.message, true); }
+    };
+  };
+  paint(n && n.content, empty ? "Nothing to write about yet."
+    : n && !n.ai_available ? "Turn on an AI in Settings to get a written summary. The stats above work without one."
+    : "Press Write it for a themes, wins and next-week summary.");
 }
 
 async function paintResurface() {
