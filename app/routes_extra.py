@@ -188,6 +188,13 @@ def habit_stats(h, days: set[str], today: date) -> dict:
     """Current/best streak and the last 14 days for one habit. Daily: consecutive days (today still pending
     doesn't break it). Weekly: consecutive Monday-weeks that reached `target` (the running week doesn't break it)."""
     freq, target = h["frequency"], max(1, h["target"])
+    ok = set()
+    for x in days:            # a malformed day (hand-edited vault/import) must not 500 the whole habits list
+        try:
+            ok.add(date.fromisoformat(x).isoformat())
+        except (ValueError, TypeError):
+            pass
+    days = ok
     ds = sorted(date.fromisoformat(x) for x in days)
     best = cur = 0
     if freq == "daily":
