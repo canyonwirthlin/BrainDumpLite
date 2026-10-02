@@ -12,6 +12,7 @@ from . import backup, db, engine, item_types, lock, plugins, reprocess, stats
 from .routes import oauth_router, router
 from .routes_data import router as data_router
 from . import routes_dumps
+from .routes_digest import router as digest_router
 from .routes_extra import router as extra_router
 from .routes_focus import router as focus_router
 from .routes_models import router as models_router
@@ -65,6 +66,7 @@ def create_app() -> FastAPI:
 
     app.include_router(router, prefix="/api")
     app.include_router(extra_router, prefix="/api")
+    app.include_router(digest_router, prefix="/api")
     app.include_router(models_router, prefix="/api")
     app.include_router(tasks_router, prefix="/api")
     app.include_router(focus_router, prefix="/api")
