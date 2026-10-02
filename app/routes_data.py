@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/data/export.json")
-def export_json(include_private: int = 1, include_deleted: int = 1):
+def export_json(include_private: int = 0, include_deleted: int = 1):
     data = dataio.export_data(bool(include_private), bool(include_deleted))
     body = json.dumps(data, ensure_ascii=False, indent=1)
     return Response(body, media_type="application/json",

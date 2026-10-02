@@ -25,6 +25,7 @@ router = APIRouter()
 class DumpIn(BaseModel):
     text: str
     mode: str = "freeform"
+    is_private: bool = False   # private dumps need the app PIN (see app/private.py)
 
 
 class DumpPatch(BaseModel):
@@ -875,6 +876,7 @@ def _dump_out(row, items=None, related=None):
     except (ValueError, TypeError):
         out["tone"] = None
     out["pinned"] = bool(row["pinned"]) if "pinned" in row.keys() else False
+    out["is_private"] = bool(row["is_private"]) if "is_private" in row.keys() else False
     for k in ("concepts", "people"):
         try:
             out[k] = json.loads(row[k]) if row[k] else []
@@ -893,12 +895,15 @@ def create_dump(body: DumpIn, bg: BackgroundTasks):
     if not text:
         raise HTTPException(400, "Empty dump")
     mode = body.mode if body.mode in pipeline.VALID_MODES else "freeform"
+    if body.is_private:
+        from . import private
+        private.require_pin()
     dump_id = db.new_id()
     from . import reprocess
     queued = reprocess.should_queue()   # AI chosen but not usable yet: keep the dump, process it once AI is up
     db.execute(
-        "INSERT INTO dumps (id, created_at, mode, raw_text, status) VALUES (?,?,?,?,?)",
-        (dump_id, db.now_iso(), mode, text, "queued" if queued else "pending"))
+        "INSERT INTO dumps (id, created_at, mode, raw_text, status, is_private) VALUES (?,?,?,?,?,?)",
+        (dump_id, db.now_iso(), mode, text, "queued" if queued else "pending", 1 if body.is_private else 0))
     if queued:
         reprocess.kick()
     else:
@@ -928,7 +933,7 @@ def get_dump(dump_id: str):
             "SELECT l.dump_id, l.related_id, l.score FROM links l "
             "WHERE l.dump_id=? OR l.related_id=?", (dump_id, dump_id)):
         other = r["related_id"] if r["dump_id"] == dump_id else r["dump_id"]
-        d = db.query_one("SELECT id, title, created_at FROM dumps WHERE id=? AND deleted_at IS NULL", (other,))
+        d = db.query_one(f"SELECT id, title, created_at FROM dumps WHERE id=? AND deleted_at IS NULL AND {db.PRIVATE_SQL}", (other,))
         if d and all(x["id"] != other for x in related):
             related.append({"id": d["id"], "title": d["title"],
                             "created_at": d["created_at"], "score": r["score"]})
@@ -1052,7 +1057,7 @@ def list_tasks():
     so the Tasks tab can show them apart instead of pretending "get stronger" can be ticked off."""
     rows = db.query(
         "SELECT i.*, d.title AS dump_title, (d.status = 'manual') AS manual FROM items i JOIN dumps d ON d.id = i.dump_id "
-        "WHERE i.kind IN ('task','goal','idea') AND i.status != 'rejected' AND d.deleted_at IS NULL AND d.status IN ('ready','manual') "
+        f"WHERE i.kind IN ('task','goal','idea') AND i.status != 'rejected' AND d.deleted_at IS NULL AND {db.PRIVATE_SQL} AND d.status IN ('ready','manual') "
         "ORDER BY i.done, COALESCE(i.pinned,0) DESC, CASE WHEN i.due_date IS NULL THEN 1 ELSE 0 END, "
         "i.due_date, COALESCE(i.priority, 0) DESC, i.created_at DESC")
     return [{**dict(r), "manual": bool(r["manual"])} for r in rows]

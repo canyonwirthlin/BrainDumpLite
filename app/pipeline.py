@@ -290,7 +290,7 @@ def _parse_names(data: dict, key: str, limit: int) -> list[str]:
 def _known_people(exclude_dump_id: str) -> list[str]:
     """Every person named in any OTHER dump, one spelling each (most common first)."""
     counts: dict[str, list] = {}
-    for r in db.query("SELECT people FROM dumps WHERE people IS NOT NULL AND deleted_at IS NULL AND id != ?", (exclude_dump_id,)):
+    for r in db.query(f"SELECT people FROM dumps WHERE people IS NOT NULL AND deleted_at IS NULL AND {db.PRIVATE_SQL} AND id != ?", (exclude_dump_id,)):
         try:
             names = json.loads(r["people"] or "[]")
         except (ValueError, TypeError):

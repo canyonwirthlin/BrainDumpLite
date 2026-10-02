@@ -105,7 +105,7 @@ def duplicate_hints(limit: int = 400, text_threshold: float = 0.6, emb_threshold
     """{dump_id: {"of": other_id, "title": other_title, "score": s}} - each dump points at the OLDER
     near-copy, so only the later one gets the badge."""
     rows = db.query("SELECT id, title, created_at, raw_text, clean_text, embedding FROM dumps "
-                    "WHERE status='ready' AND deleted_at IS NULL ORDER BY created_at ASC")[-limit:]
+                    f"WHERE status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL} ORDER BY created_at ASC")[-limit:]
     toks = [_tokens(r["raw_text"] or r["clean_text"]) for r in rows]
     embs: list = []
     for r in rows:
@@ -179,10 +179,10 @@ def split_dump(dump_id: str, body: SplitIn):
     keep = lambda names, txt: [n for n in names if n.lower() in txt.lower()]
     concepts, people = _names(d["concepts"]), _names(d["people"])
     with db.lock():
-        db.execute("INSERT INTO dumps (id, created_at, mode, raw_text, clean_text, title, status, provider, tone, concepts, people, captured_local) "
-                   "VALUES (?,?,?,?,?,?,'ready',?,?,?,?,?)",
+        db.execute("INSERT INTO dumps (id, created_at, mode, raw_text, clean_text, title, status, provider, tone, concepts, people, captured_local, is_private) "
+                   "VALUES (?,?,?,?,?,?,'ready',?,?,?,?,?,?)",
                    (new_id, d["created_at"], d["mode"], b_raw, b_clean, title2, d["provider"], d["tone"],
-                    json.dumps(keep(concepts, b_txt)), json.dumps(keep(people, b_txt)), d["captured_local"]))
+                    json.dumps(keep(concepts, b_txt)), json.dumps(keep(people, b_txt)), d["captured_local"], d["is_private"] or 0))
         db.execute("UPDATE dumps SET raw_text=?, clean_text=?, summary=?, embedding=NULL, concepts=?, people=? WHERE id=?",
                    (a_raw, a_clean, d["summary"], json.dumps(keep(concepts, a_txt) or concepts), json.dumps(keep(people, a_txt) or people), dump_id))
         moved = []
@@ -208,6 +208,8 @@ def merge_dumps(body: MergeIn):
     if len(ids) < 2:
         raise HTTPException(400, "Pick at least two dumps to merge")
     rows = [_live(i) for i in ids]
+    if any(r["is_private"] for r in rows):
+        raise HTTPException(400, "Private dumps can't be merged (it would mix them into a public dump)")
     if any(r["status"] != "ready" for r in rows):
         raise HTTPException(400, "Only finished dumps can be merged")
     rows.sort(key=lambda r: r["created_at"])

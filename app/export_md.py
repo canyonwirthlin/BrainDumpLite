@@ -50,6 +50,8 @@ def dump_markdown(dump_id: str, wikilinks: bool = True) -> tuple[str, str]:
     d = db.query_one("SELECT * FROM dumps WHERE id=?", (dump_id,))
     if not d:
         raise ValueError("unknown dump")
+    if d["is_private"]:
+        raise ValueError("private dump: never exported")
     items = db.query("SELECT * FROM items WHERE dump_id=? AND status != 'rejected' ORDER BY created_at", (dump_id,))
     dt = _local(d["created_at"])
     concepts, people = _names(d["concepts"]), _names(d["people"])
@@ -98,7 +100,7 @@ def dump_markdown(dump_id: str, wikilinks: bool = True) -> tuple[str, str]:
 
 
 def all_ready_ids() -> list[str]:
-    return [r["id"] for r in db.query("SELECT id FROM dumps WHERE status='ready' AND deleted_at IS NULL ORDER BY created_at")]
+    return [r["id"] for r in db.query(f"SELECT id FROM dumps WHERE status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL} ORDER BY created_at")]
 
 
 def vault_markdown_zip(wikilinks: bool = True) -> bytes:

@@ -88,6 +88,7 @@ function paintMode() {
       ${state.status.whisper ? `<button class="mic" id="mic" title="Record voice">🎙️</button>
         <span class="muted small" id="rec-status"></span>` : ""}
       <div class="grow"></div>
+      <label class="muted small" title="Private dumps stay out of Search, Ask, exports and the Obsidian mirror (needs a PIN)"><input type="checkbox" id="dump-private" ${state.draftPrivate ? "checked" : ""}> 🔒 Private</label>
       ${chat ? `<button class="btn ghost" id="dump-btn" title="Skip the conversation and save this as a one-shot dump">Just save it</button>
         <button class="btn" id="talk-btn">Start talking →</button>`
              : `<button class="btn" id="dump-btn">Dump it →</button>`}
@@ -97,6 +98,7 @@ function paintMode() {
 
   const ta = $("#dump-text");
   ta.oninput = (e) => { state.draft = e.target.value; };
+  $("#dump-private").onchange = (e) => { state.draftPrivate = e.target.checked; };
   attachWikilinks(ta);
   ta.onkeydown = (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); chat ? startTalk() : submitDump(); }
@@ -137,8 +139,8 @@ async function submitDump() {
   if (!text) return;
   $("#dump-btn").disabled = true;
   try {
-    const { id, status } = await api.post("/dumps", { text, mode: state.curMode });
-    state.draft = "";
+    const { id, status } = await api.post("/dumps", { text, mode: state.curMode, is_private: !!state.draftPrivate });
+    state.draft = ""; state.draftPrivate = false;
     if (status === "queued") {   // no AI available yet: saved, and processed automatically once one is on
       $("#view").innerHTML = `<h1>Saved</h1><p class="sub">Your dump is waiting for AI. It will be processed automatically as soon as an AI model is available.</p>
         <div class="card"><a class="btn" href="#history/${id}">View it</a> <a class="btn ghost" href="#capture">Capture another</a></div>`;

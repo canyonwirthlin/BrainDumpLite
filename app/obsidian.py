@@ -25,11 +25,10 @@ _watcher: threading.Thread | None = None
 
 
 def select_ids() -> list[str]:
-    """THE single place deciding which dumps are mirrored. Excludes trash;
-    add `AND COALESCE(is_private,0)=0` here when private dumps ship."""
+    """THE single place deciding which dumps are mirrored. Excludes trash and private dumps (a dump that
+    becomes private drops out of this list, and sync() then moves its file to _trash)."""
     return [r["id"] for r in db.query(
-        "SELECT id FROM dumps WHERE status='ready' AND deleted_at IS NULL "
-        # PRIVATE: AND COALESCE(is_private,0)=0
+        f"SELECT id FROM dumps WHERE status='ready' AND deleted_at IS NULL AND {db.PRIVATE_SQL} "
         "ORDER BY created_at")]
 
 
