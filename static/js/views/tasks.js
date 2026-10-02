@@ -7,6 +7,7 @@ import { dueWrap, bindDue, calBtns, editItem } from "./review.js";
 import { snoozeMenu, snoozeItem, rescheduleAllOverdue, fmtShort } from "./snooze.js";
 import { openJustOne, pickNext } from "./jot.js";
 import { renderHabits } from "./habits.js";
+import { loadFocus, openFit, focusChips, focusButtons, bindFocusRow, completeTask } from "./focus.js";
 import { loadTaskLists, filterByFolder, currentFolder, barHtml, bindBar, chipsHtml, buttonsHtml, bindRow } from "./task_lists.js";
 
 const GROUPS = [["all", "All"], ["overdue", "Overdue"], ["today", "Today"], ["upcoming", "Upcoming"], ["someday", "Someday"], ["snoozed", "Snoozed"], ["done", "Done"]];
@@ -27,6 +28,7 @@ export async function render(ctx) {
   try { items = await api.get("/tasks"); }
   catch (e) { $("#task-list").innerHTML = `<div class="center">Couldn't load tasks: ${esc(e.message)}</div>`; return; }
   await loadTaskLists(); items = filterByFolder(items);   // folder tabs (task_lists.js)
+  await loadFocus();                                       // time correction factor + running timers (focus.js)
   const today = todayIso(), dayOf = (t) => (t.due_date || "").split("T")[0] || null;
   let habitCount = 0;
   try { habitCount = (await api.get("/habits")).length; } catch {}
@@ -56,7 +58,7 @@ export async function render(ctx) {
   const list = by[group];
   const kindOfNew = kindGroup ? kindGroup[2] : "task";
   const canJot = !kindGroup && group !== "done" && group !== "snoozed" && !!pickNext(items);
-  $("#task-list").innerHTML = `<h1 class="page">${label}${canJot ? ` <button class="btn ghost small" id="jot-open" title="Hide everything but the one task you should do next">🎯 Just one thing</button>` : ""}</h1>
+  $("#task-list").innerHTML = `<h1 class="page">${label}${canJot ? ` <button class="btn ghost small" id="jot-open" title="Hide everything but the one task you should do next">🎯 Just one thing</button>` : ""}${canJot ? ` <button class="btn ghost small" id="fit-open" title="Show tasks that fit the time you have">⏱ I have 10 minutes</button>` : ""}</h1>
     ${kindGroup || group === "habits" ? "" : barHtml()}
     ${BLURB[group] ? `<p class="sub">${BLURB[group]}</p>` : ""}
     ${group === "overdue" && list.length ? `<div class="row" style="margin:0 0 10px"><span class="small muted grow">${list.length} overdue — pick a new day for all of them at once, or one by one below.</span><button class="btn small" id="resched-all">Reschedule all…</button></div>` : ""}
@@ -71,6 +73,7 @@ export async function render(ctx) {
   const reload = () => render(ctx);
   bindBar(reload);
   if ($("#jot-open")) $("#jot-open").onclick = () => openJustOne(items, reload);
+  if ($("#fit-open")) $("#fit-open").onclick = () => openFit(reload);
   if ($("#resched-all")) $("#resched-all").onclick = (e) => snoozeMenu(e.currentTarget, { title: "Move all overdue tasks to…", onPick: (d) => rescheduleAllOverdue(d, reload) });
   $("#add-task").onsubmit = async (e) => {
     e.preventDefault();
@@ -86,7 +89,10 @@ export async function render(ctx) {
   $$(".task-row").forEach((el) => {
     const t = items.find((x) => x.id === el.dataset.id);
     const cb = $("input[type=checkbox]", el);
-    if (cb) cb.onchange = async (e) => { await api.patch("/items/" + t.id, { done: e.target.checked, status: "approved" }); reload(); };
+    if (cb) cb.onchange = async (e) => {
+      if (e.target.checked && !t.done) return completeTask(t, reload).catch((err) => { toast(err.message, true); reload(); });   // asks how long it took (focus.js)
+      await api.patch("/items/" + t.id, { done: e.target.checked, status: "approved" }); reload(); };
+    bindFocusRow(el, t, reload);
     $(".edit", el).onclick = () => editItem(el, t, reload, { kinds: ["task", "goal", "idea"] });
     $(".no", el).onclick = async () => { await api.patch("/items/" + t.id, { status: "rejected" }); reload(); };
     const promote = $(".promote", el);
@@ -122,7 +128,7 @@ function rowHtml(t) {
       ${snoozed ? `<span class="chip snoozed" title="Hidden from your lists until then">💤 until ${fmtShort(t.snoozed_until)}</span>` : ""}
       ${t.priority >= 4 ? `<span class="chip">P${t.priority}</span>` : ""}
       ${timeChips(t)}
-      ${chipsHtml(t)}
+      ${chipsHtml(t)}${focusChips(t)}
       ${t.status === "suggested" ? `<span class="chip">unreviewed</span>` : ""}
       ${t.detail ? `<div class="detail small">${t.kind === "task" ? "↳ first step:" : "↳ next step:"} ${esc(t.detail)}</div>` : ""}
       <div class="detail small muted">${t.manual ? "added by you" : `from <a href="#history/${t.dump_id}">${esc(t.dump_title || "dump")}</a>`}</div>
@@ -133,7 +139,7 @@ function rowHtml(t) {
     ${snoozed ? `<button class="btn ghost small unsnz" title="Bring it back now">Unsnooze</button>`
       : overdue ? `<button class="btn ghost small snz" title="Pick a new day for this task">Reschedule ▾</button>`
       : isTask && !t.done ? `<button class="iconbtn snz" title="Not today — hide until later">💤</button>` : ""}
-    ${buttonsHtml(t)}
+    ${buttonsHtml(t)}${focusButtons(t)}
     <button class="iconbtn edit" title="Edit">✎</button>
     <button class="iconbtn no" title="Remove">✕</button>
   </div>`;

@@ -4,6 +4,7 @@
 import { esc, modal, toast, todayIso } from "../ui.js";
 import { api } from "../api.js";
 import { isoPlus } from "./snooze.js";
+import { startTimer, finishTimed, hasTimer, getFactor, fmtMin } from "./focus.js";
 
 // Overdue first, then due today, then by priority, then the smaller job.
 function rank(t, today) {
@@ -52,6 +53,7 @@ export function openJustOne(items, onChange) {
         <div class="jot-meta">
           ${day ? `<span class="chip ${day < today ? "overdue" : "due"}">${day < today ? "overdue" : day === today ? "due today" : "due " + day}</span>` : ""}
           ${t.est_minutes ? `<span class="chip est">~${t.est_minutes >= 60 ? t.est_minutes / 60 + "h" : t.est_minutes + "m"}</span>` : ""}
+          ${t.est_minutes && getFactor().applied ? `<span class="chip est" title="You usually take ${getFactor().factor}× your guess">likely ~${fmtMin(Math.max(1, Math.round(t.est_minutes * getFactor().factor)))}</span>` : ""}
           ${t.priority >= 4 ? `<span class="chip">P${t.priority}</span>` : ""}
         </div>
         <div class="jot-timer"><span id="jot-clock">10:00</span>
@@ -68,6 +70,7 @@ export function openJustOne(items, onChange) {
     start.onclick = () => {
       if (timer) { stop(); start.textContent = "Start 10-minute timer"; clock.textContent = "10:00"; return; }
       let left = 600;
+      if (!hasTimer(t.id)) startTimer(t.id).catch(() => {});   // so "Done" can record how long it really took
       start.textContent = "Stop timer";
       timer = setInterval(() => {
         left -= 1;
@@ -76,7 +79,10 @@ export function openJustOne(items, onChange) {
       }, 1000);
     };
     box.querySelector("#jot-done").onclick = async () => {
-      try { await api.patch("/items/" + t.id, { done: true, status: "approved" }); } catch (e) { toast(e.message, true); return; }
+      try {
+        if (hasTimer(t.id)) toast(await finishTimed(t));   // timer was running: log the actual time
+        else await api.patch("/items/" + t.id, { done: true, status: "approved" });
+      } catch (e) { toast(e.message, true); return; }
       doneCount++; changed = true; t.done = true; paint();
     };
     box.querySelector("#jot-snooze").onclick = async () => {
