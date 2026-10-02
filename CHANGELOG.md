@@ -4,19 +4,63 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
-## 0.21.0 — 2026-10-02
-- Quick capture from anywhere. Press Ctrl+Shift+Space — even with the window closed to the tray — and a small box pops up. Type, Ctrl+Enter, and it's saved as a dump. Switch it off in Settings → Data if another program wants that key. (It's in the tutorial too.)
-- Snooze and reschedule. Every task has a 💤 button: "Not today" hides it until tomorrow, next week or a date you pick, and it comes back by itself (see the new Snoozed tab). Overdue tasks get a Reschedule button instead, which also moves their due date, and the Overdue tab can reschedule all of them in one go.
-- Just one thing. On the Tasks tab, 🎯 shows only the single task you should do next — overdue first, then today, then priority — with its first tiny step and an optional 10-minute focus timer. Done, Not today or Skip.
-- Habits. A new Habits tab for things you repeat rather than finish: check in each day (or "3× a week"), see your streak and the last two weeks, fix a day you forgot.
+## 0.25.0 — 2026-10-02
+This is a big one: 34 improvements across capturing, tasks, search, the Brain map, backups and AI.
+
+### Capture
+- Quick capture from anywhere. Press Ctrl+Shift+Space — even with the window closed to the tray — and a small box pops up. Type, Ctrl+Enter, and it's saved as a dump. Switch it off in Settings → Data if another program wants that key.
+- Templates on the Capture screen: Morning pages, Shutdown, Meeting and Worry fill the box with a gentle structure to write into.
+- The journal prompt now has a "Hide this" button right on the Capture screen (Settings → Appearance turns it back on).
+- Capture from your phone. Settings → Data → "Capture from my phone" shows a QR code; scan it on the same Wi-Fi and type a dump into a tiny page. It only ever lets the phone *add* dumps, can't read anything, and is off every time the app restarts. Use it on networks you trust.
+- No AI on? Dumps captured while your AI is set up but not running now wait in a queue ("waiting for AI") and are processed automatically as soon as it's available.
+- Follow-up question. After a dump, the AI may ask one short, specific question. Answer it and your answer is added to the dump (and searched); or dismiss it. Turn it off in Settings.
+
+### Dumps
+- Split a dump in two, or merge several into one — with an "Undo merge" toast if you change your mind.
+- Trash. Deleted dumps sit in a Trash (a chip at the top of History) for 30 days; restore them or delete forever.
+- Pin dumps and tasks to keep them at the top.
+- Tick tasks off right inside a dump's page.
+- A "≈ duplicate?" badge appears on a dump that looks like one you already wrote.
+
+### Tasks
+- Task lists: make folders to keep tasks in separate lists (deleting a folder never deletes the tasks).
+- Repeating tasks: every day, week or month, or "every 2 weeks after I finish it". Completing one creates the next.
+- Snooze and reschedule. Every task has a 💤 button: "Not today" hides it until tomorrow, next week or a date you pick, and it comes back by itself (see the new Snoozed tab). Overdue tasks get a Reschedule button, and the Overdue tab can reschedule all of them at once.
+- Just one thing. 🎯 shows only the single task you should do next — overdue first, then today, then priority — with its first tiny step and an optional 10-minute focus timer.
+- "I have 10 minutes": pick 10 / 20 / 30 minutes (or your own) and see the tasks that fit. Tag tasks home, PC or errand to narrow it down, and set your own time guess on any task.
+- Time-blindness correction. Time a task (or tell the app how long it took when you tick it off) and it shows "you guessed 20 min, it took 35". After a few tasks it learns that you typically take, say, 1.8× your guess and adjusts the estimates it shows.
+- Habits. A Habits tab for things you repeat rather than finish: check in each day (or "3× a week"), see your streak and the last two weeks, fix a day you forgot.
+- Search bar in Tasks, with the same typo-forgiving search as the Search page.
+
+### Search
+- Saved and recent searches (☆ Save search). They now live in your vault, so they're backed up and travel with it; any you had before are moved over automatically.
+- Scan for duplicates in Search → People / Concepts. Catches typos, nicknames ("Liz" / "Elizabeth"), first names, initials and abbreviations, one name inside another, and — with an AI model on — names that mean the same thing. "Not the same" is remembered (and can be undone), and a ⚠ badge appears next to People / Concepts when the quick check spots a likely duplicate.
+- Rebuild search index (Settings → Data) gives meaning-based search to dumps captured while no AI was on or imported from elsewhere. It skips trashed dumps.
+
+### Ask your brain
+- A new Ask tab: chat with your own dumps. Answers use only what you've written and cite their sources — click a citation to open that dump. If nothing relevant turns up it says so instead of guessing.
+
+### Reflect
 - Week at a glance on the Reflect tab: dumps, words, which days you dumped, mood, your themes (✨ marks ones you hadn't mentioned before), people, tasks and habits — for any week, with ◀ ▶ to go back. No AI needed.
-- Scan for duplicates in Search → People / Concepts. Catches typos, nicknames ("Liz" / "Elizabeth"), first names, initials and abbreviations, one name inside another, and — with an AI model on — names that mean the same thing, then asks the AI to double-check. Names that keep turning up in the same dump are treated as different things. "Not the same" is remembered (and can be undone), and a ⚠ badge appears next to People / Concepts when the quick check spots a likely duplicate.
-- The Brain map is easier to get around: Find a node (type a name, jump to it), Min mentions (hide topics mentioned only once), a date range, Path (click two nodes to see how they connect), Time-lapse (watch the map grow dump by dump), a remembered layout when you come back, and nodes you drag and drop stay pinned (double-click to release). Busy dumps now get more room, titles no longer overlap, and Galaxy is no longer clumped when you have few dumps.
-- "Titles only on hover" switch for the Brain map, and a Focus mode that hides everything beyond two hops of what you select.
-- Automatic backups: a copy of your vault about once a day, keeping the newest 7, in a folder you choose (Settings → Data). "Back up now" is there too.
-- Rebuild search index (Settings → Data) gives meaning-based search to dumps captured while no AI was on or imported from elsewhere.
-- Model downloads show the speed and time left, sit directly under the model you picked ("Downloading…" on its button), and can be cancelled — what's downloaded is kept, so you can resume later. The models list now shows a few at a time with a "Show more" button, and so does the changelog.
-- Saved and recent searches on the Search page (☆ Save search).
+- Week in words: with an AI on, a written digest of the week — themes, wins, what's still open, habits, mood and a suggested focus for next week. Regenerate it, copy it as Markdown, or save it as a dump.
+
+### Brain map
+- Easier to get around: Find a node (type a name, jump to it), Min mentions, a date range, Path (click two nodes to see how they connect), Time-lapse (watch the map grow dump by dump), and nodes you drag stay pinned (double-click to release).
+- It remembers your pan and zoom — even after restarting the app.
+- Busy dumps get more room, titles no longer overlap, and Galaxy is no longer clumped when you have few dumps.
+- "Titles only on hover" and a Focus mode that hides everything beyond two hops of what you select.
+
+### Your data
+- Automatic backups: a copy of your vault about once a day, keeping the newest 7, in a folder you choose (Settings → Data). "Back up now" is there too, failures are shown instead of silent, and you can restore any backup from the same card (the current vault is saved first).
+- Export everything to a single JSON file and import it back (nothing is duplicated if you import twice), or export as Markdown.
+- Obsidian mirror: pick a folder in your Obsidian vault and your dumps are kept there as Markdown notes, with people and concepts as [[links]]. It updates itself, moves trashed dumps to a `_trash` folder, and never touches notes it didn't create. It's one-way — edits made in Obsidian are overwritten.
+- Re-process dumps (Settings → Data): re-run the AI over dumps made without AI, with a different provider, or all of them — only after you confirm.
+
+### AI models
+- Model downloads show the speed and time left, sit directly under the model you picked, and can be paused and resumed or cancelled. (Cancelling now discards the partly downloaded file.) The models list shows a few at a time with a "Show more" button, and so does the changelog.
+- Copy diagnostics (Settings → About): copies a support summary with no dump text, keys or your user name in it.
+
+### Also
 - New brain-of-nodes app icon.
 
 ## 0.20.4 — 2026-09-30
