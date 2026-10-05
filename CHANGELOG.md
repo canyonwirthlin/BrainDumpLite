@@ -4,6 +4,10 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.25.2 — 2026-10-04
+A hotfix.
+- Fixed voice transcription: the mic recorded but transcribing failed with an "unexpected keyword argument" error. A newer audio library had slipped into the last build; it's now pinned to a working version.
+
 ## 0.25.1 — 2026-10-02
 A small fix-up release.
 - Fixed the Search tab: clicking it showed the Graph or Ask screen instead.

@@ -1,3 +1,6 @@
 # Optional: local voice transcription. If this fails to install, the app still
 # works — the mic button just disappears.
+# av is pinned below 19: PyAV 19 removed the metadata_errors argument that
+# faster-whisper 1.2.1 passes to av.open(), so every transcription failed.
 faster-whisper>=1.0
+av>=11,<19
