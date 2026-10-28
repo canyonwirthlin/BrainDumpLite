@@ -45,6 +45,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "CHANGELOG.md has no '## $new' section. Write what's new first - it becomes the release notes."
 }
 
+# Code map gate: regenerate docs\CODEMAP.md so the map agents read first ships in step with the code
+# (the add -A below commits it). See CLAUDE.md "Orientation".
+& .\.venv\Scripts\python.exe scripts\codemap.py | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "scripts\codemap.py failed - fix it before releasing." }
+
 [IO.File]::WriteAllText($verFile, "__version__ = `"$new`"`n")
 $html = [IO.File]::ReadAllText("static\index.html")
 [IO.File]::WriteAllText("static\index.html", [regex]::Replace($html, '\?v=[\d.]+', "?v=$new"))

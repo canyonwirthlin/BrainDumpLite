@@ -2,6 +2,8 @@
 
 Stack: Python/FastAPI backend (`app/`), vanilla-JS frontend with no build step (`static/`), Tauri shell (`src-tauri/`), SQLite vault. Schema lives in `app/db.py` (`SCHEMA` + additive `_migrate()`); there is no migration framework.
 
+Orientation: read `docs/CODEMAP.md` first (generated: every file's purpose, imports, endpoints and who calls them, DB columns). Open only the files it points you to. Rebuild it after adding/moving modules or endpoints, and ALWAYS rerun it as the last step before any update, release or hand-back of finished work: `.venv/Scripts/python scripts/codemap.py` (`--check` tells you if it is stale). `release.ps1` also reruns it automatically, so a release can never ship a stale map.
+
 ## Commands
 - Tests: `.venv/Scripts/python -m pytest -q` (≈45 s, 160+ tests)
 - Lint (JS syntax check): `npm run lint:js`
