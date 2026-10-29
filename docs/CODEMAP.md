@@ -130,7 +130,7 @@ Brain map insight overlays: the server-side numbers behind "Lonely dumps", "Open
 - deps: ai, db, graph · used by (1): routes_graph_insights · tests: graph_insights
 - defs: loops, lonely, manual_links, accept_link, remove_link, dismiss_link, reset_dismissed, suggested_links
 
-### `app/import_md.py` (103 loc)
+### `app/import_md.py` (100 loc)
 Markdown importer (Phase 6): each .md/.txt file becomes a dump, processed
 - deps: db, pipeline · used by (1): routes · tests: markdown
 - defs: parse_file, import_files, enqueue, status, drain_sync
