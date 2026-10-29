@@ -183,18 +183,7 @@ a.iconbtn.cal { text-decoration: none; }
 .te-hex.bad { border-color: var(--red); color: var(--red); }
 .te-contrast { min-height: 16px; color: var(--amber); margin-top: 4px; }
 
-/* Graph */
-.graph-legend { display: flex; gap: 16px; margin-bottom: 10px; font-size: 13px; color: var(--dim); }
-.graph-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
-.graph-wrap { position: relative; padding: 0; overflow: hidden; }
-#graph-canvas { display: block; width: 100%; height: 560px; cursor: grab; touch-action: none; }
-.graph-info {
-  position: absolute; top: 12px; right: 12px; max-width: 230px; max-height: 460px;
-  overflow-y: auto; background: color-mix(in srgb, var(--panel-2) 92%, transparent);
-  border: 1px solid var(--line);
-  border-radius: 10px; padding: 12px; font-size: 13px; box-shadow: var(--shadow);
-}
-.graph-info a { color: var(--accent); }/* Toasts */
+/* Toasts */
 
 @media (max-width: 640px) {
   header { flex-wrap: wrap; padding: 10px 12px; }
@@ -245,10 +234,6 @@ a.iconbtn.cal { text-decoration: none; }
   #tasks .glist { flex-direction: row; flex-wrap: wrap; }
 }
 
-/* ── Graph (full width) ───────────────────────────────────────────────────── */
-.graph-wrap { flex: 1; min-height: 320px; position: relative; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); overflow: hidden; margin: 0; }
-#graph-canvas { display: block; cursor: grab; }
-.graph-info { position: absolute; right: 14px; top: 14px; width: 260px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); font-size: 13px; }
 .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 .topbar-slot .chip { cursor: pointer; }
 .topbar-slot .chip.off { opacity: .45; text-decoration: line-through; }
@@ -457,15 +442,6 @@ a.iconbtn.cal { text-decoration: none; }
 .lk-row:hover { background: var(--accent-soft); }
 
 
-/* ── Graph spacing slider ── */
-.graph-bar { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
-.graph-tools { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
-.graph-tools select { width: auto; padding: 5px 30px 5px 10px; font-size: 12.5px; }
-.graph-tools .btn { white-space: nowrap; }
-.graph-bar .sub { margin: 0; }
-.graph-spacing { display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--dim); }
-.graph-spacing input[type=range] { width: 160px; padding: 0; border: 0; background: transparent; accent-color: var(--accent); cursor: pointer; }
-.graph-spacing output { min-width: 32px; font-family: var(--mono); font-size: 11.5px; color: var(--text); }
 
 /* ── 0.20: journal prompt, add-task bar, browse-by-type ────────────────────── */
 .jprompt { margin: 0 0 16px; text-align: left; padding: 14px 18px 12px; border-radius: var(--radius-lg);
@@ -508,13 +484,6 @@ button.name-row { width: 100%; background: transparent; border: 0; text-align: l
 .merge-opt { display: flex; align-items: center; gap: 8px; padding: 7px 0; cursor: pointer; }
 .merge-list { max-height: 320px; overflow: auto; }
 
-/* Brain map: find-a-node box */
-.graph-find { position: relative; }
-.graph-find input { width: 210px; padding: 6px 10px; font-size: 12.5px; }
-.graph-find-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; width: 280px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 4px; }
-.graph-find-list button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; color: var(--text); font: inherit; font-size: 12.5px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
-.graph-find-list button:hover { background: var(--panel-2); }
-.graph-find-list button .small { margin-left: auto; }
 
 /* Snooze / reschedule popover */
 .snooze-menu { position: fixed; z-index: 60; width: 236px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 6px; }
@@ -565,9 +534,6 @@ button.name-row { width: 100%; background: transparent; border: 0; text-align: l
 .dg-cols h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
 .dg-cols .chip { margin: 0 4px 4px 0; }
 
-/* Brain map: path / time-lapse */
-.graph-tools .btn.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
-.graph-tl { position: absolute; left: 14px; bottom: 14px; padding: 6px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; font-size: 13px; font-variant-numeric: tabular-nums; box-shadow: var(--shadow); pointer-events: none; }
 .add-task select { width: auto; flex: none; }
 .add-task input[type=number] { flex: none; }
 

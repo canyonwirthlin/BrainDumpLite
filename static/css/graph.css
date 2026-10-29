@@ -1,0 +1,7 @@
+/* Brain map stylesheet: nothing but imports, one file per owner so parallel work never edits the same file.
+   Order matters (later wins), so keep it. Each file below is also listed in docs/graph-architecture.md. */
+@import url("graph-panel.css");
+@import url("graph-layouts.css");
+@import url("graph-cards.css");
+@import url("graph-overlays.css");
+@import url("graph-tools.css");

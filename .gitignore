@@ -16,3 +16,6 @@ src-tauri/gen/schemas/
 .playwright-mcp/
 *.key
 *.key.pub
+.data/
+.data*/
+.shots/

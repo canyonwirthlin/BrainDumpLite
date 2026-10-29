@@ -1,0 +1,89 @@
+/* Brain map: time-lapse transport bar and the Export menu.
+   Owner: the tools work (static/js/graph/timelapse*.js, export*.js). Theme colours only (var(--...)), no hardcoded dark-only values. */
+
+/* ── Time-lapse transport bar ─────────────────────────────────────────────── */
+.tl-bar {
+  position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 6;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px;
+  background: color-mix(in srgb, var(--panel) 93%, transparent);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); color: var(--text);
+  font-size: 12.5px; user-select: none;
+}
+.tl-bar.is-recording { border-color: color-mix(in srgb, var(--red) 55%, var(--line)); }
+.tl-ctrl { display: flex; align-items: center; gap: 4px; }
+.tl-right { margin-left: 2px; }
+
+.tl-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; min-width: 30px; padding: 0 7px;
+  background: transparent; color: var(--dim); border: 1px solid transparent; border-radius: 9px; font: inherit; font-size: 12.5px; cursor: pointer;
+  transition: background var(--ease), color var(--ease), border-color var(--ease);
+}
+.tl-btn svg { width: 16px; height: 16px; display: block; }
+.tl-btn:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
+.tl-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tl-btn:disabled { opacity: .35; cursor: default; }
+.tl-btn.on { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.tl-play { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; padding: 0; }
+.tl-play:hover:not(:disabled) { background: var(--accent); color: #fff; filter: brightness(1.1); }
+.tl-play svg { width: 17px; height: 17px; }
+
+.tl-readout { flex: 0 0 auto; min-width: 150px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tl-date { font-weight: 600; color: var(--text); }
+.tl-count { color: var(--dim); }
+
+.tl-track { position: relative; flex: 1 1 220px; min-width: 150px; height: 46px; margin: 0 4px; }
+.tl-density { position: absolute; left: 0; right: 0; top: 0; height: 22px; display: flex; align-items: flex-end; gap: 1px; pointer-events: none; }
+.tl-density i { flex: 1 1 0; min-width: 1px; background: color-mix(in srgb, var(--accent) 38%, transparent); border-radius: 1px 1px 0 0; }
+.tl-ticks { position: absolute; left: 0; right: 0; top: 32px; height: 14px; pointer-events: none; }
+.tl-tick { position: absolute; top: 0; width: 1px; height: 4px; background: var(--line); }
+.tl-tick.major { height: 6px; background: var(--dim); }
+.tl-tl { position: absolute; top: 5px; transform: translateX(-50%); font-size: 10.5px; line-height: 12px; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tl-tl.major { color: var(--text); font-weight: 600; }
+
+.tl-range {
+  -webkit-appearance: none; appearance: none; position: absolute; left: 0; right: 0; top: 12px; width: 100%; height: 20px; margin: 0; padding: 0;
+  background: transparent; border: 0; cursor: pointer; --tl-pct: 0%;
+}
+.tl-range:focus { outline: none; }
+.tl-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--tl-pct), var(--line) var(--tl-pct)); }
+.tl-range::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line); }
+.tl-range::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+.tl-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: var(--accent); border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--accent); }
+.tl-range::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--accent); }
+.tl-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+
+.tl-speed { width: auto; height: 30px; padding: 0 24px 0 9px; font-size: 12.5px; border-radius: 9px; cursor: pointer; }
+.tl-recdot { display: inline-flex; color: var(--red); }
+.tl-recbtn { padding: 0 10px 0 7px; }
+.tl-recbtn.recording { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); border-color: color-mix(in srgb, var(--red) 45%, transparent); font-variant-numeric: tabular-nums; }
+.tl-recbtn.recording .tl-recdot { animation: tl-blink 1s ease-in-out infinite; }
+@keyframes tl-blink { 50% { opacity: .25; } }
+
+/* Narrow windows: the scrubber gets a row of its own on top, the controls sit below it. */
+@media (max-width: 1100px) {
+  .tl-track { order: -1; flex: 1 0 100%; margin: 0; }
+  .tl-readout { min-width: 0; }
+  .tl-right { margin-left: auto; }
+}
+@media (max-width: 760px) {
+  .tl-bar { left: 8px; right: 8px; bottom: 8px; padding: 6px 8px; }
+  .tl-reclabel { display: none; }
+  .tl-recbtn.recording .tl-reclabel { display: inline; }
+}
+
+/* ── Export menu ──────────────────────────────────────────────────────────── */
+.graph-export { position: relative; display: inline-block; }
+.graph-export-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 330px; max-width: calc(100vw - 32px);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 6px;
+}
+.graph-export-menu[hidden] { display: none; }
+.gx-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 8px 10px; color: var(--text); font: inherit; cursor: pointer; }
+.gx-item:hover:not(:disabled), .gx-item:focus-visible { background: var(--panel-2); outline: none; }
+.gx-item:disabled { opacity: .5; cursor: default; }
+.gx-title { display: block; font-size: 13px; font-weight: 600; }
+.gx-desc { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.35; color: var(--dim); }
+.gx-opt { display: flex; align-items: center; gap: 8px; padding: 4px 12px 8px; font-size: 12px; color: var(--dim); cursor: pointer; }
+.gx-opt input { margin: 0; accent-color: var(--accent); }
+.gx-sep { height: 1px; margin: 4px 6px; background: var(--line); border: 0; }

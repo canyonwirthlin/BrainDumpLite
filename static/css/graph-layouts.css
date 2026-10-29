@@ -1,0 +1,26 @@
+/* Brain map: layout-specific chrome (the tip chip, the "not enough data" note, matrix tooltips ...).
+   Owner: the layouts work (static/js/graph/layout-*.js, overlay-hulls.js). Colours come from the active theme. */
+.graph-hint {
+  position: absolute; right: 14px; bottom: 14px; z-index: 2; box-sizing: border-box;
+  max-width: min(430px, calc(100% - 28px)); display: flex; gap: 10px; align-items: flex-start;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 8px 8px 12px;
+  font-size: 12.5px; line-height: 1.45; color: var(--dim); box-shadow: var(--shadow);
+}
+.graph-hint button {
+  flex: none; background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 17px; line-height: 1;
+  padding: 0 4px; border-radius: 6px;
+}
+.graph-hint button:hover { color: var(--text); background: var(--accent-soft); }
+.graph-note {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; box-sizing: border-box;
+  max-width: min(380px, calc(100% - 40px)); text-align: center; pointer-events: none;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px;
+  font-size: 13.5px; line-height: 1.5; color: var(--dim); box-shadow: var(--shadow);
+}
+.graph-note b { color: var(--text); }
+
+.graph-caption {
+  position: absolute; left: 14px; top: 12px; z-index: 2; box-sizing: border-box; max-width: calc(100% - 300px);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
+  font-size: 12px; color: var(--dim); pointer-events: none;
+}

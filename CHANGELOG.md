@@ -4,6 +4,46 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.26.0 — 2026-10-28
+The Brain map got a big overhaul: new ways to see your thinking, a calmer control panel, and a lot more it can tell you.
+
+### New layouts
+Pick how your map is drawn. Every layout now has a short description in the panel so you know what you're looking at.
+- Ego rings: put one idea in the middle and see everything around it, ring by ring.
+- Topic timeline: time runs left to right with a lane for each of your busiest topics.
+- Cluster islands: the groups of notes that belong together, each on its own labelled island.
+- Concept map: hides the dumps and shows just your ideas and people, linked by how often they show up together.
+- People × concepts grid: a heat map of who you mention against what you think about. Click a cell to see its dumps.
+
+### A cleaner control panel
+- The cluttered toolbar is now a slim bar (find, layout switcher, fit, node count) plus a side panel you can open or close, with sections for Layout, Overlays, Show, Links, Display and Tools.
+- New link controls: show or hide "mentioned in" lines and "similar to" lines, and choose how alike two dumps must be.
+
+### Overlays you can switch on
+Each one is a toggle in the panel with a plain-English description.
+- Cluster outlines: soft outlines around groups of related things, named after their main topic.
+- Connectors: the ideas and people that bridge otherwise separate parts of your life.
+- Rising & fading: what you've been thinking about more or less lately.
+- Lonely dumps: notes nothing else connects to, with a few suggestions of where they might belong.
+- Open loops: dumps that still have unfinished tasks, with a red ring when something is overdue.
+- Suggested links: ideas that look related but aren't connected yet. Link them, or tell it they're not related.
+
+### Easier to explore
+- Hover over any node for a quick preview card: date, a snippet, key topics and open tasks.
+- Keyboard navigation: arrow keys move between connected nodes, Enter opens, / finds, F fits the screen, P and H toggle Path and Focus, and ? shows every shortcut.
+- Click an idea or person to see a mini chart of how often you've mentioned it, month by month, and whether it's rising or fading.
+- Hold Shift and drag one idea onto another of the same kind to merge them. It asks first, and a merge can't be undone.
+
+### Time-lapse and export
+- Time-lapse now has a play bar: pause, step, scrub through time, change the speed, loop, follow the newest node, and record it as a video.
+- Export your map as an image (PNG), a vector image (SVG), or an Obsidian canvas.
+
+### Faster big maps
+Maps with more than about 1,500 nodes now open in a fraction of a second instead of freezing while they settle, and panning and zooming stay smooth.
+
+### Also
+- A corrupted saved filter list no longer breaks the Brain map.
+
 ## 0.25.2 — 2026-10-04
 A hotfix.
 - Fixed voice transcription: the mic recorded but transcribing failed with an "unexpected keyword argument" error. A newer audio library had slipped into the last build; it's now pinned to a working version.
