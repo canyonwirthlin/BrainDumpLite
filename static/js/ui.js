@@ -73,18 +73,29 @@ export function relTime(iso) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-// Minimal markdown-ish rendering: bullets + paragraphs.
+// Inline markdown on already-escaped text: `code`, **bold**, *italic*, [text](https://…).
+function mdInline(s) {
+  return s
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*\w])\*([^*\s][^*]*)\*(?![*\w])/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+
+// Minimal markdown rendering: #/##/### headings, bullets, paragraphs, inline bold/italic/code/links.
 export function md(text) {
   const lines = esc(text).split(/\r?\n/);
   let html = "", inList = false;
   for (const ln of lines) {
     const m = ln.match(/^\s*[•\-\*]\s+(.*)/);
+    const h = ln.match(/^\s*(#{1,6})\s+(.*?)\s*#*\s*$/);
     if (m) {
       if (!inList) { html += "<ul>"; inList = true; }
-      html += `<li>${m[1]}</li>`;
+      html += `<li>${mdInline(m[1])}</li>`;
     } else {
       if (inList) { html += "</ul>"; inList = false; }
-      if (ln.trim()) html += `<p>${ln}</p>`;
+      if (h) html += `<h4 class="md-h">${mdInline(h[2])}</h4>`;
+      else if (ln.trim()) html += `<p>${mdInline(ln)}</p>`;
     }
   }
   if (inList) html += "</ul>";

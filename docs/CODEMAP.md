@@ -130,7 +130,7 @@ Brain map insight overlays: the server-side numbers behind "Lonely dumps", "Open
 - deps: ai, db, graph · used by (1): routes_graph_insights · tests: graph_insights
 - defs: loops, lonely, manual_links, accept_link, remove_link, dismiss_link, reset_dismissed, suggested_links
 
-### `app/import_md.py` (100 loc)
+### `app/import_md.py` (103 loc)
 Markdown importer (Phase 6): each .md/.txt file becomes a dump, processed
 - deps: db, pipeline · used by (1): routes · tests: markdown
 - defs: parse_file, import_files, enqueue, status, drain_sync
@@ -916,7 +916,7 @@ The first-run tour: a replica of the app you can poke at. Every scene is a small
 - imports: shell, ui · used by (1): onboarding
 - exports: runTour
 
-### `static/js/ui.js` (163 loc)
+### `static/js/ui.js` (174 loc)
 Shared helpers + constants. Pure functions only; no app state here.
 - imports: state · used by (48): color, dumpedit, followup, geminipicker, graph/drag-merge, graph/engine +42
 - exports: ICONS, MODES, PROVIDER_NAMES, STAGES, TONE_ICONS, WIN_ICONS, colorCss, esc, fmtDate, fmtDay, fmtTime, isMac, kindBadge, md +9
