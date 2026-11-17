@@ -23,6 +23,7 @@ def main() -> None:
     ap.add_argument("--port", type=int, required=True)
     ap.add_argument("--dumps", type=int, default=140, help="dumps to seed when the vault is empty (default 140)")
     ap.add_argument("--force-seed", action="store_true", help="re-seed even if the vault already has dumps")
+    ap.add_argument("--empty", action="store_true", help="no seeding: a brand-new vault that starts on the first-run setup (to walk the tutorial's first-run path)")
     a = ap.parse_args()
 
     data = Path(a.data).resolve()
@@ -38,7 +39,9 @@ def main() -> None:
 
     db.init_db()
     has = db.query_one("SELECT COUNT(*) AS n FROM dumps WHERE id != ?", (db.MANUAL_DUMP_ID,))["n"]
-    if not has or a.force_seed:
+    if a.empty:
+        print("[graph_serve] --empty: not seeding (first-run setup will show)", flush=True)
+    elif not has or a.force_seed:
         out = seed_graph_demo.seed(a.dumps, force=bool(has))
         print(f"[graph_serve] seeded {out['dumps']} dumps / {out['items']} items / {out['links']} links", flush=True)
     else:
