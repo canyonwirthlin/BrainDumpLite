@@ -77,16 +77,19 @@ export const getDoc = () => cache || emptyDoc();
 export const onTemplatesChanged = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
 const notify = () => listeners.forEach((fn) => { try { fn(); } catch {} });
 
+// A failed load leaves `cache` unset (the UI shows the built-ins, the next call retries) and saveDoc refuses to run:
+// otherwise the first pin or edit would PUT an EMPTY document over the user's real templates.
 export async function loadDoc(force = false) {
   if (cache && !force) return cache;
   try { cache = Object.assign(emptyDoc(), await api.get("/templates")); }
-  catch { cache = cache || emptyDoc(); }
+  catch { /* keep whatever we had (nothing on a first visit) */ }
   notify();
-  return cache;
+  return cache || emptyDoc();
 }
 
 // Persist a whole document; resolves to the server's normalised copy (throws with a readable message).
 export async function saveDoc(next) {
+  if (!cache) throw new Error("Your templates haven't loaded yet, so nothing was saved. Try again in a moment.");
   cache = Object.assign(emptyDoc(), await api.put("/templates", next));
   notify();
   return cache;

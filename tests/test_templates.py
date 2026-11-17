@@ -1,9 +1,16 @@
 """Dump templates: GET/PUT validation, persistence in one settings key, export round trip."""
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app import dataio, db, routes_templates as rt
 from app.main import create_app
+
+ROOT = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture
@@ -99,6 +106,41 @@ def test_frontend_wiring():
     st = (root / "static/js/views/settings.js").read_text(encoding="utf-8")
     assert '["templates", "Templates"]' in st and "mountTemplateManager" in st
     assert 'api.put("/templates"' in (root / "static/js/templates.js").read_text(encoding="utf-8")
+
+
+def test_ids_with_a_trailing_newline_are_rejected(client):
+    """Python's `$` matches before a final newline, so a regex id check let "abc\\n" through."""
+    for doc in ({"templates": [_t(1) | {"id": "u_1\n"}]}, {"deleted": ["morning\n"]}, {"order": ["x\n"]}, {"overrides": {"morning\n": {"label": "a", "text": "b"}}}):
+        assert client.put("/api/templates", json=doc).status_code == 422, doc
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_a_failed_first_load_never_overwrites_the_saved_templates():
+    """loadDoc() used to fall back to an EMPTY document when the server could not be reached; the next pin / edit then
+    PUT that empty document over the user's real templates."""
+    script = """
+globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+const calls = [];
+let down = true;
+globalThis.fetch = async (url, opts = {}) => {
+  calls.push((opts.method || "GET") + " " + url);
+  if (down) throw new TypeError("offline");
+  return { ok: true, json: async () => ({ templates: [{ id: "u_1", label: "Mine", text: "x" }], overrides: {}, deleted: [], order: [], pinned: null }) };
+};
+const T = await import(%s);
+await T.loadDoc();
+let refused = "";
+try { await T.saveDoc(T.withPin(T.getDoc(), "morning", false)); } catch (e) { refused = e.message; }
+const putsWhileDown = calls.filter((c) => c.startsWith("PUT")).length;
+down = false;
+await T.loadDoc();                                   // a later visit retries the load
+console.log(JSON.stringify({ refused, putsWhileDown, mine: T.resolveTemplates().some((t) => t.id === "u_1") }));
+""" % json.dumps((ROOT / "static/js/templates.js").as_uri())
+    out = subprocess.run(["node", "--no-warnings", "--input-type=module", "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=60)
+    assert out.returncode == 0, out.stderr
+    r = json.loads(out.stdout.strip().splitlines()[-1])
+    assert r["putsWhileDown"] == 0 and r["refused"], "saving before the templates ever loaded must be refused, not sent"
+    assert r["mine"], "the next load must still fetch the real document"
 
 
 def test_included_in_json_export(client):
