@@ -260,3 +260,67 @@ console.log(JSON.stringify(out));
     assert r["label"] == ["“a” to “b”", "“a” and “b”"]
     assert r["key"][0] == r["key"][1]
     assert r["portHit"] == ["e", "w", None, None]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_suggested_links_overlay_follows_link_mode_edits():
+    """Link mode removing a concept pair must also take its solid line off the Suggested links overlay (which keeps its
+    own copy of the accepted links), and a pair made in Link mode must stop being suggested."""
+    script = """
+const noop = () => {};
+globalThis.window = globalThis; globalThis.addEventListener = noop; globalThis.removeEventListener = noop;
+let click = null;
+globalThis.document = { addEventListener: (t, fn) => { if (t === "click") click = fn; }, querySelector: () => null, getElementById: () => null, documentElement: {},
+  createElement: () => ({ classList: { add: noop, remove: noop }, remove: noop }), body: { appendChild: noop } };
+globalThis.getComputedStyle = () => ({ getPropertyValue: () => "" });
+globalThis.localStorage = { getItem: () => null, setItem: noop };
+const L = (a, b) => ({ a, b, a_label: a, b_label: b, kind: "pair" });
+let pairs = [L("concept:x", "concept:y")];
+const sug = (a, b) => ({ a, b, a_label: a, b_label: b, score: 0.5, reason: "" });
+globalThis.fetch = async (url, opts = {}) => {
+  const u = String(url), m = opts.method || "GET";
+  let body = {};
+  if (u.includes("/graph/insights/suggested-links")) body = { links: [sug("concept:x", "concept:z"), sug("concept:y", "concept:z")] };
+  else if (u.includes("/graph/insights/links") && m === "POST") { pairs = [L("concept:x", "concept:y")]; body = { links: pairs }; }
+  else if (u.includes("/graph/insights/links") || u.includes("/graph/blueprint/links")) body = { links: pairs };
+  else if (u.includes("/graph/blueprint/link") && m === "DELETE") { pairs = []; body = { removed: true, kind: "pair", names: [], links: pairs }; }
+  else if (u.includes("/graph/blueprint/link") && m === "POST") { pairs = [L("concept:x", "concept:z")]; body = { created: true, kind: "pair", names: [], links: pairs }; }
+  return { ok: true, json: async () => body };
+};
+const { runGraphReady } = await import(%(hooks)s);
+const store = await import(%(store)s);
+await import(%(overlay)s);
+const { OVERLAYS } = await import(%(overlays)s);
+const ov = OVERLAYS.find((o) => o.id === "links");
+const node = (id) => ({ id, x: 0, y: 0, r: 5 });
+let live;
+const api = { on: () => noop, requestDraw: noop, colors: { text: "#fff", bg: "#000", edge: "#999" }, view: { scale: 1 }, hoverId: null, selectedId: null,
+  prefs: { get: () => false }, isVisible: () => true, byId: { "concept:x": node("concept:x"), "concept:y": node("concept:y"), "concept:z": node("concept:z") },
+  overlays: { state: () => live, isActive: () => true } };
+runGraphReady(api, { data: null, mount: noop });
+await new Promise((r) => setTimeout(r, 20));
+const lines = () => { let n = 0; const c = { save: noop, restore: noop, beginPath: noop, stroke: noop, fill: noop, arc: noop, fillText: noop, setLineDash: noop, lineTo: noop, moveTo: () => { n++; } }; ov.drawUnder(c, api, live); return n; };
+live = await ov.load(api);
+const out = { before: lines() };                 // x-y solid + two ghosts
+await store.fetchLinks();
+await store.removeLink("concept:x", "concept:y");
+out.afterRemove = lines();                       // the two ghosts only
+await store.createLink("concept:x", "concept:z");
+out.afterCreate = lines();                       // x-z solid + the y-z ghost (x-z is no longer suggested)
+// the other direction: "Link these" in the overlay must reach Link mode's own list (its filter drops edges it does not know)
+await store.removeLink("concept:x", "concept:z");
+pairs = [];
+await store.fetchLinks();
+const before = store.getLinks().length;
+click({ target: { closest: () => ({ dataset: { ov: "ov-link", a: "concept:x", b: "concept:y" } }) }, preventDefault: noop });
+await new Promise((r) => setTimeout(r, 30));
+out.blueprintKnows = [before, store.getLinks().length];
+console.log(JSON.stringify(out));
+""" % {k: json.dumps((GRAPH / v).as_uri()) for k, v in {"hooks": "hooks.js", "store": "blueprint-store.js", "overlay": "overlay-links.js", "overlays": "overlays.js"}.items()}
+    out = subprocess.run(["node", "--no-warnings", "--input-type=module", "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=60)
+    assert out.returncode == 0, out.stderr
+    r = json.loads(out.stdout.strip().splitlines()[-1])
+    assert r["before"] == 3, "one solid accepted line and two suggestion ghosts"
+    assert r["afterRemove"] == 2, "the pair Link mode removed must not stay on the Suggested links overlay"
+    assert r["afterCreate"] == 2, "a pair made in Link mode shows as the solid line and is no longer suggested"
+    assert r["blueprintKnows"] == [0, 1], "a link accepted from the overlay must show up in Link mode's list"

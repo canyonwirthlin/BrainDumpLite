@@ -11,6 +11,7 @@ import { registerFilter } from "./data.js";
 import { onGraphReady } from "./hooks.js";
 import { toast } from "../ui.js";
 import { api as http } from "../api.js";
+import { onLinksChange, fetchLinks } from "./blueprint-store.js";
 import { palette, fetchInsight, onAction, wireActions, legend, key, note, section, esc } from "./overlay-common.js";
 
 const pairKey = (a, b) => (a < b ? a + "|" + b : b + "|" + a);
@@ -46,6 +47,17 @@ function drop(a, b) {
   const live = ctx?.api.overlays.state("links");
   if (live && live.links) Object.assign(live, stateFrom(cache.links));   // the map is showing this very object
 }
+// Link mode (blueprint.js) edits the very same accepted-links list through its own endpoints. When it reports a change,
+// follow it: otherwise a pair it removed keeps its solid line here, and a pair it made keeps its "?" ghost.
+onLinksChange((links) => {
+  const next = links.filter((l) => l.kind === "pair").map((l) => ({ a: l.a, b: l.b, a_label: l.a_label, b_label: l.b_label }));
+  const keys = new Set(next.map((l) => pairKey(l.a, l.b)));
+  if (keys.size === manual.length && manual.every((l) => keys.has(pairKey(l.a, l.b)))) return;
+  manual = next;
+  for (const l of next) drop(l.a, l.b);
+  forceDraw();
+});
+
 /** Rebuild the map (so accepted links appear/disappear as edges) and re-open the info box on the same node. */
 function remount(selectId) {
   const { api, state } = ctx;
@@ -53,6 +65,8 @@ function remount(selectId) {
   // overlay state reloads asynchronously after a rebuild, so wait a tick before re-rendering the info box
   if (selectId) setTimeout(() => { if (api.byId[selectId]) api.select(selectId); }, 0);
 }
+/** Tell Link mode's list about an accepted link made or removed here: its data filter drops any "manual" edge that list lacks. */
+const syncBlueprint = () => fetchLinks().catch(() => {});
 async function act(label, fn) {
   try { return await fn(); } catch (e) { toast(`${label}: ${e.message || "something went wrong"}`); return null; }
 }
@@ -63,7 +77,8 @@ onAction("ov-link", async (d) => {
   if (!r) return;
   manual = r.links; drop(d.a, d.b);
   toast("Linked. You can undo it any time from the node's info box.");
-  remount(ctx.api.selectedId);
+  await syncBlueprint();
+  if (ctx) remount(ctx.api.selectedId);
 });
 onAction("ov-notrel", async (d) => {
   if (!ctx) return;
@@ -80,7 +95,8 @@ onAction("ov-unlink", async (d) => {
   const r = await act("Couldn't remove the link", () => http.del(`/graph/insights/links?a=${encodeURIComponent(d.a)}&b=${encodeURIComponent(d.b)}`));
   if (!r) return;
   manual = r.links; cache = null;
-  remount(ctx.api.selectedId);
+  await syncBlueprint();
+  if (ctx) remount(ctx.api.selectedId);
 });
 
 // ── geometry for clicking / hovering a ghost edge ───────────────────────────────────────────────
