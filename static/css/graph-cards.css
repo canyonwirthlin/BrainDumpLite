@@ -82,12 +82,6 @@
 }
 .bdl-merge-tip.show { opacity: 1; }
 .bdl-merge-tip.no { background: var(--panel-2); color: var(--dim); border: 1px solid var(--line); font-weight: 500; }
-.bdl-merge-dlg .md-sub { color: var(--dim); font-size: 13px; line-height: 1.5; margin: 8px 0 0; }
-.bdl-merge-dlg .md-flow { display: flex; align-items: center; gap: 10px; margin: 14px 0 2px; font-weight: 600; flex-wrap: wrap; }
-.bdl-merge-dlg .md-flow span.name { padding: 4px 10px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); max-width: 100%; overflow-wrap: anywhere; }
-.bdl-merge-dlg .md-flow span.name.to { border-color: var(--accent); color: var(--accent); }
-.bdl-merge-dlg .md-warn { margin-top: 10px; font-size: 12.5px; color: var(--amber); }
-.bdl-merge-dlg .md-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 @media (max-width: 700px) {
   .bdl-hc { width: 260px; }

@@ -53,6 +53,12 @@ console.log(JSON.stringify([PERF_NODES, isLargeMap(140), isLargeMap(1500), isLar
 _GRAPH_SETUP = """
 import { makeSim, step, DEFAULT_FORCES, placeOrganic, placeGalaxy } from %r;
 import { packSim, createCore, coreStep, coreRun } from %r;
+// physics.js draws Math.random() for the start jitter and for two nodes sitting on the very same spot; the two
+// implementations draw in a different order, so an unseeded run diverges whenever such a pair turns up (about 3 runs in 100).
+// Seed it: the test is then the same on every machine and every load.
+let rs = 987654321;
+let draws = 0;
+Math.random = () => { draws++; rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
 let seed = 12345;
 const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
 function build(N) {
@@ -88,16 +94,18 @@ for (const [N, layout, forces] of cases) {
   for (const q of [a, b]) { const p = q.nodes[3]; p.fx = p.x = 42; p.fy = p.y = 17; }   // one pinned node
   const core = createCore(packSim(b.nodes, b.edges, F, env, 1, simA.decay));
   let maxd = 0;
+  const drawsBefore = draws;
   for (let it = 0; it < 12; it++) {
     step(simA, F, env); coreStep(core);
     for (let i = 0; i < N; i++) maxd = Math.max(maxd, Math.abs(a.nodes[i].x - core.x[i]), Math.abs(a.nodes[i].y - core.y[i]));
   }
-  res.push([N, layout, maxd < 1e-3, core.x[3] === 42 && core.y[3] === 17, Math.abs(simA.alpha - core.alpha) < 1e-12]);
+  res.push([N, layout, maxd < 1e-3, core.x[3] === 42 && core.y[3] === 17, Math.abs(simA.alpha - core.alpha) < 1e-12, draws === drawsBefore]);
 }
 console.log(JSON.stringify(res));
 """)
     import json
-    for n, layout, close, pinned, alpha_ok in json.loads(out.strip().splitlines()[-1]):
+    for n, layout, close, pinned, alpha_ok, no_rng in json.loads(out.strip().splitlines()[-1]):
+        assert no_rng, f"{layout} {n}: two nodes landed on the same spot, the step drew random numbers and the two sims draw differently; pick another seed"
         assert close, f"{layout} {n}: positions diverged from physics.step"
         assert pinned and alpha_ok, f"{layout} {n}"
 

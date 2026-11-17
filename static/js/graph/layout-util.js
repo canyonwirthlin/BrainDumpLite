@@ -102,9 +102,6 @@ export function buildModel(nodes, edges) {
   }
   return { byId, dumps, hubs, items, hubsOf, dumpsOf };
 }
-/** Distinct dumps mentioning a hub. */
-export const mentionsOf = (model, id) => (model.dumpsOf.get(id) || []).length;
-
 /** HTML list of dumps (newest first) for the info panel. */
 export function dumpListHtml(dumps, max = 14) {
   const sorted = [...dumps].sort((a, b) => dumpTime(b) - dumpTime(a));

@@ -1,7 +1,7 @@
 // Brain map export: one "Export" dropdown that saves the map as a PNG, an SVG, or an Obsidian canvas.
 //
-// The control mounts into <div id="graph-slot-export"> when the control panel provides it (and again after each
-// "bdl-graph-panel-rendered" event, idempotently); with the older toolbar it is appended to the last .graph-tools row.
+// The control mounts into <div id="graph-slot-export"> (the ribbon's Export tool renders it) and again after each
+// "bdl-graph-panel-rendered" event, idempotently.
 // Everything is built client-side from what the map is showing right now (after filters, Focus, time-lapse), so
 // trashed and private dumps - which never reach the client - cannot appear. Also reachable from code as `api.exporter`:
 //   exporter.png({ transparent }) -> Promise<Blob>      exporter.svg({ transparent }) -> string
@@ -141,13 +141,7 @@ function menuHtml(api) {
 }
 
 function mountExport(api) {
-  const slot = document.getElementById("graph-slot-export");
-  let host = slot;
-  if (!host) {
-    if (document.getElementById("graph-export")) return;
-    const rows = document.querySelectorAll(".graph-bar .graph-tools");
-    host = rows[rows.length - 1];
-  }
+  const host = document.getElementById("graph-slot-export");   // the ribbon's Export tool (ribbon-tools.js) renders it empty
   if (!host || host.querySelector("#graph-export")) return;
   const root = document.createElement("span");
   root.className = "graph-export";
@@ -194,6 +188,6 @@ onGraphReady((api) => {
   api.exporter = makeExporter(api);
   const again = () => mountExport(api);
   window.addEventListener("bdl-graph-panel-rendered", again);
-  const t = setTimeout(again, 0);   // the older toolbar has no event: its markup exists as soon as this tick ends
+  const t = setTimeout(again, 0);   // the ribbon may have rendered before this hook ran
   return () => { clearTimeout(t); window.removeEventListener("bdl-graph-panel-rendered", again); };
 });

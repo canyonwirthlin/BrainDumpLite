@@ -15,7 +15,7 @@ button { font: inherit; cursor: pointer; border: none; border-radius: 10px; }
 /* Native-app feel: UI chrome doesn't select/drag-highlight like a web page.
    Real content (dump text, item content, inputs) is left selectable. */
 #rail, #titlebar, #topbar, button, .btn, .nav, .mode-chip, .provider, .chip, .tag,
-.pill, .sw, .dot, .status-dot, .sec, label, .kbd-hint, h2, .ob-tag, .ob-rec,
+.pill, .sw, .dot, .sec, label, .kbd-hint, h2, .ob-tag, .ob-rec,
 .hero, .sub, .ao-wrap > summary, .streak-badge {
   user-select: none; -webkit-user-select: none;
 }
@@ -53,8 +53,6 @@ code { font: 12.5px var(--mono); background: var(--panel-2); padding: 1px 6px; b
 #rail .wip { position: absolute; top: 3px; right: 3px; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%;
   background: color-mix(in srgb, var(--amber) 22%, var(--rail)); color: var(--amber); box-shadow: 0 0 0 2px var(--rail); }
 #rail .wip svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-#rail .nbadge { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #fff;
-  font: 600 10px/16px var(--mono); text-align: center; box-shadow: 0 0 0 2px var(--rail); }
 #rail .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); margin: 6px 0; }
 #rail .ai-dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
 
@@ -177,7 +175,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 #onboarding { position: fixed; inset: 0; z-index: 95; background: var(--bg); overflow: auto; }
 .ob-wrap { max-width: 640px; margin: 0 auto; padding: 48px 24px 32px; min-height: 100%; display: flex; flex-direction: column; }
 .ob-head { text-align: center; margin-bottom: 22px; }
-.ob-head .brain-mark, .ob-slide-icon { width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 14px; display: grid; place-items: center;
+.ob-head .brain-mark { width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 14px; display: grid; place-items: center;
   background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 24px; }
 .ob-head .brain-mark svg { width: 28px; height: 28px; stroke: currentColor; fill: none; stroke-width: 1.8; }
 .ob-head h1 { margin: 0 0 8px; }
@@ -196,9 +194,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .ob-step-item b { color: var(--accent); flex-shrink: 0; }
 .ob-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 20px; }
 .ob-foot .btn { min-width: 110px; }
-.ob-tour { justify-content: center; position: relative; }
-.ob-slide { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 0; }
-.ob-slide h1 { margin: 0 0 10px; } .ob-slide .sub { max-width: 420px; }
 .ob-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 8px; }
 .ob-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
 .ob-dots i.on { background: var(--accent); width: 18px; border-radius: 4px; }

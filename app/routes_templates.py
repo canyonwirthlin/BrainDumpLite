@@ -36,7 +36,7 @@ def _bad(msg: str):
 
 
 def _id(v, what: str) -> str:
-    if not isinstance(v, str) or not _ID.match(v):
+    if not isinstance(v, str) or not _ID.fullmatch(v):   # fullmatch: `$` would also accept a trailing newline
         _bad(f"{what}: a template id is 1-40 letters, digits, - or _")
     return v
 
