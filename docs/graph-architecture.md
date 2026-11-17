@@ -99,10 +99,13 @@ static/js/graph/export*.js    Export menu (export.js), PNG/SVG/Obsidian canvas b
                               shared helpers (export-common.js), save/download (export-save.js -> POST /api/graph/export/save)
 static/js/graph/path.js       Path mode (BFS between two clicked nodes)
 static/js/graph/find.js       "Find a node" box
-static/js/graph/panel.js      the slim bar + collapsible side panel (section 9)
+static/js/graph/panel.js      page chrome: ribbon host + map wrap + overlay legend card (section 9)
+static/js/graph/ribbon.js     the ribbon: tab strip + tool row + tooltips + "?" panel, drawn from toolbar.js (section 9)
+static/js/graph/ribbon-tools.js / ribbon-filters.js   the built-in tools (View, Layout, Overlays, Edit/Select, Tools; Filter); ribbon-model.js = pure helpers
+static/js/graph/toolbar.js    tool registry contract (registerTool, TABS, modes); undo.js = undo stack
 static/js/graph/hooks.js      onGraphReady(fn): subscribe to the bus once per visit
 static/js/graph/plugins.js    manifest of side-effect imports: add your module here
-static/css/graph.css          @imports only; graph-panel / -layouts / -cards / -overlays / -tools .css, one owner each
+static/css/graph.css          @imports only; graph-panel / -layouts / -cards / -overlays / -tools / -toolbar .css, one owner each
 app/graph_cards.py + routes_graph_cards.py       GET /api/graph/card/{node id}
 app/graph_insights.py + routes_graph_insights.py GET /api/graph/insights/{lonely,loops,suggested-links,links}, POST/DELETE links, POST dismiss
 app/routes_graph_export.py    POST /api/graph/export/save (target of the native Save dialog; see "Security")
@@ -115,7 +118,7 @@ one import line on its own line in `plugins.js`, and CSS in its own `graph-*.css
 ### Lifecycle (read this once)
 
 `render()` (every visit to `#graph`) creates **one persistent `api`**, installs infobox / path / time-lapse, runs the
-`onGraphReady` hooks, renders the panel, loads data and calls `state.mount()`. `state.mount()` applies the filters
+`onGraphReady` hooks, renders the panel (page chrome + ribbon), loads data and calls `state.mount()`. `state.mount()` applies the filters
 and calls `api.mount(canvas, {nodes, edges})`, which builds a **fresh engine instance** (new canvas, new node objects)
 and emits `nodesChanged`. Mounts happen whenever a filter, layout, node type or Focus changes. So: subscribe to the
 bus once (in an `onGraphReady` hook or an install function), re-derive per-node data in a `nodesChanged` handler,
@@ -131,7 +134,7 @@ mount(), refresh(), toggleType(id), setFocus(bool) }`. `api.viewState` is the sa
 ```js
 LAYOUTS.push({
   id: "lanes", label: "Swim lanes", icon: "≡",
-  desc: "One lane per topic, dumps in time order along each lane.",   // 1-2 sentences, shown by the control panel
+  desc: "One lane per topic, dumps in time order along each lane.",   // 1-2 sentences, shown in the ribbon (tooltip and "?" panel)
   prepare(data, api) { return { nodes: data.nodes.filter(n => n.type !== "dump"), edges: data.edges }; }, // optional
   place(api) { api.nodes.forEach((n, i) => { n.x = i * 40; n.y = 0; n.tx = n.x; n.ty = n.y; }); },
   forces: { repulsion: 0, linkPull: 0.2, anchor: 0.1 },   // optional knobs, see below
@@ -183,7 +186,7 @@ registerOverlay({
 `gap` = extra distance from the node); `badge` is a string or `{ text, bg, color }` (a pill at the node's top-right).
 Shipped overlays (ids): `hulls` Cluster outlines, `bridges` Connectors, `trends` Rising & fading, `lonely` Lonely dumps,
 `loops` Open loops, `links` Suggested links. Precedence when several are on is in the header of `overlay-common.js`.
-`legend(state)` html is shown by the panel in the map's bottom-right card under the overlay's own heading, so it must
+`legend(state)` html is shown by panel.js in the map's bottom-right card under the overlay's own heading, so it must
 not repeat the title (use `legend()` from `overlay-common.js`, which only wraps the keys). An overlay with an `info` for a
 dump makes a plain click on that dump select it instead of opening it (info box with an "Open dump" button), see
 `api.overlays.infoHtml(node)`; with no such overlay a click on a dump opens its history page as before.
@@ -278,8 +281,8 @@ height as `--tl-off` on the wrap so legends, tips and the "?" button sit above i
 The timeline is the dumps on the map; in layouts that show no dumps (concept map, grid) it is the concepts/people,
 dated by their first dump (`fillBorn()` reads the unfiltered `viewState.data`), and `unit` is `"topic"`. Layouts that
 paint their own data should honour `api.timelapse.alive(n)` / `state.cur` (the grid counts only dumps up to `cur`).
-The single start button is `#graph-tl-btn` in the panel's Tools section; `mountTimelapseUI(container, api)` is the older
-one-button control and only mounts into `#graph-slot-timelapse` when no `#graph-tl-btn` exists.
+The single start button is `#graph-tl-btn`, the Time-lapse tool on the ribbon's Tools tab; `mountTimelapseUI(container, api)` is the older
+one-button control and only mounts into `#graph-slot-timelapse` (no longer rendered) when no `#graph-tl-btn` exists.
 
 ## 8. Path mode (`path.js`)
 
@@ -287,26 +290,54 @@ one-button control and only mounts into `#graph-slot-timelapse` when no `#graph-
 `handled` while the mode is on, runs BFS over `api.nbrIds`, sets `api.setHighlight(path)` and writes the summary with
 `showHtml`. Mode survives rebuilds; a half-made path does not.
 
-## 9. Panel seam (`panel.js`)
+## 9. Ribbon (`ribbon.js`, `panel.js`)
 
-`renderPanel(ctx, state)` is the only thing `views/graph.js` calls for chrome. It must call `ctx.setTitle(...)`, write
-the chrome plus an empty `<div class="graph-wrap" id="graph-wrap"></div>` into `#view`, wire every control, and return
-`{ paintLegend(), setCount(text) }`. Structure: a slim bar (`#graph-find` + `#graph-find-list`, layout quick-switch
-`#gp-layout-bar`, Fit, count `#graph-count`, Panel toggle) above `#graph-main` = the map wrap + `<aside id="graph-panel">`.
-The panel body is generated from the registries, in this order: **Layout** (every `LAYOUTS` entry; the chosen one shows
-its full `desc`, the others a 2-line preview + tooltip), **Overlays** (every `OVERLAYS` entry as icon + label + desc +
-switch `#gp-ov-<id>`, grouped by `group`), **Show** (node types, date range, minimum mentions, Reset filters, live
-count), **Links** (mention / similar switches, similarity threshold), **Display** (spacing, titles on hover, Focus),
-**Tools** (Path, Fit, `#graph-tl-btn`, and three mount points). Mount points inside Tools: `#graph-slot-timelapse`,
-`#graph-slot-export` (the Export menu opens inline there), `#graph-slot-keys` (the "Keyboard shortcuts" button; a floating
-"?" on the map is always present too). The body is re-rendered after node-type edits and filter resets, which throws
-mounted content away, so after every render the panel dispatches `window` event **`bdl-graph-panel-rendered`**: listen
-to it (and also mount once at ready) and refill your slot idempotently. Persisted UI state: `bdl-graph-panel-open`
-(`"1"/"0"`, default open from 1150 px wide), `bdl-graph-panel-collapsed` (JSON array of section ids). Active overlays'
-legends are drawn in a card at the bottom-right of the map (`.gp-legend`), rebuilt on `nodesChanged` / `overlaysChanged`.
-Other ids kept for other modules: `#graph-tl-btn`, and in the map wrap `#graph-info`, `#graph-tl`, `#graph-canvas`
-(created by `state.mount()`). Bottom-edge furniture (tip chip, legends, "?", cheat sheet, transport bar) is positioned
-in `graph-panel.css` so they stack instead of overlapping.
+The controls are a Studio / Office style **ribbon**: a 30px tab strip (View, Layout, Overlays, Filter, Edit, Tools) over one
+compact row (about 92px in all) of icon + label tools, groups separated by thin dividers. At the right end of the strip are the
+live node count ("Showing X of Y nodes", `#graph-count`) and the **"?"** button, which opens a panel with the active tab's `help`
+plus every tool's name and `help` (Esc or a click elsewhere closes it). Every tool has a styled tooltip (its `tip`, plus its
+shortcut `key`) on hover and on keyboard focus; icon-only tools get the tip as `aria-label`. Wide tabs (Filter) scroll sideways
+at narrow widths (edge arrows appear) instead of growing taller. The last tab is remembered in `bdl-graph-ribbon-tab`.
+
+`views/graph.js` calls `renderPanel(ctx, state)` (`panel.js`), the only thing it needs for chrome. It calls `ctx.setTitle(...)`, writes
+`<div id="graph-ribbon-host">` and an empty `<div class="graph-wrap" id="graph-wrap">` into `#view`, points the tools at this
+visit's map (`bindToolContext(api, state)`), mounts the ribbon, sets `state.resetFilters`, draws the overlay legend card
+(`.gp-legend`, bottom-right of the map, rebuilt on `nodesChanged` / `overlaysChanged`) and returns `{ paintLegend(), setCount(text) }`
+(`paintLegend` rebuilds the tool row after node types change, `setCount` writes the status area).
+
+### Adding a tool (the whole API; the ribbon needs no change)
+
+```js
+import { registerTool, notifyToolbar } from "./toolbar.js";   // contract: the header of toolbar.js
+registerTool({
+  tab: "tools", id: "my-tool", label: "My tool", icon: "<svg ...>", order: 50, group: "mine",   // dividers appear where `group` changes
+  tip: "One plain sentence.", help: "One to three sentences for the tab's ? panel.", key: "M",
+  kind: "toggle", run() { ... }, isActive() { return on; }, isEnabled() { return true; },
+});
+```
+
+* `kind`: `button` (run once), `toggle` (run flips a setting, `isActive` = pressed look), `mode` (exclusive, `setMode(id)` from
+  toolbar.js; `select` is the default mode and lives in the Edit tab; graph-blueprint adds `link`, graph-undo adds `merge`,
+  `undo`, `redo` there), `custom` (`mount(el, { api, state })` fills the slot itself: sliders, the Find box, chips; optional
+  `update(el, ctx)` runs on every refresh so a control follows its pref without being rebuilt).
+* The ribbon re-reads `isActive` / `isEnabled` / `label` / `icon` / `tip` (each may be a function, or mutated on the registered object)
+  after every `notifyToolbar()`; pref changes, clicks, key presses, overlay changes, `nodesChanged` and time-lapse changes already
+  notify. Registering a tool notifies too, and the ribbon redraws the tab when its set of tools changed.
+* Built-in tools: `ribbon-tools.js` (View: Find, Fit, Focus, Hover titles, Spacing; Layout: one per `LAYOUTS` entry; Overlays: one per
+  `OVERLAYS` entry, grouped by `group`; Edit: Select; Tools: Path, Time-lapse, Export, Keyboard shortcuts) and `ribbon-filters.js`
+  (Node types incl. rename / recolor / add, Date range, Min mentions, Mention / Similar links, How alike, Reset). Layouts and
+  overlays get their tool automatically (`syncRegistryTools()`); the tool's tip is the first sentence of the `desc`, its help the whole `desc`.
+  Tools act on the current visit through `cur.api` / `cur.state` (exported by `ribbon-tools.js`), set by `bindToolContext`.
+* Mount points for modules that fill their own control: the Export tool renders `<div id="graph-slot-export">` and the Keyboard
+  shortcuts tool `<div id="graph-slot-keys">`; the Time-lapse tool's button has id `#graph-tl-btn`; Find renders `#graph-find` +
+  `#graph-find-list`. A slot exists only while its tab is the active one. The ribbon dispatches window event
+  **`bdl-graph-panel-rendered`** after every tool-row render (tab switch, node-type edit, new tool): listen to it (and also mount once
+  at ready) and refill your slot idempotently. Dropdowns hanging off the row (Export menu, Find results) are `position: fixed` with no
+  offsets in `graph-toolbar.css` so the scrolling row does not clip them.
+* Other ids kept for other modules: in the map wrap `#graph-info`, `#graph-tl`, `#graph-canvas` (created by `state.mount()`). Bottom-edge
+  furniture (tip chip, legends, "?" on the map, cheat sheet, transport bar) is positioned in `graph-panel.css` so they stack.
+* Theme tokens only (`var(--...)`); tests: `tests/test_graph_ribbon.py` (registry contract under Node: every tool has a tip, help, valid
+  tab), `tests/test_graph_ribbon_model.py` (pure helpers), `tests/test_graph_panel.py`.
 
 ## Behaviour notes / things that are easy to break
 
@@ -316,13 +347,13 @@ in `graph-panel.css` so they stack instead of overlapping.
   `static/index.html` are rewritten by `release.ps1`.
 * `localStorage` keys (do not rename): `bdl-graph-spacing`, `-layout`, `-hover-titles`, `-min`, `-range`, `-types`
   (hidden node types), `-pins`, `-view-<layoutId>`, `-overlays`; newer: `-edge-mention`, `-edge-similar`, `-edge-min-similar`,
-  `-tl-speed`, `-tl-loop`, `-tl-follow`, `-hint-<layoutId>`, `-panel-open`, `-panel-collapsed`, `-export-transparent`.
+  `-tl-speed`, `-tl-loop`, `-tl-follow`, `-hint-<layoutId>`, `-ribbon-tab`, `-export-transparent`.
   Every reader must tolerate junk (an unknown layout falls back to organic; non-array lists are ignored).
 * Click rule (engine): a plain click on a dump or item opens its history page, unless Focus is on, the node is already
   selected, Path mode handled it, or an active overlay has `info` for it (then it selects and the info box offers
   "Open dump"). The hover card is not shown for the selected node.
 * Toggling Focus rebuilds the map; `state.setFocus` re-selects the previous selection afterwards.
-* Time-lapse start button, Keys button, Export: one entry point each in the panel (see section 9), never a second copy.
+* Time-lapse start button, Keys button, Export: one entry point each on the ribbon's Tools tab (see section 9), never a second copy.
 
 ## Security of the new endpoints
 

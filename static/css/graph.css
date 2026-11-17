@@ -6,6 +6,6 @@
 @import url("graph-overlays.css");
 @import url("graph-tools.css");
 /* Toolbar work, one reserved line per owner (uncomment only YOUR line, keep the order). */
-/* @import url("graph-toolbar.css");    graph-shell */
+@import url("graph-toolbar.css");
 @import url("graph-blueprint.css");  /* graph-blueprint */
-/* @import url("graph-edit.css");       graph-undo */
+@import url("graph-edit.css");       /* graph-undo */

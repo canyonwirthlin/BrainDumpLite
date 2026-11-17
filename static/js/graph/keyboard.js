@@ -145,7 +145,7 @@ onGraphReady((api, state) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = slot ? "gp-btn bdl-keys-btn" : "bdl-keys-btn floating";
-      b.title = "Keyboard shortcuts (?)";
+      if (!slot) b.title = "Keyboard shortcuts (?)";   // in the ribbon slot the ribbon's own tooltip says it
       b.setAttribute("aria-haspopup", "dialog"); b.setAttribute("aria-expanded", String(sheetOpen));
       if (slot) b.innerHTML = "⌨ <span>Keyboard shortcuts</span>"; else { b.id = "graph-keys-btn"; b.textContent = "?"; b.setAttribute("aria-label", "Keyboard shortcuts"); }
       b.onclick = () => setSheet(!sheetOpen);

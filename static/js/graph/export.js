@@ -152,7 +152,7 @@ function mountExport(api) {
   const root = document.createElement("span");
   root.className = "graph-export";
   root.id = "graph-export";
-  root.innerHTML = `<button type="button" class="btn ghost small" id="graph-export-btn" aria-haspopup="menu" aria-expanded="false" title="Save the map as an image, a vector file or an Obsidian canvas">⬇ Export ▾</button>
+  root.innerHTML = `<button type="button" class="btn ghost small" id="graph-export-btn" aria-haspopup="menu" aria-expanded="false"><span class="gx-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></span><span>Export ▾</span></button>
     <div class="graph-export-menu" role="menu" aria-label="Export the map" hidden></div>`;
   host.appendChild(root);
   const btn = root.querySelector("#graph-export-btn"), menu = root.querySelector(".graph-export-menu");
