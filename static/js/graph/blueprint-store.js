@@ -17,7 +17,6 @@ let loaded = false;
 const listeners = new Set();
 
 export const getLinks = () => links;
-export const isLoaded = () => loaded;
 export const onLinksChange = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
 const sig = (list) => list.map((l) => l.kind + ":" + pairKey(l.a, l.b)).sort().join("\n");
 
