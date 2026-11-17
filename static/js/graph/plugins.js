@@ -41,5 +41,5 @@ import "./export.js";
 
 // Toolbar features (one reserved line per owner; uncomment only YOUR line). Contract: toolbar.js, undo.js.
 // import "./ribbon.js";       // graph-shell: draws the tabbed toolbar from the registry
-// import "./blueprint.js";    // graph-blueprint: the Link mode (wires between notes)
+import "./blueprint.js";    // graph-blueprint: the Link mode (wires between notes)
 // import "./edit-tools.js";   // graph-undo: Undo/Redo buttons + keys, the Merge mode
