@@ -281,8 +281,7 @@ height as `--tl-off` on the wrap so legends, tips and the "?" button sit above i
 The timeline is the dumps on the map; in layouts that show no dumps (concept map, grid) it is the concepts/people,
 dated by their first dump (`fillBorn()` reads the unfiltered `viewState.data`), and `unit` is `"topic"`. Layouts that
 paint their own data should honour `api.timelapse.alive(n)` / `state.cur` (the grid counts only dumps up to `cur`).
-The single start button is `#graph-tl-btn`, the Time-lapse tool on the ribbon's Tools tab; `mountTimelapseUI(container, api)` is the older
-one-button control and only mounts into `#graph-slot-timelapse` (no longer rendered) when no `#graph-tl-btn` exists.
+The single start button is `#graph-tl-btn`, the Time-lapse tool on the ribbon's Tools tab (`ribbon-tools.js`).
 
 ## 8. Path mode (`path.js`)
 

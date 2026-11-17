@@ -17,9 +17,8 @@
 //   onChange(fn(active))    subscribe to open/close/play/pause; returns an unsubscribe function
 //   state                   { on, playing, cur, from, to, speed, loop, follow, rec, times ... }
 // Keys while it is active (and not typing): Space play/pause, Left/Right step, Esc close.
-// The old one-button UI is still available as mountTimelapseUI(container, api) and is also mounted into
-// #graph-slot-timelapse by this module when that slot exists and is empty.
-import { $, toast } from "../ui.js";
+// The start/stop button is the Time-lapse tool on the ribbon's Tools tab (ribbon-tools.js, `#graph-tl-btn`).
+import { toast } from "../ui.js";
 import { hide } from "./infobox.js";
 import { prefs } from "./prefs.js";
 import { createBar, SPEEDS } from "./timelapse-bar.js";
@@ -33,7 +32,6 @@ prefs.define("tlSpeed", { key: "bdl-graph-tl-speed", def: 1, parse: (raw) => { c
 prefs.define("tlLoop", { key: "bdl-graph-tl-loop", def: false, ...bool });
 prefs.define("tlFollow", { key: "bdl-graph-tl-follow", def: false, ...bool });
 
-const controllers = new WeakMap();   // api -> controller
 const upper = (arr, t) => { let lo = 0, hi = arr.length; while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] <= t) lo = m + 1; else hi = m; } return lo; };   // how many entries are <= t
 const fmtLong = (t) => new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
@@ -202,7 +200,6 @@ export function installTimelapse(api) {
       bar?.update(); emitState();
     },
   };
-  controllers.set(api, ctl);
   api.timelapse = ctl;
   api.setNodeVisibility(ctl.alive, "timelapse");
 
@@ -314,27 +311,3 @@ export function installTimelapse(api) {
   return ctl;
 }
 
-/** The one-button start/stop control (kept for the toolbar and for #graph-slot-timelapse). */
-export function mountTimelapseUI(container, api) {
-  container.__tlOff?.();
-  container.innerHTML = `<button class="btn ghost small" id="graph-tl-btn" title="Watch your map grow, dump by dump">▶ Time-lapse</button>`;
-  const btn = $("#graph-tl-btn", container);
-  const ctl = controllers.get(api) || api.timelapse;
-  const paint = (on) => { btn.textContent = on ? "■ Stop" : "▶ Time-lapse"; };
-  btn.onclick = () => ctl.toggle();
-  container.__tlOff = ctl.onChange(paint);
-  paint(ctl.active);
-  return btn;
-}
-
-// New control panel: it renders an empty #graph-slot-timelapse and fires "bdl-graph-panel-rendered" after each
-// render. Fill the slot (once, and again after a re-render) unless a start button is already there.
-function mountIntoSlot() {
-  const slot = document.getElementById("graph-slot-timelapse"), api = window.__bdlGraph;
-  if (!slot || !api || !api.timelapse || slot.children.length || document.getElementById("graph-tl-btn")) return;
-  mountTimelapseUI(slot, api);
-}
-if (typeof window !== "undefined" && !window.__bdlTlSlotHook) {
-  window.__bdlTlSlotHook = true;
-  window.addEventListener("bdl-graph-panel-rendered", mountIntoSlot);
-}
