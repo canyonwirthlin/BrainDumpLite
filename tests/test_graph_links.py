@@ -235,6 +235,7 @@ out.nodeHit = c.nodeAt([A, B], 101, 1, 1, () => true) && c.nodeAt([A, B], 101, 1
 out.nodeMiss = c.nodeAt([A, B], 50, 50, 1, () => true);
 out.nodeHidden = c.nodeAt([A, B], 101, 1, 1, (n) => n.id !== 'b');
 out.manual = [c.isManualEdge({ type: 'similar', score: 1 }), c.isManualEdge({ type: 'similar', score: 0.8 }), c.isManualEdge({ type: 'manual' }), c.isManualEdge({ type: 'mention' })];
+out.label = [c.linkLabel(A, B), c.linkLabel(A, B, " and ")];
 out.key = [c.pairKey('b', 'a'), c.pairKey('a', 'b')];
 out.portHit = [c.portAt(A, 7, 0, 1), c.portAt(A, -7, 0, 1), c.portAt(A, 0, 0, 1), c.portAt(A, 40, 0, 1)];
 console.log(JSON.stringify(out));
@@ -256,5 +257,6 @@ console.log(JSON.stringify(out));
     assert r["hit"] and r["miss"]
     assert r["nodeHit"] == "b" and r["nodeMiss"] is None and r["nodeHidden"] is None
     assert r["manual"] == [True, False, True, False]
+    assert r["label"] == ["“a” to “b”", "“a” and “b”"]
     assert r["key"][0] == r["key"][1]
     assert r["portHit"] == ["e", "w", None, None]

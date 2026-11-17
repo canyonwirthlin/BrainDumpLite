@@ -41,7 +41,7 @@ export function validateLink(a, b, existing) {
 }
 
 /** The label of an undo entry / toast for a link between a and b. */
-export const linkLabel = (a, b) => `“${short(a.label, 40)}” to “${short(b.label, 40)}”`;
+export const linkLabel = (a, b, sep = " to ") => `“${short(a.label, 40)}”${sep}“${short(b.label, 40)}”`;
 
 // ── wires ────────────────────────────────────────────────────────────────────────────────────
 
