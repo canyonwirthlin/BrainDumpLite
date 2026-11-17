@@ -13,8 +13,9 @@ import { replayTutorial } from "../onboarding.js";
 import { paintPipeline } from "./pipeline.js";
 import { mountFollowupSetting } from "../followup.js";
 import { modelOptions, geminiSetup, autoPickNote } from "../geminipicker.js";
+import { mountTemplateManager } from "../templates-ui.js";
 
-const SECTIONS = [["appearance", "Appearance"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["about", "About"]];
+const SECTIONS = [["appearance", "Appearance"], ["templates", "Templates"], ["ai", "AI"], ["voice", "Voice"], ["data", "Data"], ["integrations", "Integrations"], ["extend", "Plugins & MCP"], ["about", "About"]];
 const advOn = (s) => { try { return localStorage.getItem("bdl-adv-" + s) === "1"; } catch { return false; } };
 const setAdv = (s, v) => { try { localStorage.setItem("bdl-adv-" + s, v ? "1" : "0"); } catch {} };
 
@@ -27,7 +28,7 @@ export async function render(ctx) {
     <div class="detail body" id="sec"><div class="center">Loading…</div></div></div>`;
   let s;
   try { s = await api.get("/settings"); } catch (e) { $("#sec").innerHTML = `<div class="center">Couldn't load settings: ${esc(e.message)}</div>`; return; }
-  const paint = { appearance: sectionAppearance, ai: sectionAI, voice: sectionVoice, data: sectionData, integrations: sectionIntegrations, extend: sectionExtend, about: sectionAbout }[section];
+  const paint = { appearance: sectionAppearance, templates: (box) => { box.innerHTML = `<div class="h"><h2>Dump templates</h2></div><div class="tm-inline"></div>`; mountTemplateManager($(".tm-inline", box)); }, ai: sectionAI, voice: sectionVoice, data: sectionData, integrations: sectionIntegrations, extend: sectionExtend, about: sectionAbout }[section];
   paint($("#sec"), s);
 }
 
