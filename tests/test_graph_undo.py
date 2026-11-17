@@ -269,7 +269,7 @@ try { s.push({ label: 'bad' }); out.badPush = 'accepted'; } catch (er) { out.bad
 out.errs = errs; out.changes = changes > 5;
 console.log(JSON.stringify(out));
 """ % json.dumps((GRAPH_JS / "undo-stack.js").as_uri())
-    p = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=60)
+    p = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=60)
     assert p.returncode == 0, p.stderr
     o = json.loads(p.stdout.strip().splitlines()[-1])
     assert o["labels1"] == {"undo": "B", "redo": None} and o["can1"] == [True, False]
@@ -283,6 +283,40 @@ console.log(JSON.stringify(out));
     assert o["cleared"] == [False, False, {"undo": None, "redo": None}]
     assert o["badPush"] == "rejected" and o["changes"]
     assert ["flaky", "undo", "boom"] in o["errs"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_merge_rules_and_key_helpers_under_node():
+    script = """
+import { canMerge, prompt, doneText, dropHint, mergeable } from %s;
+import { undoKeyAction, isTypingTarget } from %s;
+const c = { id: 'concept:a', type: 'concept', label: 'Sleep' }, c2 = { id: 'concept:b', type: 'concept', label: 'Napping' };
+const p = { id: 'person:a', type: 'person', label: 'Ana' }, d = { id: 'd1', type: 'dump', label: 'Run notes' }, d2 = { id: 'd2', type: 'dump', label: 'Plan' };
+const t = { id: 'item:1', type: 'task', label: 'Buy milk', dump: 'd1' };
+const key = (o) => undoKeyAction({ key: 'z', ...o });
+console.log(JSON.stringify({
+  cc: canMerge(c, c2), pp: canMerge(p, { ...p, id: 'person:b' }), dd: canMerge(d, d2),
+  cp: canMerge(c, p), cd: canMerge(c, d), self: canMerge(c, c), taskSrc: canMerge(t, c), taskTgt: canMerge(c, t),
+  prompt: prompt(c, c2), promptDump: prompt(d, d2), done: doneText(c, c2), mergeable: [mergeable(c), mergeable(d), mergeable(t), mergeable(null)],
+  hint: [dropHint(c), dropHint(t)],
+  keys: [key({ ctrlKey: true }), key({ metaKey: true }), key({ ctrlKey: true, shiftKey: true }), key({}), key({ ctrlKey: true, altKey: true }),
+         undoKeyAction({ key: 'y', ctrlKey: true }), undoKeyAction({ key: 'Y', ctrlKey: true, shiftKey: true }), undoKeyAction({ key: 'x', ctrlKey: true })],
+  typing: [isTypingTarget({ tagName: 'INPUT', type: 'text' }), isTypingTarget({ tagName: 'INPUT', type: 'search' }), isTypingTarget({ tagName: 'TEXTAREA' }),
+           isTypingTarget({ tagName: 'DIV', isContentEditable: true }), isTypingTarget({ tagName: 'INPUT', type: 'checkbox' }), isTypingTarget({ tagName: 'BUTTON' }), isTypingTarget(null)],
+}));
+""" % (json.dumps((GRAPH_JS / "merge-rules.js").as_uri()), json.dumps((GRAPH_JS / "undo-stack.js").as_uri()))
+    p = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=60)
+    assert p.returncode == 0, p.stderr
+    o = json.loads(p.stdout.strip().splitlines()[-1])
+    assert o["cc"]["ok"] and o["pp"]["ok"] and o["dd"]["ok"]
+    for k in ("cp", "cd", "self", "taskSrc", "taskTgt"):
+        assert o[k]["ok"] is False and o[k]["reason"], k
+    assert "Tasks" in o["taskSrc"]["reason"] and "same node" in o["self"]["reason"]
+    assert o["prompt"] == "Merge “Sleep” into “Napping”" and o["promptDump"].startswith("Combine ")
+    assert o["done"].endswith("Ctrl+Z to undo") and o["mergeable"] == [True, True, False, False]
+    assert o["hint"] == ["Drop on another concept to merge", "Tasks and other items can't be merged"]
+    assert o["keys"] == ["undo", "undo", "redo", None, None, "redo", None, None]    # Ctrl+Shift+Y is not a redo
+    assert o["typing"] == [True, True, True, True, False, False, False]
 
 
 # ── wiring guards ───────────────────────────────────────────────────────────────────────────────
