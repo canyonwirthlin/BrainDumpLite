@@ -26,6 +26,7 @@ from .routes_search import router as search_router
 from .routes_ask import router as ask_router
 from .routes_private import router as private_router
 from .routes_graph_insights import router as graph_insights_router
+from .routes_graph_undo import router as graph_undo_router
 from .routes_graph_cards import router as graph_cards_router
 
 
@@ -92,6 +93,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_followup.router, prefix="/api")
     app.include_router(graph_insights_router, prefix="/api")
     app.include_router(routes_templates.router, prefix="/api")
+    app.include_router(graph_undo_router, prefix="/api")
     routes_dumps.purge_expired()  # trash older than 30 days goes for good
     app.include_router(oauth_router)
     app.mount("/", _Static(directory=static_dir(), html=True), name="static")
