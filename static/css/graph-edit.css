@@ -1,0 +1,17 @@
+/* Brain map editing: the Merge mode cue and the "merged, undo?" toast. Owner: graph-undo. Colours are tokens only. */
+
+/* Merge mode: the whole map is a drop surface, so say so with the cursor (the engine sets its cursor inline). */
+#graph-wrap.bdl-merge-mode canvas { cursor: crosshair !important; }
+
+/* Toast with an inline Undo button (the shared .toast has none). */
+.toast.bdl-undo-toast { display: flex; align-items: center; gap: 12px; width: max-content; max-width: min(92vw, 680px); }
+.toast.bdl-undo-toast .ut-msg { min-width: 0; overflow-wrap: anywhere; }
+.toast.bdl-undo-toast .ut-btn {
+  flex: none; font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; padding: 4px 12px; border-radius: 8px;
+  color: var(--accent); background: transparent; border: 1px solid var(--accent);
+}
+.toast.bdl-undo-toast .ut-btn:hover { background: var(--accent); color: #fff; }
+.toast.bdl-undo-toast .ut-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The floating merge label (defined in graph-cards.css, capped at 280px there): room for "Combine “A” and “B” into one note". */
+.bdl-merge-tip { max-width: min(440px, 90vw); }

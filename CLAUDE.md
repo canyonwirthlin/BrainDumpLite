@@ -26,3 +26,10 @@ dumps: `pinned`, `is_private`, `deleted_at`, `merged_into`; dumps.status may be 
 ## Trash and private rules (added after Wave 2)
 - Every query over `dumps` (and `items` joined to dumps) must exclude trashed dumps: `deleted_at IS NULL`. Dump deletion is a soft delete; see `app/routes_dumps.py`.
 - `is_private` dumps (Wave 4) must be excluded from Ask, search, exports, duplicates and the Obsidian mirror. When you write new code that reads dumps for any of those, add a single helper/WHERE clause so Wave 4 can switch it on in one place (e.g. `AND COALESCE(is_private,0)=0` behind a `db.PRIVATE_SQL` constant if one exists).
+
+## Tutorial protocol
+The first-run tour (`static/js/tour*.js`; copy and "what it mirrors" in `tour-steps.js`) teaches every screen with small mock views, and it goes stale silently. After EVERY major update (a new or changed screen, tool, button, shortcut or setting) and BEFORE any release:
+- Walk each card in the running app, headless and against a sandbox vault only (`node scripts/tour_walk.mjs ...`; exact commands, what to compare and the card-by-card list are in `docs/TUTORIAL-CHECKLIST.md`). Confirm every card still looks like the real screen and every name, button and shortcut it states is accurate, in the dark and light themes, at about 1300x850 and about 420 wide, with a clean console.
+- Add or extend cards for anything new or confusing (plain English, short, one idea per card). Change the mock and its `mirrors` entry in `tour-steps.js` together.
+- `tests/test_tour.py` (static, no browser) must pass. If it fails the tour is out of date: fix the tour, do not loosen the test.
+- A release must not skip this. Walk the tour before `release.ps1` (it prints a reminder) and say "tutorial walked" in the hand-back.

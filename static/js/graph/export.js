@@ -1,7 +1,7 @@
 // Brain map export: one "Export" dropdown that saves the map as a PNG, an SVG, or an Obsidian canvas.
 //
-// The control mounts into <div id="graph-slot-export"> when the control panel provides it (and again after each
-// "bdl-graph-panel-rendered" event, idempotently); with the older toolbar it is appended to the last .graph-tools row.
+// The control mounts into <div id="graph-slot-export"> (the ribbon's Export tool renders it) and again after each
+// "bdl-graph-panel-rendered" event, idempotently.
 // Everything is built client-side from what the map is showing right now (after filters, Focus, time-lapse), so
 // trashed and private dumps - which never reach the client - cannot appear. Also reachable from code as `api.exporter`:
 //   exporter.png({ transparent }) -> Promise<Blob>      exporter.svg({ transparent }) -> string
@@ -141,18 +141,12 @@ function menuHtml(api) {
 }
 
 function mountExport(api) {
-  const slot = document.getElementById("graph-slot-export");
-  let host = slot;
-  if (!host) {
-    if (document.getElementById("graph-export")) return;
-    const rows = document.querySelectorAll(".graph-bar .graph-tools");
-    host = rows[rows.length - 1];
-  }
+  const host = document.getElementById("graph-slot-export");   // the ribbon's Export tool (ribbon-tools.js) renders it empty
   if (!host || host.querySelector("#graph-export")) return;
   const root = document.createElement("span");
   root.className = "graph-export";
   root.id = "graph-export";
-  root.innerHTML = `<button type="button" class="btn ghost small" id="graph-export-btn" aria-haspopup="menu" aria-expanded="false" title="Save the map as an image, a vector file or an Obsidian canvas">⬇ Export ▾</button>
+  root.innerHTML = `<button type="button" class="btn ghost small" id="graph-export-btn" aria-haspopup="menu" aria-expanded="false"><span class="gx-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></span><span>Export ▾</span></button>
     <div class="graph-export-menu" role="menu" aria-label="Export the map" hidden></div>`;
   host.appendChild(root);
   const btn = root.querySelector("#graph-export-btn"), menu = root.querySelector(".graph-export-menu");
@@ -194,6 +188,6 @@ onGraphReady((api) => {
   api.exporter = makeExporter(api);
   const again = () => mountExport(api);
   window.addEventListener("bdl-graph-panel-rendered", again);
-  const t = setTimeout(again, 0);   // the older toolbar has no event: its markup exists as soon as this tick ends
+  const t = setTimeout(again, 0);   // the ribbon may have rendered before this hook ran
   return () => { clearTimeout(t); window.removeEventListener("bdl-graph-panel-rendered", again); };
 });
