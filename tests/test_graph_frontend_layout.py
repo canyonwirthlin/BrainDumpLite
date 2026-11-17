@@ -8,8 +8,10 @@ STATIC = ROOT / "static"
 
 def test_graph_css_imports_exist_and_views_css_has_no_graph_rules():
     graph_css = (STATIC / "css" / "graph.css").read_text(encoding="utf-8")
-    imports = re.findall(r'@import url\("([^"]+)"\);', graph_css)
-    assert imports == ["graph-panel.css", "graph-layouts.css", "graph-cards.css", "graph-overlays.css", "graph-tools.css"]
+    imports = re.findall(r'@import url\("([^"]+)"\);', re.sub(r"/\*.*?\*/", "", graph_css, flags=re.S))   # not the reserved (commented) lines
+    assert imports[:5] == ["graph-panel.css", "graph-layouts.css", "graph-cards.css", "graph-overlays.css", "graph-tools.css"]
+    # toolbar work adds one stylesheet per owner after the base five (graph.css lists them in this order)
+    assert set(imports[5:]) <= {"graph-toolbar.css", "graph-blueprint.css", "graph-edit.css"}
     for name in imports:
         assert (STATIC / "css" / name).is_file(), name
     # graph.css is nothing but comments + @imports
@@ -17,7 +19,7 @@ def test_graph_css_imports_exist_and_views_css_has_no_graph_rules():
     assert re.sub(r'@import url\("[^"]+"\);', "", body).strip() == ""
     views = (STATIC / "css" / "views.css").read_text(encoding="utf-8")
     assert not re.search(r"graph", re.sub(r"/\*.*?\*/", "", views, flags=re.S), re.I)
-    assert ".graph-bar" in (STATIC / "css" / "graph-panel.css").read_text(encoding="utf-8")
+    assert ".gp-main" in (STATIC / "css" / "graph-panel.css").read_text(encoding="utf-8")
 
 
 def test_index_links_graph_css_with_release_cache_buster():
