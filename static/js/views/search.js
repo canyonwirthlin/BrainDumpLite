@@ -56,8 +56,8 @@ function paintSaved() {
   const saved = savedList(), recent = recentList().filter((q) => !saved.some((x) => x.toLowerCase() === q.toLowerCase()));
   if (!saved.length && !recent.length) return "";
   return `<div class="card" id="saved-searches">
-    ${saved.length ? `<div class="small muted" style="margin-bottom:6px">★ Saved searches</div><div class="ent-strip">${saved.map((q) => `<span class="chip"><a href="#search/q/${encodeURIComponent(q)}">${esc(q)}</a> <button class="legend-edit" data-unsave="${esc(q)}" title="Remove">✕</button></span>`).join("")}</div>` : ""}
-    ${recent.length ? `<div class="small muted" style="margin:${saved.length ? "12px" : "0"} 0 6px">Recent <button class="legend-edit" id="clear-recent" title="Clear recent searches">clear</button></div><div class="ent-strip">${searchChips(recent, "data-recent")}</div>` : ""}
+    ${saved.length ? `<div class="small muted" style="margin-bottom:6px">★ Saved searches</div><div class="ent-strip">${saved.map((q) => `<span class="chip"><a href="#search/q/${encodeURIComponent(q)}">${esc(q)}</a> <button class="chip-x" data-unsave="${esc(q)}" title="Remove">✕</button></span>`).join("")}</div>` : ""}
+    ${recent.length ? `<div class="small muted" style="margin:${saved.length ? "12px" : "0"} 0 6px">Recent <button class="chip-x" id="clear-recent" title="Clear recent searches">clear</button></div><div class="ent-strip">${searchChips(recent, "data-recent")}</div>` : ""}
   </div>`;
 }
 

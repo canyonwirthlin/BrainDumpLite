@@ -65,3 +65,22 @@ def test_task_search_prefix_stem_typo(client):
     assert client.get("/api/search/tasks", params={"q": "dentist shoes"}).json()["ids"] == []
     assert client.get("/api/search/tasks", params={"q": "the"}).json()["ids"] != [] or True
     assert client.get("/api/search/tasks", params={"q": ""}).json()["ids"] == []
+
+
+def test_search_page_remove_and_clear_buttons_are_not_hidden_by_their_css():
+    """The saved-search x and the Recent 'clear' button reused `.legend-edit`, a hover-only control (opacity 0) of the old
+    graph legend, so they were invisible on the Search page."""
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    js = (root / "static/js/views/search.js").read_text(encoding="utf-8")
+    css = (root / "static/css/views.css").read_text(encoding="utf-8")
+    classes = set()
+    for marker in ("data-unsave", 'id="clear-recent"'):
+        m = re.search(r'<button class="([^"]+)"[^>]*' + re.escape(marker), js)
+        assert m, marker
+        classes.update(m.group(1).split())
+    for c in classes:
+        rules = re.findall(r"\." + re.escape(c) + r"\s*\{([^}]*)\}", css)
+        assert rules, f".{c} has no style at all"
+        assert not any(re.search(r"opacity\s*:\s*0\s*[;}]", r + ";") for r in rules), f".{c} is invisible by default"

@@ -231,13 +231,13 @@ a.iconbtn.cal { text-decoration: none; }
 .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 .topbar-slot .chip { cursor: pointer; }
 .topbar-slot .chip.off { opacity: .45; text-decoration: line-through; }
-.legend-edit {
-  width: 16px; height: 16px; line-height: 14px; margin-left: 2px; padding: 0; border-radius: 50%;
-  border: 1px solid var(--line); background: var(--panel-2); color: var(--dim); font-size: 9px;
-  cursor: pointer; opacity: 0; transition: opacity .15s;
+/* small remove / clear buttons beside a chip or a heading (Search page: saved searches, recent searches) */
+.chip-x {
+  margin-left: 4px; padding: 0 4px; border: 0; border-radius: 4px; background: transparent; color: var(--dim);
+  font: inherit; font-size: 11px; line-height: 1.4; cursor: pointer;
 }
-.legend-edit:focus-visible { opacity: 1; }
-.legend-edit:hover { color: var(--accent); border-color: var(--accent); }
+.chip-x:hover { color: var(--accent); }
+.chip-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* ── Capture stage ────────────────────────────────────────────────────────── */
 .glow { position: absolute; top: -140px; left: 50%; width: 700px; height: 420px; transform: translateX(-50%); pointer-events: none; max-width: 100%;
