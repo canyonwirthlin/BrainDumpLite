@@ -37,7 +37,6 @@
 .t-keycaps kbd { font-size: 12.5px; padding: 3px 8px; color: var(--text); }
 .tour .t-menu { position: absolute; right: 0; top: calc(100% + 2px); z-index: 6; }
 .tour .t-pop.card { margin-bottom: 12px; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-.t-snoozed { opacity: .65; }
 
 /* Templates cards */
 .t-tpl-wrap { position: relative; }
