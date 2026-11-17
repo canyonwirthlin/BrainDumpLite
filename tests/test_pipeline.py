@@ -111,3 +111,33 @@ def test_cleanup_setting_defaults_on_and_round_trips(fake_ai):
     assert c.put("/api/settings", json={"cleanup_enabled": False}).json()["cleanup_enabled"] is False
     assert c.get("/api/settings").json()["cleanup_enabled"] is False
     assert c.put("/api/settings", json={"cleanup_enabled": True}).json()["cleanup_enabled"] is True
+
+
+ESSAY = ("I need to plan the weekly grocery run. " * 12).strip()
+
+
+def test_one_word_dump_is_not_inflated_into_an_essay(fake_ai, monkeypatch):
+    # A model handed a single word ("cancel") can ramble about anything. Whatever it returns for a
+    # tiny transcript must not replace what the user said.
+    monkeypatch.setattr(ai, "chat", lambda system, user, **kw: ESSAY)
+    monkeypatch.setattr(ai, "chat_json", lambda system, user, **kw: {
+        "title": "Weekly grocery planning", "summary": [ESSAY],
+        "items": [{"type": "task", "content": ESSAY, "priority": 3}],
+        "people": [], "concepts": ["groceries", "cancel"]})
+    did = _new_dump("cancel")
+    pipeline.run_pipeline(did)
+    d = db.query_one("SELECT * FROM dumps WHERE id=?", (did,))
+    assert d["status"] == "ready"
+    assert d["clean_text"] == "cancel"
+    assert d["title"] == "cancel"
+    assert d["summary"] == "• cancel"
+    assert [r["content"] for r in db.query("SELECT content FROM items WHERE dump_id=?", (did,))] == ["cancel"]
+    assert json.loads(d["concepts"]) == ["cancel"]
+
+
+def test_cleanup_that_balloons_a_longer_dump_falls_back_to_raw(fake_ai, monkeypatch):
+    raw = "I should really call the dentist tomorrow morning and also book the car in for a service"
+    monkeypatch.setattr(ai, "chat", lambda system, user, **kw: raw + " " + ESSAY * 4)
+    did = _new_dump(raw)
+    pipeline.run_pipeline(did)
+    assert db.query_one("SELECT clean_text FROM dumps WHERE id=?", (did,))["clean_text"] == raw

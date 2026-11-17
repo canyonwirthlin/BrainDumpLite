@@ -1,6 +1,7 @@
 import io
 import json
 import zipfile
+from datetime import datetime
 
 import pytest
 
@@ -57,4 +58,19 @@ def test_import_parses_and_skips_own_export(dump, monkeypatch):
     assert r["imported"] == 1 and r["skipped"] == 1
     d = db.query_one("SELECT * FROM dumps WHERE id=?", (r["ids"][0],))
     assert d["title"] == "Meeting notes" and d["status"] == "pending" and d["created_at"].startswith("2026-01-05")
+    # streaks count captured_local, so an import must keep the original moment, not the processing time
+    assert datetime.fromisoformat(d["captured_local"]) == datetime.fromisoformat(d["created_at"])
+    db.execute("DELETE FROM dumps WHERE id=?", (r["ids"][0],))
+
+
+def test_import_without_a_heading_leaves_the_title_for_the_ai(dump, monkeypatch):
+    # A plain transcript has no heading: its title must not become the file name (or the first words),
+    # because a preset title stops the pipeline from ever asking the AI for a real one.
+    monkeypatch.setattr(import_md, "enqueue", lambda did: None)
+    name = "so i was thinking about the garage and what we should do with it this weekend.txt"
+    assert import_md.parse_file(name, "so i was thinking about the garage", None)["title"] is None
+    assert import_md.parse_file("t.txt", "---\ntitle: Garage plan\n---\nbody", None)["title"] == "Garage plan"
+    r = import_md.import_files([(name, "so i was thinking about the garage", None)])
+    d = db.query_one("SELECT title FROM dumps WHERE id=?", (r["ids"][0],))
+    assert d["title"] is None
     db.execute("DELETE FROM dumps WHERE id=?", (r["ids"][0],))

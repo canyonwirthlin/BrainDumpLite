@@ -40,10 +40,12 @@ def parse_file(name: str, text: str, mtime: float | None = None) -> dict:
     if m:
         fm, text = m.group(1), text[m.end():]
     h = _H1.search(text)
-    title = (h.group(1) if h else re.sub(r"\.(md|txt)$", "", name, flags=re.I)).strip()[:80]
+    # Only a heading the author wrote is a title. A plain transcript has none, and a preset title (the
+    # file name, say) stops the pipeline from asking the AI for a real one, so leave it empty.
+    title = ((h.group(1) if h else _fm_value(fm, "title")) or "").strip()[:80] or None
     if h:
         text = text[:h.start()] + text[h.end():]
-    return {"id": _fm_value(fm, "id"), "title": title or "Untitled",
+    return {"id": _fm_value(fm, "id"), "title": title,
             "created_at": _parse_date(_fm_value(fm, "created") or _fm_value(fm, "date"), mtime),
             "text": text.strip(), "own_export": _fm_value(fm, "source") == "braindump-lite"}
 
@@ -59,8 +61,11 @@ def import_files(files: list[tuple[str, str, float | None]], mode: str = "freefo
             skipped += 1
             continue
         did = p["id"] if p["id"] and p["own_export"] else db.new_id()
-        db.execute("INSERT INTO dumps (id, created_at, mode, raw_text, title, status) VALUES (?,?,?,?,?,'pending')",
-                   (did, p["created_at"], mode, p["text"], p["title"]))
+        # captured_local is what streaks count; run_pipeline stamps "now" when it is empty, which
+        # would move an imported dump's streak day to the day it was processed.
+        captured = datetime.fromisoformat(p["created_at"]).astimezone().isoformat(timespec="seconds")
+        db.execute("INSERT INTO dumps (id, created_at, mode, raw_text, title, status, captured_local) VALUES (?,?,?,?,?,'pending',?)",
+                   (did, p["created_at"], mode, p["text"], p["title"], captured))
         imported.append(did)
         enqueue(did)
     return {"imported": len(imported), "skipped": skipped, "ids": imported}

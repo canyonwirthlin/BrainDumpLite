@@ -137,6 +137,10 @@ People extraction: include only proper names of actual people ("Jackson", "Mom",
 Concepts: max 8, must be specific and meaningful. Good: "burnout", "startup idea",
 "workout routine". Bad: "feel", "want", "time", "thing", "people", "day", "back".
 
+Stay faithful to the transcript: every title, summary bullet, item, person and concept must come
+from what was actually said. Never invent topics, tasks or details. If the transcript is only a
+word or a few words, the summary is a single short bullet restating it and items has at most one entry.
+
 Return ONLY the JSON object.
 """.strip()
 
@@ -218,6 +222,26 @@ def _date_table() -> str:
     tod = "morning" if 5 <= h < 12 else "afternoon" if 12 <= h < 17 else "evening" if 17 <= h < 22 else "night"
     return (f"Current date/time: {now.strftime('%A, %B %d, %Y at %I:%M %p')} ({tod})\n"
             "Date lookup table:\n" + "\n".join(rows))
+
+
+# Below this many words a transcript gives a model nothing to work with, and it will happily make
+# something up ("cancel" -> an essay about groceries). Such dumps are never rewritten, and anything
+# the model returns for them has to be grounded in what was actually said.
+_SHORT_WORDS = 6
+
+
+def _is_short(text: str) -> bool:
+    return len(text.split()) < _SHORT_WORDS
+
+
+def _runaway(out: str, src: str, factor: int = 3, slack: int = 120) -> bool:
+    """True when a model's output is far longer than the text it was given, i.e. it invented content."""
+    return len(out) > factor * len(src) + slack
+
+
+def _grounded(names: list[str], text: str) -> list[str]:
+    low = text.lower()
+    return [n for n in names if n.lower() in low]
 
 
 def _set(dump_id: str, **fields) -> None:
@@ -329,11 +353,14 @@ def run_pipeline(dump_id: str) -> None:
              captured_local=row["captured_local"] or datetime.now().astimezone().isoformat(timespec="seconds"))
         clean = raw
         # Settings → AI "Have AI clean up my dumps": off keeps the user's own words as the transcript.
-        if use_ai and db.get_setting("cleanup_enabled", True):
+        if use_ai and db.get_setting("cleanup_enabled", True) and not _is_short(raw):
             try:
                 with instrument.timed(dump_id, "cleanup"):
                     clean = ai.chat(_CLEANUP_SYSTEM, raw,
                                     max_tokens=len(raw) // 2 + 500, temperature=0.1)
+                if _runaway(clean, raw, factor=2, slack=80):   # tidying never doubles the length
+                    print("[pipeline] cleanup output far longer than the input; keeping raw text", flush=True)
+                    clean = raw
             except ai.AIError as e:
                 print(f"[pipeline] cleanup fell back to raw text: {e}", flush=True)
                 clean = raw
@@ -343,6 +370,7 @@ def run_pipeline(dump_id: str) -> None:
         preset_title = row["title"]  # imported notes keep their heading
         title = preset_title or " ".join(clean.split()[:6])[:60] or "Untitled dump"
         summary = "• " + clean[:220].replace("\n", " ")
+        short = _is_short(clean)
         items = _fallback_items(clean)
         people, concepts, tone = [], [], None
         if use_ai:
@@ -351,16 +379,21 @@ def run_pipeline(dump_id: str) -> None:
                     data = ai.chat_json(_classify_system() + "\n\n" + _date_table(), clean,
                                         schema=_classify_schema())
                 tone = _parse_tone(data)
-                title = preset_title or (str(data.get("title") or title)).strip()[:80]
+                if len(clean.split()) > 1:   # a one-word dump is its own title; a model's title for it is invented
+                    title = preset_title or (str(data.get("title") or title)).strip()[:80]
                 summ = data.get("summary")
                 if isinstance(summ, list):  # some models return the bullets as an array
                     summ = "\n".join(str(x) for x in summ)
-                summary = str(summ or summary).strip()
+                summ = str(summ or "").strip()
+                if summ and not _runaway(summ, clean):
+                    summary = summ
                 parsed = _parse_items(data)
-                if parsed:
+                if parsed and not _runaway(" ".join(i["content"] for i in parsed), clean, factor=4, slack=200):
                     items = parsed
                 people = _parse_names(data, "people", 10)
                 concepts = _parse_names(data, "concepts", 8)
+                if short:
+                    people, concepts = _grounded(people, clean), _grounded(concepts, clean)
             except ai.AIError as e:
                 print(f"[pipeline] classify fell back to heuristics: {e}", flush=True)
         # Explicit [[wikilinks]] in the text always count (Phase 6).
