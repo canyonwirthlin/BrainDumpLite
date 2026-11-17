@@ -4,6 +4,32 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.26.1 — 2026-11-17
+A tidier Brain map with a toolbar across the top, link and merge tools you can undo, editable dump templates, and fixes for imported transcripts.
+
+### Fixes
+- A one-word dump like "cancel" no longer turns into a made-up essay. Very short dumps are left as you wrote them, and any rewrite or summary that balloons far past what you said is thrown away.
+- Imported text files with no heading now get a proper AI-written title instead of the file name or the first few words cut off.
+- Imported dumps keep their original day for streaks.
+- The saved-search ✕ and Recent "clear" buttons on the Search page are visible again.
+- Your templates can no longer be overwritten if they fail to load once.
+
+### Brain map toolbar
+- The cluttered bar and side panel are now a toolbar across the top with tabs: View, Layout, Overlays, Filter, Edit and Tools. Hover any button for a tip, and press "?" on a tab to see what each tool does. Everything that was there before is still there.
+
+### Link mode
+- Edit → Link: drag from one note, idea or person to another and a wire connects them, without opening anything. Your links show as bright wires. Click one and press Delete to remove it.
+
+### Merge mode and undo
+- Edit → Merge: drag one concept, person or note onto another and it merges straight away, no confirmation.
+- Ctrl+Z undoes a link or a merge, and Ctrl+Shift+Z does it again. Undo and Redo are also on the Edit tab. One catch: undoing a merge of two notes puts the kept note back as it was when you merged, so edits you made to it in between are lost.
+
+### Dump templates
+- Edit the built-in templates, delete the ones you don't want, and write your own. The Capture screen shows only your pinned templates, and a searchable Templates menu holds the rest, so it stays tidy even with hundreds. Manage them from that menu or Settings → Templates.
+
+### Tutorial
+- The tutorial is rebuilt as 19 short cards that match the current app, and no longer stops at the Search step. New cards cover templates, the Brain map toolbar, Link, Merge and Undo, and Ask.
+
 ## 0.26.0 — 2026-10-28
 The Brain map got a big overhaul: new ways to see your thinking, a calmer control panel, and a lot more it can tell you.
 
