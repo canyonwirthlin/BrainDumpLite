@@ -1,11 +1,11 @@
 // Capture stage, processing progress and voice recording.
-import { $, $$, esc, toast, modal, md, MODES, modeOf, STAGES, kindBadge, toneChip } from "../ui.js";
+import { $, $$, esc, toast, md, MODES, modeOf, STAGES, kindBadge, toneChip } from "../ui.js";
 import { go } from "../router.js";
 import { attach as attachWikilinks } from "../wikilinks.js";
 import { api } from "../api.js";
 import { state, clearPoll } from "../state.js";
 import { renderReview } from "./review.js";
-import { TEMPLATES, applyTemplate } from "../templates.js";
+import { mountTemplatePicker } from "../templates-ui.js";
 
 export function render(ctx) {
   ctx.setTitle("Capture");
@@ -82,8 +82,7 @@ function paintMode() {
       <div class="cb-thread"><div class="bubble assistant">${esc(m.opener)}</div></div>
       <div class="cb-composer">` : ""}
     <textarea id="dump-text" class="editor ${m.id === "execution" ? "tasklist" : ""} ${chat ? "chat-input" : ""}" placeholder="${esc(m.placeholder)}">${esc(state.draft)}</textarea>
-    <div class="row tpl-row"><span class="muted small">Template:</span>
-      ${TEMPLATES.map((t) => `<button class="btn ghost small tpl-btn" data-tpl="${t.id}">${esc(t.label)}</button>`).join("")}</div>
+    <div class="row tpl-row" id="tpl-row"></div>
     <div class="row">
       ${state.status.whisper ? `<button class="mic" id="mic" title="Record voice">🎙️</button>
         <span class="muted small" id="rec-status"></span>` : ""}
@@ -103,16 +102,7 @@ function paintMode() {
   ta.onkeydown = (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); chat ? startTalk() : submitDump(); }
   };
-  $$(".tpl-btn").forEach((b) => b.onclick = () => {
-    const tpl = TEMPLATES.find((t) => t.id === b.dataset.tpl);
-    if (!ta.value.trim()) { state.draft = applyTemplate(ta, tpl); return; }
-    const m = modal(`<h2>Replace what you've written?</h2>
-      <p class="small muted" style="margin:0 0 14px">Using the ${esc(tpl.label)} template clears the box first.</p>
-      <div class="row"><div class="grow"></div>
-        <button class="btn ghost small" id="tpl-no">Cancel</button><button class="btn small" id="tpl-yes">Yes, clear it</button></div>`);
-    $("#tpl-no", m.el).onclick = m.close;
-    $("#tpl-yes", m.el).onclick = () => { m.close(); state.draft = applyTemplate(ta, tpl); };
-  });
+  mountTemplatePicker($("#tpl-row"), { ta, onApplied: (text) => { state.draft = text; } });   // pinned buttons + searchable list (templates-ui.js)
   $("#dump-btn").onclick = submitDump;
   if ($("#talk-btn")) $("#talk-btn").onclick = startTalk;
   if ($("#mic")) $("#mic").onclick = () => toggleRecording();
