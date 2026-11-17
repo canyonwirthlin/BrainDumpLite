@@ -27,7 +27,16 @@ export function mountTemplatePicker(row, { ta, onApplied }) {
     const pins = resolveTemplates().filter((t) => t.pinned).slice(0, LIMITS.visiblePins);
     pinsEl.innerHTML = pins.map((t) => `<button type="button" class="btn ghost small tpl-btn" data-tpl="${esc(t.id)}" title="${esc(t.label)}">${esc(t.label)}</button>`).join("");
     $$(".tpl-btn", pinsEl).forEach((b) => { b.onclick = () => use(b.dataset.tpl); });
+    fit();
   };
+  // One line, always: hide pinned buttons from the end until the rest fit (they stay in the popover).
+  const fit = () => {
+    const btns = $$(".tpl-btn", pinsEl);
+    btns.forEach((b) => { b.hidden = false; });
+    for (let i = btns.length - 1; i > 0 && pinsEl.scrollWidth > pinsEl.clientWidth + 1; i--) btns[i].hidden = true;
+  };
+  const ro = typeof ResizeObserver === "function" ? new ResizeObserver(() => fit()) : null;
+  if (ro) ro.observe(pinsEl);
 
   // Using a template keeps the old behaviour: a non-empty box is only cleared after a confirmation.
   function use(id) {
@@ -161,7 +170,7 @@ export function mountTemplatePicker(row, { ta, onApplied }) {
     if (!row.isConnected) { api.destroy(); return; }
     paintPins(); paintList();
   });
-  const api = { destroy() { closePop(); off(); if (activePicker === api) activePicker = null; } };
+  const api = { destroy() { closePop(); off(); if (ro) ro.disconnect(); if (activePicker === api) activePicker = null; } };
   activePicker = api;
   paintPins();
   loadDoc();      // first visit: fetch the user's changes; onTemplatesChanged repaints

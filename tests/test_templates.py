@@ -89,6 +89,18 @@ def test_corrupt_stored_value_reads_as_defaults(client):
     assert client.get("/api/templates").json()["overrides"] == {}
 
 
+def test_frontend_wiring():
+    """No browser in the suite: check the files and hooks the UI depends on exist."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    assert (root / "static/js/templates-ui.js").exists() and (root / "static/css/templates.css").exists()
+    assert "css/templates.css" in (root / "static/index.html").read_text(encoding="utf-8")
+    assert "templates-ui.js" in (root / "static/js/views/capture.js").read_text(encoding="utf-8")
+    st = (root / "static/js/views/settings.js").read_text(encoding="utf-8")
+    assert '["templates", "Templates"]' in st and "mountTemplateManager" in st
+    assert 'api.put("/templates"' in (root / "static/js/templates.js").read_text(encoding="utf-8")
+
+
 def test_included_in_json_export(client):
     doc = {"templates": [_t(1)], "overrides": {}, "deleted": ["worry"], "order": ["u_1"], "pinned": ["u_1"]}
     client.put("/api/templates", json=doc)

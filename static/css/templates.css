@@ -3,9 +3,10 @@
 /* ── Capture row: always ONE line, however many templates exist ── */
 .tpl-row { flex-wrap: nowrap; gap: 8px; min-width: 0; }
 .tpl-row .tpl-label { flex: none; }
-.tpl-pins { display: flex; gap: 6px; min-width: 0; flex: 0 1 auto; overflow: hidden; }
-.tpl-pins .tpl-btn { flex: 0 1 auto; min-width: 44px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
-.tpl-row .tpl-more { flex: none; margin-left: auto; white-space: nowrap; }
+.tpl-pins { display: flex; gap: 6px; min-width: 0; flex: 1 1 0; overflow: hidden; padding: 4px; margin: -4px; }   /* padding leaves room for focus rings */
+.tpl-pins .tpl-btn { flex: none; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.tpl-pins .tpl-btn[hidden] { display: none; }
+.tpl-row .tpl-more { flex: none; white-space: nowrap; }
 .tpl-row .tpl-more[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
 
 /* ── Popover ── */
