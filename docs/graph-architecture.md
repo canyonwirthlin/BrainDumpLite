@@ -2,18 +2,17 @@
 
 The Brain map (`#graph`) is a canvas force graph with no libraries and no build step. It lives in
 `static/js/graph/` as ES modules; `static/js/views/graph.js` is only the router entry. Everything below is
-the contract parallel feature work builds on. Read `docs/CODEMAP.md` for the rest of the app.
+the contract feature work builds on. Read `docs/CODEMAP.md` for the rest of the app.
 
 ## Testing your work
 
-All commands run from your worktree root. Worktrees have no `.venv`, so use the main checkout's interpreter.
-Pick YOUR port (never 8756-8780 outside your own assignment, never 8790/8820) and a throwaway data dir.
-`.data/` is git-ignored. **Never point any of this at the real vault**: the scripts refuse to run without an
-explicit data dir.
+All commands run from the repo (or worktree) root. Worktrees have no `.venv`, so use the main checkout's interpreter.
+Pick a free port and a throwaway data dir. `.data/` and `.data*/` are git-ignored. **Never point any of this at the real
+vault** (and never start `run.py` / `dev.ps1` for this): the scripts refuse to run without an explicit data dir.
 
 ```powershell
 $py = "C:\Users\canyo\Desktop\Home\Coding\BrainDumpLite\.venv\Scripts\python.exe"
-$port = 8761                                   # your assigned port
+$port = 8761                                   # any free port
 # 1. serve a seeded sandbox vault (seeds on first run, foreground; use Start-Process / run_in_background)
 & $py scripts/graph_serve.py --data "$PWD\.data" --port $port --dumps 140
 #    bigger: --dumps 2500        re-seed: --force-seed        just seed: see below
@@ -93,7 +92,12 @@ static/js/graph/infobox.js    the #graph-info box and its section registry
 static/js/graph/info-sparkline.js  mention-history sparkline + Rising/Fading summary (info box and hover card)
 static/js/graph/hovercard.js  hover card (GET /api/graph/card/<id>), a DOM element on <body>
 static/js/graph/keyboard.js   keyboard navigation, cheat sheet, screen-reader announcements, selectAndReveal()
-static/js/graph/drag-merge.js Shift-drag a concept/person onto another of the same kind -> POST /api/merge
+static/js/graph/drag-merge.js Merge mode (Edit tab) and Shift-drag: drop a node on another of the same kind, no confirm dialog, undoable
+                              (concept/person -> POST /api/merge/undoable, note -> POST /api/dumps/merge); merge-rules.js = pure rules + wording
+static/js/graph/blueprint.js  Link mode: drag wires between nodes, select + Delete a wire; blueprint-calc.js = pure geometry/rules (node tests),
+                              blueprint-store.js = the list of hand-made links + their calls (app/routes_graph_links.py) + the "blueprint-links" data filter
+static/js/graph/edit-tools.js Undo / Redo buttons, shared helpers (reloadMap, postJson, undoToast); undo.js = the stack with key binding,
+                              undo-stack.js = its pure core (node tests)
 static/js/graph/timelapse.js  time-lapse controller (api.timelapse); timelapse-bar.js = transport bar; timelapse-record.js = WebM recorder
 static/js/graph/export*.js    Export menu (export.js), PNG/SVG/Obsidian canvas builders (export-svg.js, export-canvas.js),
                               shared helpers (export-common.js), save/download (export-save.js -> POST /api/graph/export/save)
@@ -102,13 +106,18 @@ static/js/graph/find.js       "Find a node" box
 static/js/graph/panel.js      page chrome: ribbon host + map wrap + overlay legend card (section 9)
 static/js/graph/ribbon.js     the ribbon: tab strip + tool row + tooltips + "?" panel, drawn from toolbar.js (section 9)
 static/js/graph/ribbon-tools.js / ribbon-filters.js   the built-in tools (View, Layout, Overlays, Edit/Select, Tools; Filter); ribbon-model.js = pure helpers
-static/js/graph/toolbar.js    tool registry contract (registerTool, TABS, modes); undo.js = undo stack
+static/js/graph/toolbar.js    tool registry contract (registerTool, TABS, getMode/setMode/onModeChange); data only, no DOM
 static/js/graph/hooks.js      onGraphReady(fn): subscribe to the bus once per visit
 static/js/graph/plugins.js    manifest of side-effect imports: add your module here
-static/css/graph.css          @imports only; graph-panel / -layouts / -cards / -overlays / -tools / -toolbar .css, one owner each
+static/js/graph/perf.js, physics-core.js, physics-worker.js, sim-large.js   large-map path (typed-array physics, optional worker)
+static/css/graph.css          @imports only; graph-panel / -layouts / -cards / -overlays / -tools / -toolbar / -blueprint / -edit .css
+related (outside graph/): static/js/templates.js + templates-ui.js (Capture templates; app/routes_templates.py), static/js/tour*.js (first-run tutorial,
+                              mock screens incl. tour-graph.js; see docs/TUTORIAL-CHECKLIST.md)
 app/graph_cards.py + routes_graph_cards.py       GET /api/graph/card/{node id}
 app/graph_insights.py + routes_graph_insights.py GET /api/graph/insights/{lonely,loops,suggested-links,links}, POST/DELETE links, POST dismiss
 app/routes_graph_export.py    POST /api/graph/export/save (target of the native Save dialog; see "Security")
+app/routes_graph_links.py     GET /api/graph/blueprint/links, POST/DELETE /api/graph/blueprint/link (Link mode; same accepted-links list as graph_insights)
+app/routes_graph_undo.py      POST /api/merge/undoable, POST /api/merge/undo/{id} (concept/person merge with an exact snapshot)
 ```
 
 Ownership rule of thumb: a new feature adds **new files** (`layout-<x>.js`, `overlay-<x>.js`, `filter-<x>.js`, ...),
@@ -316,8 +325,9 @@ registerTool({
 ```
 
 * `kind`: `button` (run once), `toggle` (run flips a setting, `isActive` = pressed look), `mode` (exclusive, `setMode(id)` from
-  toolbar.js; `select` is the default mode and lives in the Edit tab; graph-blueprint adds `link`, graph-undo adds `merge`,
-  `undo`, `redo` there), `custom` (`mount(el, { api, state })` fills the slot itself: sliders, the Find box, chips; optional
+  toolbar.js; `select` is the default mode and lives in the Edit tab; `blueprint.js` adds `link`, `drag-merge.js` adds `merge`,
+  `edit-tools.js` adds `undo`, `redo` there; a mode owns plain drags/clicks on nodes while it is active, so check `getMode()`
+  before acting on a pointer event, and every edit pushes `pushUndo({label, undo, redo})` from `undo.js` after it succeeded), `custom` (`mount(el, { api, state })` fills the slot itself: sliders, the Find box, chips; optional
   `update(el, ctx)` runs on every refresh so a control follows its pref without being rebuilt).
 * The ribbon re-reads `isActive` / `isEnabled` / `label` / `icon` / `tip` (each may be a function, or mutated on the registered object)
   after every `notifyToolbar()`; pref changes, clicks, key presses, overlay changes, `nodesChanged` and time-lapse changes already
@@ -352,6 +362,11 @@ registerTool({
   selected, Path mode handled it, or an active overlay has `info` for it (then it selects and the info box offers
   "Open dump"). The hover card is not shown for the selected node.
 * Toggling Focus rebuilds the map; `state.setFocus` re-selects the previous selection afterwards.
+* Concept <-> concept / person links live in ONE list (settings `graph_manual_links`) that two features edit: the Suggested links
+  overlay (`overlay-links.js`, `/graph/insights/links`) and Link mode (`blueprint-store.js`, `/graph/blueprint/link`). The overlay
+  follows Link mode through `onLinksChange` and tells Link mode about its own edits by refetching; keep it that way if you touch either.
+* A ready hook that adds window/document listeners must return a cleanup (`onGraphReady` runs it on the next visit) and may also
+  clean up on `hashchange`; never leave a mode, tip element or listener behind for the next visit.
 * Time-lapse start button, Keys button, Export: one entry point each on the ribbon's Tools tab (see section 9), never a second copy.
 
 ## Security of the new endpoints
