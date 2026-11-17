@@ -1,0 +1,23 @@
+/* Brain map Link mode (blueprint wires): the hint chip and the tip that follows the pointer.
+   Owner: graph-blueprint (static/js/graph/blueprint*.js). Theme colours only. */
+.bdl-bp-hint {
+  position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 4; box-sizing: border-box;
+  max-width: min(560px, calc(100% - 28px)); pointer-events: none; text-align: center;
+  background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid color-mix(in srgb, var(--accent-2) 55%, var(--line));
+  border-radius: 999px; padding: 6px 14px; font-size: 12.5px; line-height: 1.45; color: var(--dim); box-shadow: var(--shadow);
+  transition: opacity .6s ease;
+}
+.bdl-bp-hint b { color: var(--accent-2); }
+.bdl-bp-hint kbd { font: inherit; font-size: 11px; padding: 0 5px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2); color: var(--text); }
+.bdl-bp-hint .bp-warn { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); color: var(--amber); }
+.bdl-bp-hint:has(.bp-warn) { border-radius: 14px; }
+.bdl-bp-hint.quiet { opacity: 0; }
+
+.bdl-bp-tip {
+  position: fixed; left: 0; top: 0; z-index: 46; pointer-events: none; max-width: 340px; padding: 5px 10px; border-radius: 8px;
+  font-size: 12px; font-weight: 600; line-height: 1.4; background: var(--accent-2); color: #fff; box-shadow: var(--shadow);
+  opacity: 0; transition: opacity .1s ease;
+}
+.bdl-bp-tip.show { opacity: 1; }
+.bdl-bp-tip.no { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { .bdl-bp-hint, .bdl-bp-tip { transition: none; } }
