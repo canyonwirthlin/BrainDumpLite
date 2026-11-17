@@ -38,6 +38,7 @@ switch ($Bump.ToLower()) {
 }
 $new = "$maj.$min.$pat"
 Write-Host "  BrainDump Lite  $old  ->  $new" -ForegroundColor Cyan
+Write-Host "  Reminder: tutorial walked and test_tour.py green? (CLAUDE.md 'Tutorial protocol', docs\TUTORIAL-CHECKLIST.md)" -ForegroundColor DarkGray
 
 # Changelog gate: no notes, no release.
 & .\.venv\Scripts\python.exe -m app.changelog $new | Out-Null
