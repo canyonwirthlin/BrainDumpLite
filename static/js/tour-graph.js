@@ -12,6 +12,8 @@ import { demoNote } from "./tour-scenes.js";
 
 const COLOR = { dump: "var(--accent)", concept: "var(--amber)", person: "var(--accent-2)" };
 const R = { dump: 9, concept: 7, person: 7 };
+// like the real map (graph/sizing.js): a concept or person grows with its mentions; "Size by mentions" off flattens them
+const rad = (n, big = true) => (n.type === "dump" || !big ? R[n.type] : 4.5 + 2.6 * Math.min(n.mentions || 1, 5));
 const NOUN = { dump: "note", concept: "concept", person: "person" };
 const KIND = { dump: "Dump", concept: "Concept", person: "Person" };
 const short = (s, n = 26) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
@@ -144,7 +146,7 @@ function mountGraph(view, t, nav, opts) {
 
   // ── map ────────────────────────────────────────────────────────────────────────────────────
   const pt = (e) => { const r = svg.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-  const hit = (p, skip) => { let best = null, bd = 1e9; for (const n of S.nodes) { if (n === skip) continue; const c = px(n), d = Math.hypot(c.x - p.x, c.y - p.y); if (d <= R[n.type] + 8 && d < bd) { bd = d; best = n; } } return best; };
+  const hit = (p, skip) => { let best = null, bd = 1e9; for (const n of S.nodes) { if (n === skip) continue; const c = px(n), d = Math.hypot(c.x - p.x, c.y - p.y); if (d <= rad(n) + 8 && d < bd) { bd = d; best = n; } } return best; };
   const segDist = (p, a, b) => { const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1, k = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)); return Math.hypot(p.x - (a.x + k * dx), p.y - (a.y + k * dy)); };
   const wireAt = (p) => S.edges.find((e) => e.kind === "wire" && byId(e.a) && byId(e.b) && segDist(p, px(byId(e.a)), px(byId(e.b))) < 8) || null;
   const wkey = (e) => pairKey(e.a, e.b);
@@ -165,7 +167,7 @@ function mountGraph(view, t, nav, opts) {
     if (link) h += `<line x1="${px(link.from).x}" y1="${px(link.from).y}" x2="${link.pt.x}" y2="${link.pt.y}" stroke="var(--accent-2)" stroke-width="2.4" stroke-dasharray="6 4" stroke-linecap="round"/>`;
     const tgt = link ? link.target : drag ? drag.target : null;
     for (const n of S.nodes) {
-      const { x, y } = pos(n), r = R[n.type], dim = at && !near.has(n.id), left = x > W - 150, ok = drag ? drag.ok : link ? link.ok : true;
+      const { x, y } = pos(n), r = rad(n, opts.sized !== false), dim = at && !near.has(n.id), left = x > W - 150, ok = drag ? drag.ok : link ? link.ok : true;
       h += `<g opacity="${dim ? .25 : 1}">${tgt === n ? `<circle cx="${x}" cy="${y}" r="${r + 7}" fill="none" stroke="${ok ? "var(--green)" : "var(--red)"}" stroke-width="2.4"/>` : ""}
         <circle cx="${x}" cy="${y}" r="${r}" fill="${COLOR[n.type]}" ${n.id === sel ? 'stroke="var(--text)" stroke-width="2"' : ""} opacity="${drag && drag.node === n ? .8 : 1}"/>
         ${mode === "link" ? `<circle cx="${x + r + 4}" cy="${y}" r="3.6" fill="var(--panel)" stroke="var(--accent-2)" stroke-width="1.6"/>` : ""}
@@ -313,6 +315,8 @@ function mountGraph(view, t, nav, opts) {
 
 export const SCENES = {
   graph: { mount: (view, t, nav) => mountGraph(view, t, nav, { tab: "view", mode: "select" }) },
+  "graph-busy": { mount: (view, t, nav) => mountGraph(view, t, nav, { tab: "view", mode: "select",
+    info: () => `<span class="small muted">Bigger dots are mentioned in more of your dumps. <b>Internship</b> (4 mentions) stands out from <b>hiking</b> (2). Use the two tools on the View tab to turn that on or off and to choose how many names stay visible.</span>` }) },
   "graph-ribbon": { mount: (view, t, nav) => mountGraph(view, t, nav, { tab: "view", mode: "select",
     info: (mode, n) => `<span class="small muted">Click a tab. Hover a button and wait a moment for its tip. Press the round <b>?</b> for a plain-English guide to the tab you are on.</span>` }) },
   "graph-link": { mount: (view, t, nav) => mountGraph(view, t, nav, { tab: "edit", mode: "link", seedWire: true, show: true,

@@ -76,6 +76,7 @@ For every card open `seq-NN-<card>.png` and the matching `real-*.png` side by si
 | `capture-extras` | the mic, the Private switch, short dumps staying as typed | Capture's bottom row (`views/capture.js`: `#mic`, `#dump-private`); `app/pipeline.py` (`_is_short`); Settings, Voice |
 | `capture-shortcuts` | Ctrl+Enter, Ctrl+N, Ctrl+K, Ctrl+Shift+Space | `views/capture.js`, `shell.js`, `palette.js`, `src-tauri/src/quick.rs`; Settings, Data (the from-anywhere switch) |
 | `graph` | dots, hover preview, selecting, dragging | `#graph` (`graph/ribbon.js`, `hovercard.js`, `infobox.js`); View tab |
+| `graph-busy` | bigger dots = more mentions; top-K names | View tab: Size by mentions, Names shown (`graph/ribbon-tools.js`, `graph/sizing.js`); the mock sizes dots like the real map |
 | `graph-ribbon` | six tabs, tooltips, the round `?` help | the ribbon (`graph/ribbon.js`, `toolbar.js` `TABS`); every tab's `?` panel. The mock draws the REAL registry, so check the tabs, not the icons |
 | `graph-link` | Link mode: drag a wire, select it, Delete, Esc, Ctrl+Z | Edit tab, Link (`graph/blueprint.js`); the hint chip; undo/redo (`graph/edit-tools.js`) |
 | `graph-merge` | Merge mode: drag onto the same kind, no confirmation, Undo / Ctrl+Z | Edit tab, Merge (`graph/drag-merge.js`, `merge-rules.js`); the floating label and the Undo toast |
@@ -87,7 +88,7 @@ For every card open `seq-NN-<card>.png` and the matching `real-*.png` side by si
 | `tasks` | task tabs (All..Done), Not tasks (Goals, Ideas, Habits) | `#tasks` (`views/tasks.js`) |
 | `tasks-more` | snooze, Reschedule, Just one thing, I have 10 minutes | `views/tasks.js`, `focus.js`, `jot.js`, `snooze.js` |
 | `reflect` | week at a glance, Week in words, Plan my day, Today | `#reflect` (`views/reflect.js`) |
-| `stats` | streak, longest/average streak, days dumped, words, model activity | `#stats` (`views/stats.js`) |
+| `stats` | streak, longest/average streak, days dumped, words, model activity, model comparison | `#stats` (`views/stats.js`) |
 | `settings` | the eight Settings sections and where Replay tutorial lives | `#settings` (`views/settings.js`: `SECTIONS`, About) |
 
 ## When the app changes

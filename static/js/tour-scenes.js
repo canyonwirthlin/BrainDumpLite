@@ -335,7 +335,9 @@ export const SCENES = {
         <div class="tiles"><div class="tile"><div class="tile-v mono">9</div><div class="tile-l">longest streak</div></div><div class="tile"><div class="tile-v mono">2.4</div><div class="tile-l">average streak</div></div>
           <div class="tile"><div class="tile-v mono">31</div><div class="tile-l">days dumped</div></div><div class="tile"><div class="tile-v mono">12</div><div class="tile-l">streaks run</div></div></div>
         <div class="card"><h2>Words dumped</h2><div class="tiles" style="margin:0"><div class="tile"><div class="tile-v mono">1,840</div><div class="tile-l">this week</div></div><div class="tile"><div class="tile-v mono">6,120</div><div class="tile-l">this month</div></div><div class="tile"><div class="tile-v mono">24,500</div><div class="tile-l">this year</div></div></div></div>
-        <div class="sec">Model activity</div><div class="row" style="margin:0 0 10px" id="t-range"></div><div class="tiles" id="t-tiles"></div>`;
+        <div class="sec">Model activity</div><div class="row" style="margin:0 0 10px" id="t-range"></div><div class="tiles" id="t-tiles"></div>
+        <div class="sec">Model comparison</div><div class="card small"><div class="row" style="margin:0 0 8px"><span class="chip on">gemini-flash</span><span class="chip on">local-8b</span></div>
+          <div class="muted">Median time: <b>1.2 s</b> vs <b>4.8 s</b> · Fell back: <b>1%</b> vs <b>6%</b> · Tasks kept: <b>81%</b> vs <b>74%</b>. Tick two or more models to compare them side by side.</div></div>`;
       const paint = () => {
         $("#t-range", view).innerHTML = [7, 30, 90].map((d) => `<button class="chip ${d === days ? "on" : ""}" data-d="${d}">${d} days</button>`).join("");
         const [calls, rate, cost, total] = V[days];

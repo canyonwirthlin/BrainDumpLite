@@ -6,8 +6,8 @@
 
 ## Hot spots (most imported, so edit with care)
 
-- Backend: `db` (56), `ai` (17), `graph` (11), `item_types` (7), `engine` (6), `pipeline` (6)
-- Frontend: `ui` (57), `api` (37), `state` (18), `graph/hooks` (11), `graph/prefs` (10), `router` (10)
+- Backend: `db` (57), `ai` (17), `graph` (11), `item_types` (7), `engine` (6), `pipeline` (6)
+- Frontend: `ui` (58), `api` (38), `state` (18), `graph/hooks` (11), `graph/prefs` (10), `router` (10)
 
 ## Database (SQLite, `app/db.py`: `SCHEMA` + additive `_migrate()`)
 
@@ -31,13 +31,13 @@
 - `suggestions`: id, kind, title, payload, source, item_id, dump_id, status, result, created_at, resolved_at
 - `task_folders`: id, name, sort, created_at
 
-## Backend: `app/` (72 modules)
+## Backend: `app/` (74 modules)
 
 ### `app/__init__.py` (1 loc)
 
 ### `app/ai.py` (428 loc)
 Provider-switchable AI client. One SDK (openai), five configs:
-- deps: db, engine, gemini · used by (17): ask, digest, dupes, embeddings, followup, graph_insights +11 · tests: ai_pipeline, ask, catalog_stats, digest, dupes, extras +7
+- deps: db, engine, gemini · used by (17): ask, digest, dupes, embeddings, followup, graph_insights +11 · tests: ai_pipeline, ask, catalog_stats, digest, dupes, extras +8
 - defs: reset_usage, last_usage, AIError, config, available, chat, chat_stream, chat_json, extract_json, embed, cosine, list_models, test_connection
 
 ### `app/ask.py` (112 loc)
@@ -67,7 +67,7 @@ Full-fidelity JSON export/import (the lossless round trip; Markdown export lives
 
 ### `app/db.py` (368 loc)
 SQLite storage — one file, no server, no Docker.
-- used by (56): ai, ask, backup, catalog, dataio, digest +50 · tests: ai_pipeline, ask, backup, capture_ui, catalog_stats, codemap +37
+- used by (57): ai, ask, backup, catalog, dataio, digest +51 · tests: ai_pipeline, ask, backup, capture_ui, catalog_stats, codemap +39
 - defs: default_data_dir, data_dir, vault_dir, db_path, set_vault_pointer, lock, close, conn, init_db, backfill_items_fts, manual_dump, query, query_one, execute +4
 
 ### `app/digest.py` (140 loc)
@@ -155,15 +155,20 @@ Optional local app lock (Phase 4): a passphrase gates the API while locked.
 - deps: db · used by (4): main, phone, private, routes · tests: lock, private
 - defs: is_set, verify, set_passphrase, clear, locked, lock, unlock, boot, allowed
 
-### `app/main.py` (102 loc)
+### `app/main.py` (103 loc)
 App factory: API under /api, static SPA at /. No CORS needed (same origin).
-- deps: backup, db, engine, item_types, lock, obsidian, plugins, reprocess, routes, routes_ask, routes_data, routes_digest, routes_dumps, routes_extra, routes_focus, routes_followup, routes_graph_cards, routes_graph_export, routes_graph_insights, routes_graph_links, routes_graph_undo, routes_models, routes_obsidian, routes_phone, routes_pipeline, routes_private, routes_search, routes_tasks, routes_templates, stats · used by (2): phone, run · tests: ai_pipeline, api, ask, backup, catalog_stats, dataio +38
+- deps: backup, db, engine, item_types, lock, obsidian, plugins, reprocess, routes, routes_ask, routes_data, routes_digest, routes_dumps, routes_extra, routes_focus, routes_followup, routes_graph_cards, routes_graph_export, routes_graph_insights, routes_graph_links, routes_graph_undo, routes_model_stats, routes_models, routes_obsidian, routes_phone, routes_pipeline, routes_private, routes_search, routes_tasks, routes_templates, stats · used by (2): phone, run · tests: ai_pipeline, api, ask, backup, catalog_stats, dataio +40
 - defs: static_dir, create_app
 
 ### `app/mcp_client.py` (338 loc)
 MCP client (Phase 9): talks JSON-RPC 2.0 over stdio to local MCP servers.
 - deps: db · used by (4): routes, run, sessions, suggestions · tests: mcp
 - defs: config_path, load_config, save_config, parse_block, add_servers, remove_server, set_enabled, tool_mode, set_tool_mode, Server, start, stop, stop_all, status +3
+
+### `app/name_context.py` (266 loc)
+Does a name in running text refer to a PERSON?
+- used by (1): pipeline · tests: name_context
+- defs: is_ambiguous, occurrence_is_person, mentions, mentioned, filter_people
 
 ### `app/obsidian.py` (188 loc)
 Obsidian vault mirror: a ONE-WAY live sync of dumps into a folder as Markdown.
@@ -183,9 +188,9 @@ Phone capture over Wi-Fi (opt-in).
   - `GET /api/p/{token}` → page
   - `POST /api/phone/capture` → capture
 
-### `app/pipeline.py` (444 loc)
+### `app/pipeline.py` (449 loc)
 AI pipeline: cleanup → classify → embed → link.
-- deps: ai, db, graph, instrument, item_types, plugins, wikilinks · used by (6): followup, import_md, reprocess, routes, routes_digest, sessions · tests: graph, pipeline, v020
+- deps: ai, db, graph, instrument, item_types, name_context, plugins, wikilinks · used by (6): followup, import_md, reprocess, routes, routes_digest, sessions · tests: graph, name_context, pipeline, v020
 - defs: run_pipeline
 
 ### `app/planner.py` (107 loc)
@@ -483,6 +488,13 @@ Undoable concept / person merges for the Brain map (Merge tool + Ctrl+Z).
   - `POST /api/merge/undoable` → merge_undoable
   - `POST /api/merge/undo/{undo_id}` → undo_merge_names
 
+### `app/routes_model_stats.py` (151 loc)
+Model comparison for the Stats page: per provider/model (and per pipeline stage) numbers derived from
+- deps: db · used by (1): main · tests: model_stats
+- defs: compare
+- endpoints:
+  - `GET /api/stats/models` → get_model_stats ← views/stats-models
+
 ### `app/routes_models.py` (114 loc)
 Model-management endpoints: pause/resume a download, and the "Copy diagnostics" report.
 - deps: db, engine, version · used by (1): main · tests: models_download
@@ -625,11 +637,11 @@ The vault = the SQLite file. Backup, restore, and relocation (Phase 3).
 - used by (1): pipeline · tests: markdown
 - defs: extract, merge
 
-## Frontend: `static/js/` (100 modules, no build step; `views/*` are the tabs)
+## Frontend: `static/js/` (102 modules, no build step; `views/*` are the tabs)
 
 ### `static/js/api.js` (25 loc)
 Fetch helper for the /api backend.
-- used by (37): dumpedit, followup, geminipicker, graph/blueprint-store, graph/data, graph/export +31
+- used by (38): dumpedit, followup, geminipicker, graph/blueprint-store, graph/data, graph/export +32
 - exports: api
 
 ### `static/js/color.js` (41 loc)
@@ -671,7 +683,7 @@ Link mode data: the list of links the user made by hand (what the map draws as b
 
 ### `static/js/graph/community.js` (132 loc)
 Community detection for the Brain map: which dumps, concepts and people belong together.
-- used by (2): graph/layout-islands, graph/overlay-hulls
+- used by (3): graph/layout-islands, graph/overlay-hulls, graph/physics
 - exports: communities
 
 ### `static/js/graph/data.js` (77 loc)
@@ -689,9 +701,9 @@ Edit tab, undo half: the Undo / Redo buttons, the keyboard binding, and the smal
 - imports: graph/data, graph/hooks, graph/keyboard, graph/toolbar, graph/undo, ui · used by (2): graph/drag-merge, graph/plugins
 - exports: postJson, reloadMap, undoToast
 
-### `static/js/graph/engine.js` (714 loc)
+### `static/js/graph/engine.js` (734 loc)
 The canvas engine: node/edge model, pan/zoom, draw loop, hit-testing, input events and the plugin api + event bus.
-- imports: graph/layouts, graph/overlays, graph/perf, graph/physics, graph/prefs, graph/sim-large, router, ui · used by (3): graph/find, graph/ribbon-filters, views/graph
+- imports: graph/layouts, graph/overlays, graph/perf, graph/physics, graph/prefs, graph/sim-large, graph/sizing, router, ui · used by (3): graph/find, graph/ribbon-filters, views/graph
 - exports: createGraphApi, edgeKey, graphColors, resolveColor
 
 ### `static/js/graph/export.js` (194 loc)
@@ -779,7 +791,7 @@ Shared helpers for the layouts in layout-*.js and the cluster outlines overlay: 
 - imports: graph/hooks, graph/infobox, graph/prefs, ui · used by (6): graph/layout-concepts, graph/layout-ego, graph/layout-islands, graph/layout-lanes, graph/layout-matrix, graph/overlay-hulls
 - exports: buildModel, clamp, cmp, dumpListHtml, dumpTime, easeInOut, esc, fitText, fmtDay, groupColor, groupHue, haloText, isAlive, isHub +9
 
-### `static/js/graph/layouts.js` (47 loc)
+### `static/js/graph/layouts.js` (77 loc)
 Layout registry. A layout decides where nodes start, which forces act on them, and (optionally) paints its
 - imports: graph/physics · used by (7): graph/engine, graph/layout-concepts, graph/layout-ego, graph/layout-islands, graph/layout-lanes, graph/layout-matrix +1
 - exports: LAYOUTS, getLayout, layoutId, registerLayout
@@ -843,10 +855,10 @@ Large-map switches for the Brain map. A map with more nodes than PERF_NODES take
 - used by (3): graph/drag-merge, graph/engine, graph/overlays
 - exports: DEFAULT_PERF_NODES, EDGE_BATCHES, INLINE_STEP_BUDGET_MS, LOD_EDGES, LOD_IDLE_MS, PERF_NODES, isLargeMap
 
-### `static/js/graph/physics.js` (147 loc)
+### `static/js/graph/physics.js` (204 loc)
 Placement + force simulation as plain functions (no DOM, no module state), so layouts can call and tune them.
-- used by (5): graph/engine, graph/layout-concepts, graph/layout-islands, graph/layout-lanes, graph/layouts
-- exports: DEFAULT_FORCES, GOLDEN, hash01, makeSim, placeGalaxy, placeOrganic, step
+- imports: graph/community · used by (5): graph/engine, graph/layout-concepts, graph/layout-islands, graph/layout-lanes, graph/layouts
+- exports: DEFAULT_FORCES, GOLDEN, hash01, makeSim, placeGalaxy, placeOrganic, spreadTargets, step
 
 ### `static/js/graph/physics-core.js` (199 loc)
 The force simulation of physics.js re-implemented on typed arrays, for LARGE maps (see perf.js). It is a plain
@@ -861,7 +873,7 @@ Web Worker that settles a large Brain map's layout off the main thread (see perf
 The plugin manifest for the Brain map: one side-effect import per feature module.
 - imports: graph/blueprint, graph/drag-merge, graph/edit-tools, graph/export, graph/filter-edges, graph/hovercard, graph/info-sparkline, graph/keyboard, graph/layout-concepts, graph/layout-ego, graph/layout-islands, graph/layout-lanes, graph/layout-matrix, graph/overlay-bridges, graph/overlay-hulls, graph/overlay-links, graph/overlay-lonely, graph/overlay-loops, graph/overlay-trends, graph/ribbon · used by (1): views/graph
 
-### `static/js/graph/prefs.js` (111 loc)
+### `static/js/graph/prefs.js` (116 loc)
 Every persisted brain-map preference lives here, under the same localStorage keys the map has
 - used by (10): graph/data, graph/drag-merge, graph/engine, graph/filter-edges, graph/layout-util, graph/overlays +4
 - exports: MIN_ZOOM, RANGES, hidden, loadHidden, loadOverlayIds, loadPins, loadView, prefs, saveHidden, saveOverlayIds, savePins, sessionViews, storeView
@@ -881,7 +893,7 @@ Pure helpers behind the Brain map ribbon (graph/ribbon.js). No DOM, no imports: 
 - used by (3): graph/ribbon, graph/ribbon-tools, tour-graph
 - exports: buildRow, firstSentence, helpModel, nextTabIndex, pickTab, placeTip, tabSignature, toolName, val
 
-### `static/js/graph/ribbon-tools.js` (193 loc)
+### `static/js/graph/ribbon-tools.js` (210 loc)
 The built-in ribbon tools, registered in graph/toolbar.js so the ribbon (ribbon.js) can draw them:
 - imports: graph/find, graph/layouts, graph/overlays, graph/path, graph/prefs, graph/ribbon-model, graph/toolbar · used by (3): graph/panel, graph/ribbon, graph/ribbon-filters
 - exports: ICON, bindToolContext, cur, remount, sliderTool, syncRegistryTools
@@ -890,6 +902,11 @@ The built-in ribbon tools, registered in graph/toolbar.js so the ribbon (ribbon.
 Main-thread driver for the large-map simulation (see perf.js). It owns either a module Web Worker running
 - imports: graph/physics-core · used by (1): graph/engine
 - exports: createLargeSim
+
+### `static/js/graph/sizing.js` (70 loc)
+How big a node is and which nodes get a name written beside them, as plain functions (no DOM) so engine.js uses them
+- used by (1): graph/engine
+- exports: GRAPH_R, ITEM_R, SIZING_TAG, maxHubMentions, mentionCounts, radiusFor, rankedForLabels
 
 ### `static/js/graph/timelapse.js` (314 loc)
 Time-lapse: the finished layout stays put while nodes appear as their first dump is reached.
@@ -1005,17 +1022,17 @@ The tutorial: a replica of the app you can poke at, one short card per idea. The
 - imports: shell, tour-graph, tour-scenes, tour-steps, tour-templates, ui · used by (1): onboarding
 - exports: runTour
 
-### `static/js/tour-graph.js` (323 loc)
+### `static/js/tour-graph.js` (327 loc)
 Tutorial cards for the Brain map. One light mock (a ribbon on top of a small SVG map) shared by four cards:
 - imports: graph/ribbon-model, graph/toolbar, tour-scenes, ui · used by (1): tour
 - exports: SCENES
 
-### `static/js/tour-scenes.js` (406 loc)
+### `static/js/tour-scenes.js` (408 loc)
 The tutorial's mock screens (all but the Brain map and Templates, which have their own files). Every scene is a small,
 - imports: ui · used by (2): tour, tour-graph
 - exports: DUMPS, SCENES, demoNote
 
-### `static/js/tour-steps.js` (142 loc)
+### `static/js/tour-steps.js` (148 loc)
 The tutorial's script: one entry per card, in order. PURE DATA (no imports, no DOM) so tests can load it under Node.
 - used by (1): tour
 - exports: SCREENS, STEPS, firstStepOf
@@ -1027,7 +1044,7 @@ Tutorial cards for dump templates: the Capture picker (pinned buttons + searchab
 
 ### `static/js/ui.js` (174 loc)
 Shared helpers + constants. Pure functions only; no app state here.
-- imports: state · used by (57): color, dumpedit, followup, geminipicker, graph/blueprint, graph/drag-merge +51
+- imports: state · used by (58): color, dumpedit, followup, geminipicker, graph/blueprint, graph/drag-merge +52
 - exports: ICONS, MODES, PROVIDER_NAMES, STAGES, TONE_ICONS, WIN_ICONS, colorCss, esc, fmtDate, fmtDay, fmtTime, isMac, kindBadge, md +9
 
 ### `static/js/views/ask.js` (67 loc)
@@ -1119,11 +1136,17 @@ Settings: sectioned (Appearance, AI, Voice, Data, About) with a per-section
 - exports: closeMenus, fmtShort, isoPlus, presets, rescheduleAllOverdue, snoozeItem, snoozeMenu
 - calls: POST /items/{}/snooze, POST /tasks/reschedule-overdue
 
-### `static/js/views/stats.js` (89 loc)
+### `static/js/views/stats.js` (91 loc)
 Statistics: streaks, words dumped, and the model/cost/latency numbers that
-- imports: api, ui · used by (1): main
+- imports: api, ui, views/stats-models · used by (1): main
 - exports: render
 - calls: GET /stats, GET /streaks
+
+### `static/js/views/stats-models.js` (155 loc)
+Stats → Model comparison: per model (or model x stage) numbers from /api/stats/models, with a
+- imports: api, ui · used by (1): views/stats
+- exports: mount
+- calls: GET /stats/models
 
 ### `static/js/views/task_lists.js` (129 loc)
 Task folders (separate lists) and recurring tasks, for the Tasks tab. tasks.js stays thin: it calls

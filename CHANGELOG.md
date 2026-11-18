@@ -4,6 +4,25 @@ Written by hand before every release. The section for the version being
 released becomes the GitHub release notes AND the "What's New" panel in the
 app. Format: `## X.Y.Z — YYYY-MM-DD`, then markdown. Newest first.
 
+## 0.27.0 — 2026-11-17
+Your busiest ideas now stand out on the Brain map, the layouts have room to breathe, and the Stats page can compare models.
+
+### Brain map
+- **Size by mentions** (View tab): the more dumps mention a concept or person, the bigger its dot. Turn it off for the old, even look.
+- **Names shown** (View tab): the most-mentioned ideas and people (12 by default, up to 40) always keep their name on screen, even zoomed all the way out.
+- **Galaxy** now works: a spiral with one arm per topic, oldest dumps in the middle, newest on the rim, faint rings marking the months, and no more pile-up in the centre.
+- The **Spacing** slider now visibly changes the spacing (the map used to zoom out by the same amount, so nothing looked different).
+- Dots get more breathing room in every layout, and Cluster islands sizes itself around the bigger dots.
+
+### Smarter names
+- The word "will" (and "may", "mark", "bill", "grace", "hope", "rose" and friends) is no longer mistaken for a person when you use it as an ordinary word, like "I will do this". "Will" as a person still works: "told Will", "Will's", "[[Will]]". To clear old bogus nodes, re-process your dumps from Settings, AI (needs an AI model on).
+
+### Stats
+- **Model comparison**: tick two or more models to see speed, how often they fell back or failed, and how often you kept their tasks, side by side. Choose 7, 30, 90 days or all time.
+
+### Tutorial
+- New "Spot your busiest ideas" card for the two new View tools, and the Statistics card now mentions Model comparison.
+
 ## 0.26.1 — 2026-11-17
 A tidier Brain map with a toolbar across the top, link and merge tools you can undo, editable dump templates, and fixes for imported transcripts.
 
