@@ -4,6 +4,8 @@
 // sim.alpha (the cooling temperature) as it runs. `env` is { W, H, spacing } - the canvas size in CSS px and the
 // current Spacing slider value. `forces` is a layout's knob object merged over DEFAULT_FORCES.
 
+import { communities } from "./community.js";
+
 export const GOLDEN = 2.399963;
 export const hash01 = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10000) / 10000; };
 
@@ -16,7 +18,7 @@ export const DEFAULT_FORCES = {
   centerPull: 0.007,   // pull towards the middle of the canvas for nodes that have no target
   anchor: 0,           // pull towards a node's tx/ty target: number, or (node) => strength (0 = none)
   collide: 0.35,       // how hard overlapping nodes shove apart
-  collidePad: 10,      // px of breathing room kept between node discs
+  collidePad: 14,      // px of breathing room kept between node discs
 };
 
 /** Build the simulation state for a node/edge set (nodes must already carry r, w, deg, x, y, vx, vy, fx, fy). */
@@ -52,33 +54,88 @@ export function placeOrganic(sim, env) {
   });
 }
 
-/** Galaxy: every dump gets a fixed slot on a time-ordered sunflower (oldest at the centre, newest on the rim),
- *  concepts/people sit at the centre of the dumps that mention them, and items orbit their dump. Sets tx/ty
- *  (the targets physics anchors to) and starts each node on its target. */
+/** Push overlapping targets (tx, ty) apart until every pair of nodes has at least `pad` of air between their discs.
+ *  Deterministic (no Math.random) and grid-bucketed, so it costs about the same on 3000 nodes as a few physics steps.
+ *  Layouts that hold nodes on fixed targets call this so the targets themselves never pile up. */
+export function spreadTargets(nodes, pad, rounds = 80) {
+  const list = nodes.filter((n) => n.tx != null);
+  const N = list.length;
+  if (N < 2) return;
+  let maxR = 0;
+  for (const a of list) maxR = Math.max(maxR, a.r || 0);
+  const cell = 2 * maxR + pad;
+  const dx = new Float64Array(N), dy = new Float64Array(N);
+  for (let it = 0; it < rounds; it++) {
+    const grid = new Map();
+    list.forEach((a, i) => { const k = Math.floor(a.tx / cell) * 100003 + Math.floor(a.ty / cell); (grid.get(k) || grid.set(k, []).get(k)).push(i); });
+    dx.fill(0); dy.fill(0);
+    let hits = 0;
+    for (let i = 0; i < N; i++) {
+      const a = list[i], gx = Math.floor(a.tx / cell), gy = Math.floor(a.ty / cell);
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+        const bucket = grid.get((gx + ox) * 100003 + (gy + oy));
+        if (!bucket) continue;
+        for (const j of bucket) {
+          if (j <= i) continue;
+          const b = list[j];
+          let ex = a.tx - b.tx, ey = a.ty - b.ty, d = Math.hypot(ex, ey);
+          const gap = (a.r || 0) + (b.r || 0) + pad;
+          if (d >= gap) continue;
+          if (d < 0.01) { const t = hash01(a.id + b.id) * 6.2832; ex = Math.cos(t); ey = Math.sin(t); d = 1; }
+          const push = ((gap - d) / 2) * 0.7 / d;
+          dx[i] += ex * push; dy[i] += ey * push; dx[j] -= ex * push; dy[j] -= ey * push;
+          hits++;
+        }
+      }
+    }
+    if (!hits) break;
+    for (let i = 0; i < N; i++) { list[i].tx += dx[i]; list[i].ty += dy[i]; }
+  }
+}
+
+/** Galaxy: a time-ordered spiral with one arm per topic. Every dump gets a slot (oldest at the centre, newest on the
+ *  rim) on the arm of the topic group it belongs to (community.js); concepts and people sit among the dumps that
+ *  mention them, so ideas that span topics land between the arms; items orbit their dump. Targets are then spread so
+ *  nothing overlaps. Sets tx/ty (the targets physics anchors to) and starts each node on its target. */
 export function placeGalaxy(sim, env) {
   const { nodes, byId, nbrIds: nbrs } = sim;
-  const cx = env.W / 2, cy = env.H / 2;
-  const dumps = nodes.filter((n) => n.type === "dump").sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
-  // Slot spacing shrinks as the history grows, but never below 30px; with few dumps the spiral is
-  // widened to a minimum radius so a young map isn't one tight clump.
-  const step = Math.max(30, 230 / Math.sqrt(dumps.length + 2)) * env.spacing;
-  dumps.forEach((n, i) => { const r = step * Math.sqrt(i + 2), th = i * GOLDEN; n.tx = cx + r * Math.cos(th); n.ty = cy + r * Math.sin(th); });
-  const rim = step * Math.sqrt(dumps.length + 2);
+  const cx = env.W / 2, cy = env.H / 2, sp = env.spacing;
+  const dumps = nodes.filter((n) => n.type === "dump").sort((a, b) => (a.created_at || "").localeCompare(b.created_at || "") || (a.id < b.id ? -1 : 1));
+  const nD = dumps.length;
+  // one arm per sizeable topic group (at most 8); everything else is dealt onto an arm by a stable hash
+  const armOf = new Map();
+  let arms = 1;
+  try {
+    const big = communities(nodes, sim.edges).list.filter((c) => c.size >= 3).slice(0, 8);
+    arms = Math.max(1, big.length);
+    big.forEach((c, a) => c.nodeIds.forEach((id) => armOf.set(id, a)));
+  } catch { /* no community data: a single arm, which is the classic spiral */ }
+  const wedge = (Math.PI * 2) / arms;
+  const step = Math.max(38, 270 / Math.sqrt(nD + 2)) * sp;
+  dumps.forEach((n, i) => {
+    const t = (i + 2) / (nD + 2), r = step * Math.sqrt(i + 2);
+    const arm = armOf.has(n.id) ? armOf.get(n.id) : Math.floor(hash01(n.id) * arms);
+    const th = arm * wedge + 3.0 * Math.sqrt(t) + (hash01(n.id + "a") - 0.5) * wedge * 0.55;   // the twist bends each arm into a spiral
+    n.tx = cx + r * Math.cos(th); n.ty = cy + r * Math.sin(th);
+  });
+  const rim = step * Math.sqrt(nD + 2);
   nodes.filter((n) => n.type !== "dump" && !n.dump).forEach((n) => {   // hubs: concepts, people
     const ds = (nbrs[n.id] || []).map((id) => byId[id]).filter((m) => m && m.type === "dump" && m.tx != null);
-    if (ds.length) {   // centre of its dumps, nudged along a per-node angle so hubs sharing the same dumps don't stack
-      const a = hash01(n.id) * Math.PI * 2, off = step * 0.7;
-      n.tx = ds.reduce((s, m) => s + m.tx, 0) / ds.length + Math.cos(a) * off;
-      n.ty = ds.reduce((s, m) => s + m.ty, 0) / ds.length + Math.sin(a) * off;
-    }
-    else { const a = hash01(n.id) * Math.PI * 2; n.tx = cx + Math.cos(a) * rim * 1.1; n.ty = cy + Math.sin(a) * rim * 1.1; }
+    if (ds.length) {   // the middle of its dumps (so a cross-topic idea sits between arms), kept off the very centre
+      let x = ds.reduce((s, m) => s + m.tx, 0) / ds.length - cx, y = ds.reduce((s, m) => s + m.ty, 0) / ds.length - cy;
+      const meanR = ds.reduce((s, m) => s + Math.hypot(m.tx - cx, m.ty - cy), 0) / ds.length, d = Math.hypot(x, y), floor = meanR * 0.55;
+      if (d < floor) { const a = d > 1 ? Math.atan2(y, x) : hash01(n.id) * Math.PI * 2; x = Math.cos(a) * floor; y = Math.sin(a) * floor; }
+      n.tx = cx + x; n.ty = cy + y;
+    } else { const a = hash01(n.id) * Math.PI * 2; n.tx = cx + Math.cos(a) * rim * 1.1; n.ty = cy + Math.sin(a) * rim * 1.1; }
   });
   nodes.filter((n) => n.dump).forEach((n) => {   // items orbit their dump
-    const d = byId[n.dump], a = hash01(n.id) * Math.PI * 2;
+    const d = byId[n.dump], a = hash01(n.id) * Math.PI * 2, o = (d ? d.r : 7) + (n.r || 3.5) + 6;
     const bx = d && d.tx != null ? d.tx : cx, by = d && d.ty != null ? d.ty : cy;
-    n.tx = bx + Math.cos(a) * 16; n.ty = by + Math.sin(a) * 16;
+    n.tx = bx + Math.cos(a) * o; n.ty = by + Math.sin(a) * o;
   });
-  nodes.forEach((n) => { n.x = n.tx + (Math.random() - 0.5) * 4; n.y = n.ty + (Math.random() - 0.5) * 4; });
+  spreadTargets(nodes, 9 * sp);
+  nodes.forEach((n) => { n.x = n.tx; n.y = n.ty; });
+  sim.galaxy = { cx, cy, step, times: dumps.map((d) => Date.parse(d.created_at || "") || 0) };   // what the layout's time rings are drawn from
 }
 
 // ── one physics step ──────────────────────────────────────────────────────────────────────────

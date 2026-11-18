@@ -16,9 +16,7 @@ import { DEFAULT_FORCES, makeSim, step as physicsStep, hash01 } from "./physics.
 import { HULL_PAINTERS, createOverlayRuntime } from "./overlays.js";
 import { isLargeMap, LOD_IDLE_MS, LOD_EDGES, INLINE_STEP_BUDGET_MS, EDGE_BATCHES } from "./perf.js";
 import { createLargeSim } from "./sim-large.js";
-
-const GRAPH_R = { dump: 7, concept: 5, person: 5 };
-const ITEM_R = 3.5;
+import { mentionCounts, maxHubMentions, radiusFor, rankedForLabels, SIZING_TAG } from "./sizing.js";
 
 export const edgeKey = (a, b) => (a < b ? a + "|" + b : b + "|" + a);
 
@@ -90,7 +88,7 @@ export function createGraphApi({ getTypes }) {
     select: (id) => E?.select(id),
     hover: (id) => E?.setHover(id),
     requestDraw: () => E?.requestDraw(),
-    reheat: () => E?.reheat(),
+    reheat: (o) => E?.reheat(o),
     fit: () => E?.refit(),
     /** Select a node and centre/zoom on it. Returns false when it isn't on the map (filtered out). */
     focusOn: (id) => (E ? E.focusOn(id) : false),
@@ -122,9 +120,15 @@ export function createGraphApi({ getTypes }) {
 
     const degree = {};
     data.edges.forEach((e) => { degree[e.source] = (degree[e.source] || 0) + 1; degree[e.target] = (degree[e.target] || 0) + 1; });
+    // "Size by mentions": a concept or person grows with the number of dumps that mention it (sizing.js).
+    const sized = prefs.get("sizeByMentions");
+    const sizingNow = SIZING_TAG + (sized ? "+" : "-");   // a saved arrangement made with other dot sizes is laid out again
+    const counts = mentionCounts(data.nodes, data.edges);
+    const maxMentions = maxHubMentions(data.nodes, counts);
     const nodes = data.nodes.map((n) => ({
       ...n, vx: 0, vy: 0, fx: null, fy: null, x: 0, y: 0, tx: null, ty: null, deg: degree[n.id] || 0, meta: n.meta || {},
-      r: (GRAPH_R[n.type] || ITEM_R) + Math.min(9, (degree[n.id] || 0) * (n.type in GRAPH_R ? 1.1 : 0.3)),
+      mentions: counts.get(n.id) || 0,
+      r: radiusFor(n, sized ? counts.get(n.id) || 0 : degree[n.id] || 0, maxMentions, sized),
     }));
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
     const edges = data.edges.filter((e) => byId[e.source] && byId[e.target]);
@@ -162,7 +166,9 @@ export function createGraphApi({ getTypes }) {
       get panY() { return panY; }, set panY(v) { panY = v; needsDraw = true; if (big) lastMotion = performance.now(); },
       get selectedId() { return selectedId; }, get hoverId() { return hoverId; },
       requestDraw: () => { needsDraw = true; },
-      reheat: () => { if (!fixed) sim.alpha = 1; userMoved = false; needsDraw = true; },
+      // keepView: the Spacing slider. The map re-settles but the camera stays put, so a wider spacing really looks wider
+      // (a refit would zoom out by the same factor and the change would be invisible).
+      reheat: (o) => { if (!fixed) sim.alpha = 1; if (o && o.keepView) userMoved = true; else userMoved = false; needsDraw = true; },
       refit: () => { userMoved = false; fit(); persistSoon(); },
       neighborsOf, toWorld, select, setHover, focusOn, snapshot,
       dispose() { dead = true; clearTimeout(saveTimer); ac.abort(); drv?.dispose(); if (E === inst) E = null; },
@@ -233,7 +239,8 @@ export function createGraphApi({ getTypes }) {
     function place() {
       syncEnv();
       syncPlace();
-      const snap = layout.locked ? null : loadView(layoutId);   // locked layouts compute every position from the data
+      let snap = layout.locked ? null : loadView(layoutId);   // locked layouts compute every position from the data
+      if (snap && snap.sizing !== sizingNow) snap = null;     // dots changed size since: the old spots would overlap
       if (snap) {
         let hit = 0;
         nodes.forEach((n) => { const q = snap.pos.get(n.id); if (q) { n.x = q.x; n.y = q.y; hit++; } });
@@ -281,7 +288,7 @@ export function createGraphApi({ getTypes }) {
       stats.simMode = drv.mode;
     }
     stats.mountMs = performance.now() - mountT0;
-    function snapshot() { sessionViews.set(layoutId, { pos: new Map(nodes.map((n) => [n.id, { x: n.x, y: n.y }])), scale, panX, panY, userMoved, alpha: big ? sim.alpha : undefined }); }
+    function snapshot() { sessionViews.set(layoutId, { pos: new Map(nodes.map((n) => [n.id, { x: n.x, y: n.y }])), scale, panX, panY, userMoved, alpha: big ? sim.alpha : undefined, sizing: sizingNow }); }
     // Persist the view (pan/zoom/positions) shortly after any interaction and when the window closes.
     let saveTimer = 0;
     const persist = () => { clearTimeout(saveTimer); if (canvas.isConnected) { snapshot(); storeView(layoutId, sessionViews.get(layoutId)); } };
@@ -323,7 +330,34 @@ export function createGraphApi({ getTypes }) {
       requestAnimationFrame(tick);
     }
 
-    const labelled = new Set([...nodes].sort((a, b) => b.deg - a.deg).slice(0, Math.max(6, Math.min(30, Math.ceil(N * 0.06)))).map((n) => n.id));
+    // The K most mentioned concepts / people always carry their name (View tab -> "Names shown"); K is read live, so the
+    // slider needs a redraw, not a rebuild.
+    const ranked = rankedForLabels(data.nodes, counts);
+    const rankAt = new Map(ranked.map((id, i) => [id, i]));
+    let topK = -1, topSet = new Set();
+    const topLabelSet = () => { const k = prefs.get("topLabels"); if (k !== topK) { topK = k; topSet = new Set(ranked.slice(0, k)); } return topSet; };
+    const bigDot = sized ? Infinity : 9;   // classic look: any dot over 9px on screen is named; sized dots are all large, so zoom decides instead
+    const clash = (placed, b) => { for (let q = 0; q < placed.length; q++) { const p = placed[q]; if (b.x0 < p.x1 && b.x1 > p.x0 && b.y0 < p.y1 && b.y1 > p.y0) return true; } return false; };
+    /** Write n's name beside it unless that would overlap a name already placed (`strong` names, the most mentioned,
+     *  are bolder, try the other three sides before giving up, and are never dropped). Returns true when drawn. */
+    function putLabel(n, dim, placed, px, strong, force) {
+      const text = n.label.slice(0, strong ? 40 : 30), fpx = strong ? px * 1.15 : px;
+      if (strong) ctx.font = `600 ${fpx}px sans-serif`;
+      const w = ctx.measureText(text).width, g = 4 / scale, base = n.y + 4 / scale;
+      const spots = [[n.x + n.r + g, base], [n.x - n.r - g - w, base], [n.x - w / 2, n.y - n.r - g], [n.x - w / 2, n.y + n.r + g + fpx * 0.8]];
+      const box = (s) => ({ x0: s[0], x1: s[0] + w, y0: s[1] - fpx, y1: s[1] + fpx * 0.3 });
+      let at = null;
+      for (let i = 0; i < (strong ? 4 : 1) && !at; i++) if (!clash(placed, box(spots[i]))) at = spots[i];
+      if (!at) { if (!strong && !force) { return false; } at = spots[0]; }
+      placed.push(box(at));
+      ctx.globalAlpha = dim ? 0.2 : 1;
+      ctx.lineWidth = 3 / scale; ctx.strokeStyle = GC.bg;
+      ctx.strokeText(text, at[0], at[1]);
+      ctx.fillStyle = GC.text;
+      ctx.fillText(text, at[0], at[1]);
+      if (strong) ctx.font = `${px}px sans-serif`;
+      return true;
+    }
     // ── Large maps (perf.js): batched, culled, level-of-detail drawing ─────────────────────────────
     // Same picture as the plain loops below, but edges and plain nodes are collected into a few Path2D batches instead
     // of one canvas call each, anything off screen is skipped, and while the map moves labels (and half the edges of a
@@ -433,7 +467,7 @@ export function createGraphApi({ getTypes }) {
 
     function drawLabelsBig(f, px) {
       const { hl, hood, focusing, alive, preds, view: v } = f;
-      const hoverTitles = prefs.get("hoverTitles");
+      const hoverTitles = prefs.get("hoverTitles"), top = topLabelSet();
       const placed = [];
       let tries = 0;
       const consider = (n, force) => {
@@ -441,26 +475,19 @@ export function createGraphApi({ getTypes }) {
         if (preds && !alive(n)) return;
         const dim = (hood && !hood.has(n.id)) || (hl && !hl.nodes.has(n.id));
         if (dim && focusing) return;
-        const inHl = hl && hl.nodes.has(n.id);
-        if (!inHl && !force) {
-          if (f.lod) return;   // simplified while moving: only the hovered / selected / path labels
-          if (!(hoverTitles ? n.id === hoverId : !dim && (hood || labelled.has(n.id) || n.r * scale > 9 || (scale > 1.3 && n.deg >= 2) || scale > 2.6))) return;
+        const inHl = hl && hl.nodes.has(n.id), strong = top.has(n.id);
+        if (!inHl && !force && !strong) {
+          if (f.lod) return;   // simplified while moving: only the hovered / selected / path / most-mentioned labels
+          if (!(hoverTitles ? n.id === hoverId : !dim && (hood || n.r * scale > bigDot || (scale > 1.3 && n.deg >= 2) || scale > 2.6))) return;
         }
         tries++;
-        const text = n.label.slice(0, 30), w = ctx.measureText(text).width, x = n.x + n.r + 4 / scale, y = n.y + 4 / scale;
-        const x0 = x, x1 = x + w, y0 = y - px, y1 = y + px * 0.3;
-        if (!force) for (let q = 0; q < placed.length; q++) { const b = placed[q]; if (x0 < b.x1 && x1 > b.x0 && y0 < b.y1 && y1 > b.y0) return; }
-        placed.push({ x0, x1, y0, y1 });
-        ctx.globalAlpha = dim ? 0.2 : 1;
-        ctx.lineWidth = 3 / scale; ctx.strokeStyle = GC.bg;
-        ctx.strokeText(text, x, y);
-        ctx.fillStyle = GC.text;
-        ctx.fillText(text, x, y);
+        putLabel(n, dim, placed, px, strong, force);
       };
       const hv = hoverId && byId[hoverId], sel = selectedId && selectedId !== hoverId ? byId[selectedId] : null;
+      for (const id of top) { const n = byId[id]; if (n && n !== hv && n !== sel) consider(n, false); }   // most mentioned first, so nothing else takes their spot
       if (hv) consider(hv, true);
       if (sel) consider(sel, true);
-      for (let i = 0; i < N && tries < 700; i++) { const n = byDeg[i]; if (n !== hv && n !== sel) consider(n, false); }
+      for (let i = 0; i < N && tries < 700; i++) { const n = byDeg[i]; if (n !== hv && n !== sel && !top.has(n.id)) consider(n, false); }
     }
 
     function draw() {
@@ -561,25 +588,18 @@ export function createGraphApi({ getTypes }) {
       stats.nodeMs = performance.now() - tPhase;
       if (big) drawLabelsBig(frame, px);
       else {
+      const top = topLabelSet(), rank = (n) => (top.has(n.id) ? rankAt.get(n.id) : 1e9);
       const wanted = nodes.filter((n) => {
         if (!alive(n)) return false;
         const dim = (hood && !hood.has(n.id)) || (hl && !hl.nodes.has(n.id));
         if (dim && focusing) return false;
-        if (hl && hl.nodes.has(n.id)) return true;
-        return hoverTitles ? n.id === hoverId : !dim && (hood || labelled.has(n.id) || n.r * scale > 9 || (scale > 1.3 && n.deg >= 2) || scale > 2.6);
-      }).sort((a, b) => (b.id === hoverId) - (a.id === hoverId) || (b.id === selectedId) - (a.id === selectedId) || b.deg - a.deg);
+        if ((hl && hl.nodes.has(n.id)) || top.has(n.id)) return true;
+        return hoverTitles ? n.id === hoverId : !dim && (hood || n.r * scale > bigDot || (scale > 1.3 && n.deg >= 2) || scale > 2.6);
+      }).sort((a, b) => (top.has(b.id) - top.has(a.id)) || (rank(a) - rank(b)) || (b.id === hoverId) - (a.id === hoverId) || (b.id === selectedId) - (a.id === selectedId) || b.deg - a.deg);
       const placed = [];
       wanted.forEach((n) => {
-        const text = n.label.slice(0, 30), w = ctx.measureText(text).width, x = n.x + n.r + 4 / scale, y = n.y + 4 / scale;
-        const box = { x0: x, x1: x + w, y0: y - px, y1: y + px * 0.3 };
-        const force = n.id === hoverId || n.id === selectedId;
-        if (!force && placed.some((q) => box.x0 < q.x1 && box.x1 > q.x0 && box.y0 < q.y1 && box.y1 > q.y0)) return;
-        placed.push(box);
-        ctx.globalAlpha = (hood && !hood.has(n.id)) || (hl && !hl.nodes.has(n.id)) ? 0.2 : 1;
-        ctx.lineWidth = 3 / scale; ctx.strokeStyle = GC.bg;
-        ctx.strokeText(text, x, y);
-        ctx.fillStyle = GC.text;
-        ctx.fillText(text, x, y);
+        const dim = (hood && !hood.has(n.id)) || (hl && !hl.nodes.has(n.id));
+        putLabel(n, dim, placed, px, top.has(n.id), n.id === hoverId || n.id === selectedId);
       });
       }
       ctx.globalAlpha = 1;

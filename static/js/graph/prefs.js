@@ -11,6 +11,7 @@ const KEYS = {
   spacing: "bdl-graph-spacing", layout: "bdl-graph-layout", hoverTitles: "bdl-graph-hover-titles",
   minMentions: "bdl-graph-min", range: "bdl-graph-range", types: "bdl-graph-types", pins: "bdl-graph-pins",
   view: "bdl-graph-view-", overlays: "bdl-graph-overlays",
+  sizeByMentions: "bdl-graph-size-mentions", topLabels: "bdl-graph-top-labels",
 };
 
 const defs = new Map();     // name -> { key, def, parse, serialize }
@@ -58,6 +59,10 @@ define("spacing", { key: KEYS.spacing, def: 1, parse: (raw) => { const v = parse
 define("layout", { key: KEYS.layout, def: "organic", parse: (raw) => raw || undefined });
 // Off: titles show as usual. On: a title appears only while hovering its node.
 define("hoverTitles", { key: KEYS.hoverTitles, def: false, parse: (raw) => raw === "1", serialize: (v) => (v ? "1" : "0") });
+// Highlight the busy nodes: dot size follows how many dumps mention a concept or person, and the K most mentioned ones
+// always show their name (0 = no names beyond the usual zoom-in labels).
+define("sizeByMentions", { key: KEYS.sizeByMentions, def: true, parse: (raw) => raw === "1", serialize: (v) => (v ? "1" : "0") });
+define("topLabels", { key: KEYS.topLabels, def: 12, parse: (raw) => { const v = parseInt(raw, 10); return v >= 0 && v <= 40 ? v : undefined; } });
 // Declutter filters: concepts/people in fewer dumps than this are hidden; range limits the map to recent dumps.
 define("minMentions", { key: KEYS.minMentions, def: 2, parse: (raw) => { const v = parseInt(raw, 10); return v >= 1 && v <= 6 ? v : undefined; } });
 define("range", { key: KEYS.range, def: "all", parse: (raw) => (raw in RANGES ? raw : undefined) });
@@ -93,7 +98,7 @@ export function loadView(layoutId) {
   try {
     const v = JSON.parse(readRaw(KEYS.view + layoutId) || "null");
     if (!v || !v.pos || ![v.scale, v.panX, v.panY].every(Number.isFinite)) return null;
-    const snap = { pos: new Map(Object.entries(v.pos).map(([id, q]) => [id, { x: q[0], y: q[1] }])), scale: v.scale, panX: v.panX, panY: v.panY, userMoved: !!v.userMoved };
+    const snap = { pos: new Map(Object.entries(v.pos).map(([id, q]) => [id, { x: q[0], y: q[1] }])), scale: v.scale, panX: v.panX, panY: v.panY, userMoved: !!v.userMoved, sizing: v.sizing };
     savedLayouts.set(layoutId, snap);
     return snap;
   } catch { return null; }
@@ -102,7 +107,7 @@ export function storeView(layoutId, snap) {
   if (snap.pos.size > 3000) return;
   const pos = {};
   snap.pos.forEach((q, id) => { pos[id] = [Math.round(q.x), Math.round(q.y)]; });
-  writeRaw(KEYS.view + layoutId, JSON.stringify({ pos, scale: snap.scale, panX: snap.panX, panY: snap.panY, userMoved: snap.userMoved }));
+  writeRaw(KEYS.view + layoutId, JSON.stringify({ pos, scale: snap.scale, panX: snap.panX, panY: snap.panY, userMoved: snap.userMoved, sizing: snap.sizing }));
 }
 
 // ── overlays switched on (JSON array of overlay ids) ──────────────────────────────────────────

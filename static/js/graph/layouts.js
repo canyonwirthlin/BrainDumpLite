@@ -38,9 +38,39 @@ registerLayout({
 
 registerLayout({
   id: "galaxy", label: "Galaxy (by time)", icon: "🌌",
-  desc: "Every dump gets its own slot on a time-ordered spiral, oldest in the middle and newest on the rim; concepts and people sit among the dumps that mention them.",
-  // No repulsion (slots do the spacing), weak links, and every node is held towards its spiral target:
-  // dumps and their items tightly, hubs (concepts, people) loosely so they fan out instead of stacking.
-  forces: { repulsion: 0, reach: 60, linkPull: 0.25, centerPull: 0.007, anchor: (n) => (n.type === "dump" || n.dump ? 0.12 : 0.03) },
+  desc: "A spiral galaxy with one arm per topic: every dump gets its own slot, oldest in the middle and newest on the rim, and ideas that span topics sit between the arms.",
+  // Targets are spread so no two nodes overlap (physics.spreadTargets), so every node is simply held on its target:
+  // no repulsion, hardly any link pull, and a small slack so collisions can still settle.
+  forces: { repulsion: 0, reach: 70, linkPull: 0.05, centerPull: 0.004, anchor: 0.14, collidePad: 8 },
   place: (api) => placeGalaxy(api.sim, api.env()),
+  // The Spacing slider re-spreads the spiral: new targets, nodes glide there.
+  relayout(api) {
+    const was = api.nodes.map((n) => [n, n.x, n.y]);
+    placeGalaxy(api.sim, api.env());
+    was.forEach(([n, x, y]) => { n.x = x; n.y = y; });
+    api.reheat({ keepView: true });
+  },
+  // Faint rings mark when the spiral reaches each quarter (or year, or month, depending on how long the history is).
+  drawUnder(ctx, api) {
+    const g = api.sim && api.sim.galaxy;
+    if (!g || g.times.length < 8) return;
+    const t = g.times.filter((x) => x > 0);
+    if (t.length < 8) return;
+    const t0 = Math.min(...t), t1 = Math.max(...t), days = (t1 - t0) / 864e5;
+    const every = days > 1100 ? 12 : days > 200 ? 3 : 1, s = api.view.scale;   // months between rings
+    const d = new Date(t0); d.setDate(1); d.setHours(0, 0, 0, 0); d.setMonth(d.getMonth() + (every - (d.getMonth() % every)) % every + (d.getTime() < t0 ? every : 0));
+    ctx.save();
+    ctx.strokeStyle = api.colors.edge; ctx.fillStyle = api.colors.edge; ctx.font = `${10.5 / s}px sans-serif`; ctx.textAlign = "left";
+    for (let guard = 0; d.getTime() < t1 && guard < 60; guard++, d.setMonth(d.getMonth() + every)) {
+      const i = g.times.findIndex((x) => x >= d.getTime());
+      if (i < 1) continue;
+      const r = g.step * Math.sqrt(i + 2);
+      if (r * s < 36) continue;
+      ctx.globalAlpha = 0.16; ctx.lineWidth = 1 / s; ctx.setLineDash([3 / s, 5 / s]);
+      ctx.beginPath(); ctx.arc(g.cx, g.cy, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.globalAlpha = 0.7;
+      ctx.fillText(d.toLocaleDateString(undefined, { month: "short", year: "numeric" }), g.cx + 4 / s, g.cy - r - 3 / s);
+    }
+    ctx.restore();
+  },
 });

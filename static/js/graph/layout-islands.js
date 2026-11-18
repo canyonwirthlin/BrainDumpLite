@@ -44,7 +44,7 @@ function build(api) {
 
   if (!groups.length) { isl = { list: [], of: new Map(), keep: new Set(), crossTotal: 0 }; return; }
   const avgR = nodes.reduce((s, n) => s + n.r, 0) / Math.max(1, nodes.length);
-  const step = clamp(2 * avgR + 12, 24, 38) * spacing, c = step / 1.9;
+  const step = clamp(2 * avgR + 14, 26, 52) * spacing, c = step / 1.9;
   groups.forEach((g, i) => {
     g.rank = i;
     g.members = g.ids.map((id) => api.byId[id]).filter(Boolean);

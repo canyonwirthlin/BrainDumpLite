@@ -1,5 +1,5 @@
 // The built-in ribbon tools, registered in graph/toolbar.js so the ribbon (ribbon.js) can draw them:
-//   View      Find, Fit, Focus, Hover titles, Spacing
+//   View      Find, Fit, Focus, Hover titles, Spacing, Size by mentions, Names shown
 //   Layout    one tool per entry of LAYOUTS (layouts.js)
 //   Overlays  one tool per entry of OVERLAYS (overlays.js), grouped by the overlay's `group`
 //   Edit      the Select mode (graph-blueprint adds Link, graph-undo adds Merge / Undo / Redo)
@@ -112,7 +112,24 @@ registerTool({
   ...sliderTool({
     id: "graph-spacing", label: "Spacing", min: 0.5, max: 3, step: 0.05,
     get: () => prefs.get("spacing"), fmt: (v) => v.toFixed(1) + "×",
-    set: (v) => prefs.set("spacing", v), onInput: () => cur.api.reheat(),
+    set: (v) => prefs.set("spacing", v), onInput: () => cur.api.reheat({ keepView: true }),
+  }),
+});
+registerTool({
+  tab: "view", id: "size-mentions", order: 50, group: "highlight", label: "Size by mentions", icon: ICON.mention, kind: "toggle",
+  tip: "Make ideas and people bigger the more dumps mention them.",
+  help: "On: the more of your dumps mention an idea or person, the bigger its dot, so your busiest topics stand out at a glance. Off: every idea and person is about the same size.",
+  isActive: () => !!prefs.get("sizeByMentions"),
+  run() { prefs.set("sizeByMentions", !prefs.get("sizeByMentions")); remount(); },
+});
+registerTool({
+  tab: "view", id: "top-labels", order: 60, group: "highlight", kind: "custom",
+  tip: "How many of the most-mentioned ideas and people always show their name.",
+  help: "The busiest ideas and people keep their name on screen however far you zoom out. Slide to 0 for no always-on names (names then appear as you zoom in or hover).",
+  ...sliderTool({
+    id: "graph-top-labels", label: "Names shown", min: 0, max: 40, step: 1,
+    get: () => prefs.get("topLabels"), fmt: (v) => (v ? "top " + v : "off"),
+    set: (v) => prefs.set("topLabels", v), onInput: () => cur.api.requestDraw(),
   }),
 });
 
