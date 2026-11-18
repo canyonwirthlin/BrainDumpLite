@@ -11,7 +11,7 @@ import re
 import traceback
 from datetime import datetime, timedelta
 
-from . import ai, db, graph, instrument, item_types, wikilinks
+from . import ai, db, graph, instrument, item_types, name_context, wikilinks
 
 TONES = ["calm", "hopeful", "excited", "neutral", "reflective", "anxious", "frustrated", "overwhelmed", "low"]
 EST_BUCKETS = [5, 15, 30, 60, 120, 240]
@@ -132,7 +132,10 @@ stated reference to a concrete date using the lookup table; prefer the EARLIER d
 ambiguous. A task with a genuine stated deadline gets priority >= 4.
 
 People extraction: include only proper names of actual people ("Jackson", "Mom",
-"Dr. Kim"). Exclude company names, product names, place names.
+"Dr. Kim"). Exclude company names, product names, place names. Words that are also names
+(will, may, mark, bill, grace, hope, rose, art, frank, rich, max, pat, june, summer...) used as
+ordinary words - verbs, modals, nouns, months ("I will go", "it may rain", "mark the date",
+"the bill") are NOT people; list one only when the text clearly means a named person ("told Will").
 
 Concepts: max 8, must be specific and meaningful. Good: "burnout", "startup idea",
 "workout routine". Bad: "feel", "want", "time", "thing", "people", "day", "back".
@@ -328,13 +331,14 @@ def _known_people(exclude_dump_id: str) -> list[str]:
 
 def _add_mentioned_people(text: str, people: list[str], known: list[str]) -> list[str]:
     """Small models miss names. Anyone you've already told the app about who is named again in this
-    dump is added even if the model skipped them — whole-word, case-insensitive, 3+ letters."""
+    dump is added even if the model skipped them — whole-word, case-insensitive, 3+ letters. Names that
+    are also everyday words (Will, Mark, Rose...) only count where the context says person (name_context)."""
     out = list(people)
     have = {p.lower() for p in out}
     for name in known:
         if len(name) < 3 or name.lower() in have or len(out) >= 12:
             continue
-        if re.search(r"(?<![\w])" + re.escape(name) + r"(?![\w])", text, re.IGNORECASE):
+        if name_context.mentioned(name, text):
             out.append(name)
             have.add(name.lower())
     return out
@@ -390,7 +394,8 @@ def run_pipeline(dump_id: str) -> None:
                 parsed = _parse_items(data)
                 if parsed and not _runaway(" ".join(i["content"] for i in parsed), clean, factor=4, slack=200):
                     items = parsed
-                people = _parse_names(data, "people", 10)
+                people = name_context.filter_people(_parse_names(data, "people", 10), raw + "\n" + clean,
+                                                    exempt=wikilinks.extract(raw))   # "Will" the verb is not a person
                 concepts = _parse_names(data, "concepts", 8)
                 if short:
                     people, concepts = _grounded(people, clean), _grounded(concepts, clean)

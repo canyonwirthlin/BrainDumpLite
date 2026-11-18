@@ -15,7 +15,7 @@ from .routes_data import router as data_router
 from . import routes_dumps
 from .routes_digest import router as digest_router
 from . import routes_dumps, routes_followup
-from . import routes_graph_export, routes_graph_links, routes_templates
+from . import routes_graph_export, routes_graph_links, routes_model_stats, routes_templates
 from .routes_extra import router as extra_router
 from .routes_focus import router as focus_router
 from .routes_models import router as models_router
@@ -94,6 +94,7 @@ def create_app() -> FastAPI:
     app.include_router(graph_insights_router, prefix="/api")
     app.include_router(routes_graph_links.router, prefix="/api")
     app.include_router(routes_templates.router, prefix="/api")
+    app.include_router(routes_model_stats.router, prefix="/api")
     app.include_router(graph_undo_router, prefix="/api")
     routes_dumps.purge_expired()  # trash older than 30 days goes for good
     app.include_router(oauth_router)
