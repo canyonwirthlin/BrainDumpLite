@@ -2,6 +2,7 @@
 // used to live under Settings → Stats.
 import { $, $$, esc } from "../ui.js";
 import { api } from "../api.js";
+import { mount as mountModelCompare } from "./stats-models.js";
 
 const fmtMs = (ms) => ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : ms + " ms";
 const fmtBytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.round(b / 1024) + " KB";
@@ -17,9 +18,10 @@ function bars(rows, key, label, fmt = fmtInt) {
 
 export async function render(ctx) {
   ctx.setTitle("Statistics");
-  $("#view").innerHTML = `<div id="streaks" class="center">Loading…</div><div id="model-stats"></div>`;
+  $("#view").innerHTML = `<div id="streaks" class="center">Loading…</div><div id="model-stats"></div><div id="model-compare"></div>`;
   paintStreaks($("#streaks"));
   paintStats($("#model-stats"), 30);
+  mountModelCompare($("#model-compare"));
 }
 
 async function paintStreaks(box) {
