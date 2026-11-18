@@ -314,7 +314,7 @@ dependencies = [
 
 [[package]]
 name = "braindump-lite"
-version = "0.26.1"
+version = "0.27.0"
 dependencies = [
  "serde_json",
  "tauri",
